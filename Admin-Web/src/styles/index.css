@@ -1,0 +1,106 @@
+﻿:root {
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --line: #e2e8f0;
+  --primary: #2dd4bf;
+  --navy: #1e2a3a;
+  --muted: #64748b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--bg);
+  color: var(--navy);
+  font-family: "Segoe UI", "Noto Sans", sans-serif;
+}
+
+.admin-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  min-height: 100vh;
+}
+
+.admin-sidebar {
+  background: #0f172a;
+  color: #fff;
+  padding: 20px 14px;
+}
+
+.admin-logo {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 18px;
+}
+
+.admin-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.admin-nav-item {
+  border-radius: 10px;
+  color: #cbd5e1;
+  text-decoration: none;
+  font-size: 14px;
+  padding: 10px 12px;
+}
+
+.admin-nav-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.admin-nav-item--active {
+  background: rgba(45, 212, 191, 0.15);
+  color: var(--primary);
+}
+
+.admin-content {
+  padding: 24px;
+}
+
+.page-frame {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.page-frame h1 {
+  margin: 0 0 8px;
+  font-size: 24px;
+}
+
+.page-frame p {
+  margin: 0;
+  color: var(--muted);
+}
+
+@media (max-width: 980px) {
+  .admin-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-sidebar {
+    padding: 12px;
+  }
+
+  .admin-nav {
+    overflow-x: auto;
+    flex-direction: row;
+  }
+
+  .admin-content {
+    padding: 16px;
+  }
+}
