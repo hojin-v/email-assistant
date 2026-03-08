@@ -1,77 +1,155 @@
-﻿import { Link } from "react-router";
+import { Link } from "react-router";
+import { ArrowRight, Mail, Target, Link as LinkIcon, FileText, CalendarDays, Video, Users } from "lucide-react";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import { emailItems, getPendingEmailCount } from "../../entities/email/model/email-data";
+import { calendarEvents } from "../../entities/calendar/model/calendar-data";
+import { SectionCard } from "../../shared/ui/primitives/SectionCard";
+import { StatusBadge } from "../../shared/ui/primitives/StatusBadge";
 
-const stats = [
-  { id: "emails", label: "Processed emails today", value: "47", sub: "+5 vs yesterday" },
-  { id: "pending", label: "Drafts pending review", value: "3", sub: "Needs review now", alert: true },
-  { id: "match", label: "Template match rate", value: "96%", sub: "+2% vs last week" },
-  { id: "account", label: "Email account status", value: "Connected", sub: "user@gmail.com", success: true },
+const weeklyData = [
+  { name: "가격문의", value: 42, color: "#3B82F6" },
+  { name: "불만접수", value: 18, color: "#EF4444" },
+  { name: "미팅요청", value: 31, color: "#8B5CF6" },
+  { name: "기술지원", value: 24, color: "#F59E0B" },
 ];
-
-const recentEmails = [
-  { id: "e1", sender: "Park", subject: "Enterprise pricing inquiry", status: "pending" },
-  { id: "e2", sender: "Lee", subject: "Delay complaint reception", status: "auto-sent" },
-  { id: "e3", sender: "Choi", subject: "Partnership meeting request", status: "completed" },
-];
-
-function getStatusClass(status) {
-  if (status === "pending") return "status-chip status-chip--pending";
-  if (status === "auto-sent") return "status-chip status-chip--sent";
-  return "status-chip status-chip--completed";
-}
 
 export function DashboardPage() {
+  const pendingCount = getPendingEmailCount();
+  const statCards = [
+    { label: "오늘 처리된 이메일", value: "47", note: "어제 대비 +5", icon: Mail, tone: "teal" },
+    { label: "검토 대기 중인 초안", value: String(pendingCount), note: pendingCount ? "즉시 확인 필요" : "없음", icon: FileText, tone: "amber" },
+    { label: "템플릿 매칭률", value: "96%", note: "전주 대비 +2%", icon: Target, tone: "teal" },
+    { label: "이메일 계정 상태", value: "정상 연결", note: "user@gmail.com", icon: LinkIcon, tone: "green" },
+  ];
+
   return (
-    <section className="dashboard">
-      <div className="page-frame">
-        <h1>Dashboard</h1>
-        <p>Action-focused overview based on the Figma direction.</p>
-      </div>
+    <div className="mx-auto max-w-[1400px]">
+      {pendingCount ? (
+        <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-[#99F6E4] bg-[#ECFEFF] px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+          <p className="text-sm font-semibold text-[#1E2A3A]">검토 대기 중인 초안 {pendingCount}개가 있습니다</p>
+          <Link to="/app/inbox" className="inline-flex items-center gap-2 text-sm font-medium text-[#0F766E]">
+            바로 확인
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+      ) : null}
 
-      <div className="action-banner">
-        <div>There are 3 drafts waiting for review.</div>
-        <Link to="/app/inbox" className="cta-link">
-          Review now
-        </Link>
-      </div>
-
-      <div className="stat-grid">
-        {stats.map((stat) => (
-          <article
-            key={stat.id}
-            className={
-              stat.alert
-                ? "stat-card stat-card--alert"
-                : stat.success
-                ? "stat-card stat-card--success"
-                : "stat-card"
-            }
+      <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {statCards.map((card) => (
+          <div
+            key={card.label}
+            className={`rounded-2xl border bg-white p-5 shadow-sm ${
+              card.tone === "amber" && pendingCount ? "border-[#F59E0B]" : "border-[#E2E8F0]"
+            }`}
           >
-            <p className="stat-value">{stat.value}</p>
-            <p className="stat-label">{stat.label}</p>
-            <p className="stat-sub">{stat.sub}</p>
-          </article>
+            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-[#F8FAFC]">
+              <card.icon className="h-5 w-5 text-[#1E2A3A]" />
+            </div>
+            <p className="text-2xl font-semibold text-[#1E2A3A]">{card.value}</p>
+            <p className="mt-1 text-sm text-[#64748B]">{card.label}</p>
+            <p className={`mt-2 text-xs ${card.tone === "amber" && pendingCount ? "text-[#D97706]" : "text-[#94A3B8]"}`}>{card.note}</p>
+          </div>
         ))}
       </div>
 
-      <section className="page-frame">
-        <div className="section-head">
-          <h2>Recent emails</h2>
-          <Link to="/app/inbox" className="cta-link">
-            View all
-          </Link>
-        </div>
-        <div className="row-list">
-          {recentEmails.map((email) => (
-            <div key={email.id} className="row-item">
-              <div>
-                <strong>{email.sender}</strong>
-                <p>{email.subject}</p>
-              </div>
-              <span className={getStatusClass(email.status)}>{email.status}</span>
+      <div className="grid gap-6 xl:grid-cols-[1.3fr_1fr]">
+        <div className="space-y-6">
+          <SectionCard
+            title="다가오는 일정"
+            action={
+              <Link to="/app/calendar" className="inline-flex items-center gap-2 text-sm font-medium text-[#0F766E]">
+                캘린더 보기
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            }
+          >
+            <div className="space-y-3">
+              {calendarEvents.map((event) => (
+                <div key={event.id} className="flex flex-wrap items-center gap-4 rounded-2xl border border-[#E2E8F0] px-4 py-4">
+                  <div className="h-12 w-1 rounded-full bg-[#2DD4BF]" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-medium text-[#1E2A3A]">{event.title}</p>
+                      {!event.approved ? <StatusBadge label="등록 대기" tone="warning" /> : null}
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-[#64748B]">
+                      <span className="inline-flex items-center gap-1">
+                        <CalendarDays className="h-3.5 w-3.5" />
+                        {event.dateLabel} {event.timeLabel}
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        {event.type === "video" ? <Video className="h-3.5 w-3.5" /> : <Users className="h-3.5 w-3.5" />}
+                        {event.source}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
+          </SectionCard>
+
+          <SectionCard
+            title="최근 수신 이메일"
+            action={
+              <Link to="/app/inbox" className="inline-flex items-center gap-2 text-sm font-medium text-[#0F766E]">
+                전체 보기
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            }
+          >
+            <div className="space-y-3">
+              {emailItems.slice(0, 4).map((email) => (
+                <div key={email.id} className="flex flex-wrap items-center gap-4 rounded-2xl border border-[#E2E8F0] px-4 py-4">
+                  <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#1E2A3A] text-sm font-semibold text-white">
+                    {email.sender.slice(0, 1)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-[#1E2A3A]">
+                      {email.sender} · {email.company}
+                    </p>
+                    <p className="mt-1 truncate text-sm text-[#64748B]">{email.subject}</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <StatusBadge label={email.category} tone="teal" />
+                    <StatusBadge
+                      label={email.status === "pending" ? "검토 대기" : email.status === "completed" ? "처리 완료" : "자동 발송"}
+                      tone={email.status === "pending" ? "warning" : email.status === "completed" ? "neutral" : "success"}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </SectionCard>
         </div>
-      </section>
-    </section>
+
+        <SectionCard title="이번 주 요약" description="3월 3일 - 3월 9일">
+          <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
+            <div className="mx-auto h-[220px] w-[220px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={weeklyData} dataKey="value" innerRadius={55} outerRadius={85} paddingAngle={3}>
+                    {weeklyData.map((entry) => (
+                      <Cell key={entry.name} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="space-y-3">
+              {weeklyData.map((item) => (
+                <div key={item.name} className="flex items-center justify-between rounded-xl bg-[#F8FAFC] px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <span className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
+                    <span className="text-sm text-[#1E2A3A]">{item.name}</span>
+                  </div>
+                  <span className="text-sm font-medium text-[#64748B]">{item.value}건</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </SectionCard>
+      </div>
+    </div>
   );
 }

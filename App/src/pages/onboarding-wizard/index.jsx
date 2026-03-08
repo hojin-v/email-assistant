@@ -1,12 +1,5 @@
-﻿function PageFrame({ title, description }) {
-  return (
-    <section className="page-frame">
-      <h1>{title}</h1>
-      <p>{description}</p>
-    </section>
-  );
-}
+import { OnboardingWizard } from "../../app/components/OnboardingWizard";
 
 export function OnboardingWizardPage() {
-  return <PageFrame title="Onboarding Wizard" description="Onboarding flow implementation starts here." />;
+  return <OnboardingWizard />;
 }

@@ -1,12 +1,28 @@
-﻿function PageFrame({ title, description }) {
-  return (
-    <section className="page-frame">
-      <h1>{title}</h1>
-      <p>{description}</p>
-    </section>
-  );
-}
+import { useState } from "react";
+import { PageHeader } from "../../shared/ui/primitives/PageHeader";
+import { defaultSettingsState } from "../../entities/settings/model/default-settings";
+import { SettingsTabs } from "../../features/settings/ui/SettingsTabs";
+import { AccountSettingsPanel } from "../../features/settings/ui/AccountSettingsPanel";
+import { NotificationSettingsPanel } from "../../features/settings/ui/NotificationSettingsPanel";
+import { DisplaySettingsPanel } from "../../features/settings/ui/DisplaySettingsPanel";
+import { EmailIntegrationSettingsPanel } from "../../features/settings/ui/EmailIntegrationSettingsPanel";
 
 export function SettingsPage() {
-  return <PageFrame title="Settings" description="Settings design from Figma will be implemented here." />;
+  const [activeTab, setActiveTab] = useState(defaultSettingsState.activeTab);
+
+  return (
+    <div className="mx-auto max-w-[1240px]">
+      <PageHeader title="설정" description="계정 및 서비스 환경을 관리합니다" />
+      <SettingsTabs activeTab={activeTab} onChange={setActiveTab} />
+
+      {activeTab === "account" ? <AccountSettingsPanel account={defaultSettingsState.account} /> : null}
+      {activeTab === "notifications" ? (
+        <NotificationSettingsPanel notifications={defaultSettingsState.notifications} />
+      ) : null}
+      {activeTab === "display" ? <DisplaySettingsPanel display={defaultSettingsState.display} /> : null}
+      {activeTab === "email" ? (
+        <EmailIntegrationSettingsPanel accounts={defaultSettingsState.emailAccounts} />
+      ) : null}
+    </div>
+  );
 }

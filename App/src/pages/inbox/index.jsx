@@ -1,90 +1,120 @@
-﻿import { useMemo, useState } from "react";
-
-const initialEmails = [
-  { id: "e1", sender: "Park", subject: "Enterprise pricing inquiry", status: "pending" },
-  { id: "e2", sender: "Lee", subject: "Delivery complaint", status: "auto-sent" },
-  { id: "e3", sender: "Choi", subject: "Partnership request", status: "pending" },
-  { id: "e4", sender: "Jung", subject: "Contract update request", status: "completed" },
-];
-
-const tabs = [
-  { id: "all", label: "All" },
-  { id: "pending", label: "Pending" },
-  { id: "completed", label: "Completed" },
-  { id: "auto-sent", label: "Auto Sent" },
-];
-
-function getStatusClass(status) {
-  if (status === "pending") return "status-chip status-chip--pending";
-  if (status === "auto-sent") return "status-chip status-chip--sent";
-  return "status-chip status-chip--completed";
-}
+import { useEffect, useMemo, useState } from "react";
+import { ChevronLeft } from "lucide-react";
+import { EmailListPanel } from "../../features/inbox/ui/EmailListPanel";
+import { InboxStatusTabs } from "../../features/inbox/ui/InboxStatusTabs";
+import { EmailThreadPanel } from "../../features/inbox/ui/EmailThreadPanel";
+import { DraftPanel } from "../../features/inbox/ui/DraftPanel";
+import { getEmailsByStatus, getPendingEmailCount } from "../../entities/email/model/email-data";
 
 export function InboxPage() {
-  const [activeTab, setActiveTab] = useState("pending");
-  const [selectedEmailId, setSelectedEmailId] = useState(initialEmails[0].id);
+  const [activeStatus, setActiveStatus] = useState("pending");
+  const [selectedEmailId, setSelectedEmailId] = useState("1");
+  const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
 
-  const pendingCount = useMemo(
-    () => initialEmails.filter((email) => email.status === "pending").length,
-    []
-  );
+  const visibleEmails = useMemo(() => getEmailsByStatus(activeStatus), [activeStatus]);
 
-  const emails = useMemo(() => {
-    if (activeTab === "all") return initialEmails;
-    return initialEmails.filter((email) => email.status === activeTab);
-  }, [activeTab]);
+  useEffect(() => {
+    if (!visibleEmails.length) {
+      setSelectedEmailId("");
+      setMobileDetailOpen(false);
+      return;
+    }
 
-  const selectedEmail = emails.find((email) => email.id === selectedEmailId) || emails[0];
+    if (!visibleEmails.some((item) => item.id === selectedEmailId)) {
+      setSelectedEmailId(visibleEmails[0].id);
+    }
+  }, [selectedEmailId, visibleEmails]);
+
+  const selectedEmail = visibleEmails.find((item) => item.id === selectedEmailId) || visibleEmails[0] || null;
+
+  const handleStatusChange = (status) => {
+    setActiveStatus(status);
+    setMobileDetailOpen(false);
+  };
+
+  const handleSelectEmail = (id) => {
+    setSelectedEmailId(id);
+    setMobileDetailOpen(true);
+  };
 
   return (
-    <section className="inbox-layout">
-      <aside className="page-frame inbox-column inbox-column--left">
-        <h1>Inbox</h1>
-        <div className="tab-row">
-          {tabs.map((tab) => (
+    <div className="h-full w-full min-w-0 bg-background">
+      <div className="scrollbar-none h-full overflow-y-auto xl:hidden">
+        {mobileDetailOpen && selectedEmail ? (
+          <div className="space-y-4 px-4 py-4">
             <button
-              key={tab.id}
               type="button"
-              className={activeTab === tab.id ? "tab-btn tab-btn--active" : "tab-btn"}
-              onClick={() => setActiveTab(tab.id)}
+              className="inline-flex items-center gap-1 text-sm text-[#64748B] transition hover:text-[#1E2A3A]"
+              onClick={() => setMobileDetailOpen(false)}
             >
-              {tab.label}
-              {tab.id === "pending" && pendingCount > 0 ? <span className="count-badge">{pendingCount}</span> : null}
+              <ChevronLeft className="h-4 w-4" />
+              목록으로
             </button>
-          ))}
+
+            <div className="rounded-[24px] border border-border bg-card p-4 shadow-sm">
+              <EmailThreadPanel email={selectedEmail} />
+            </div>
+
+            <div className="rounded-[24px] border border-border bg-card p-4 shadow-sm">
+              <DraftPanel email={selectedEmail} />
+            </div>
+          </div>
+        ) : (
+          <div className="border-b border-border bg-card">
+            <div className="px-4 pt-4">
+              <InboxStatusTabs
+                activeStatus={activeStatus}
+                pendingCount={getPendingEmailCount()}
+                onChange={handleStatusChange}
+              />
+            </div>
+
+            <div className="px-2 py-2">
+              <EmailListPanel
+                emails={visibleEmails}
+                selectedEmailId={selectedEmail?.id}
+                onSelect={handleSelectEmail}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="hidden h-full min-h-0 xl:grid xl:grid-cols-[320px_minmax(0,1fr)_390px]">
+        <div className="flex min-h-0 flex-col border-r border-border bg-card">
+          <div className="px-5 pt-5">
+            <div>
+              <InboxStatusTabs
+                activeStatus={activeStatus}
+                pendingCount={getPendingEmailCount()}
+                onChange={handleStatusChange}
+              />
+            </div>
+          </div>
+
+          <div className="scrollbar-none min-h-0 flex-1 overflow-y-auto px-3 py-4">
+            <div>
+              <EmailListPanel
+                emails={visibleEmails}
+                selectedEmailId={selectedEmail?.id}
+                onSelect={(id) => setSelectedEmailId(id)}
+              />
+            </div>
+          </div>
         </div>
 
-        <div className="row-list">
-          {emails.map((email) => (
-            <button
-              key={email.id}
-              type="button"
-              className={selectedEmail?.id === email.id ? "row-item row-item--active" : "row-item"}
-              onClick={() => setSelectedEmailId(email.id)}
-            >
-              <div>
-                <strong>{email.sender}</strong>
-                <p>{email.subject}</p>
-              </div>
-              <span className={getStatusClass(email.status)}>{email.status}</span>
-            </button>
-          ))}
+        <div className="min-h-0 border-r border-border bg-card">
+          <div className="scrollbar-none h-full overflow-y-auto px-5 py-5">
+            <EmailThreadPanel email={selectedEmail} />
+          </div>
         </div>
-      </aside>
 
-      <article className="page-frame inbox-column">
-        <h2>Email body</h2>
-        <p>
-          {selectedEmail
-            ? `${selectedEmail.sender}: ${selectedEmail.subject}`
-            : "No email in this filter yet."}
-        </p>
-      </article>
-
-      <article className="page-frame inbox-column">
-        <h2>AI draft</h2>
-        <p>Draft panel behavior by status will be implemented next.</p>
-      </article>
-    </section>
+        <div className="min-h-0 bg-card">
+          <div className="scrollbar-none h-full overflow-y-auto px-5 py-5">
+            <DraftPanel email={selectedEmail} />
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

@@ -1,32 +1,74 @@
-﻿import { createBrowserRouter } from "react-router";
+import { createBrowserRouter } from "react-router";
 import { AppShell } from "../../shared/ui/AppShell";
-import { DashboardPage } from "../../pages/dashboard";
-import { InboxPage } from "../../pages/inbox";
-import { CalendarPage } from "../../pages/calendar";
-import { TemplateLibraryPage } from "../../pages/template-library";
-import { AutomationSettingsPage } from "../../pages/automation-settings";
-import { BusinessProfilePage } from "../../pages/business-profile";
-import { SettingsPage } from "../../pages/settings";
-import { OnboardingWizardPage } from "../../pages/onboarding-wizard";
-import { FirstTimeSetupPage } from "../../pages/first-time-setup";
 
 export const router = createBrowserRouter([
   {
     path: "/",
-    element: <FirstTimeSetupPage />,
+    lazy: async () => {
+      const module = await import("../../pages/first-time-setup");
+      return { Component: module.FirstTimeSetupPage };
+    },
   },
   {
     path: "/app",
     element: <AppShell />,
     children: [
-      { index: true, element: <DashboardPage /> },
-      { path: "inbox", element: <InboxPage /> },
-      { path: "calendar", element: <CalendarPage /> },
-      { path: "templates", element: <TemplateLibraryPage /> },
-      { path: "automation", element: <AutomationSettingsPage /> },
-      { path: "profile", element: <BusinessProfilePage /> },
-      { path: "settings", element: <SettingsPage /> },
-      { path: "onboarding", element: <OnboardingWizardPage /> },
+      {
+        index: true,
+        lazy: async () => {
+          const module = await import("../../pages/dashboard");
+          return { Component: module.DashboardPage };
+        },
+      },
+      {
+        path: "inbox",
+        lazy: async () => {
+          const module = await import("../../pages/inbox");
+          return { Component: module.InboxPage };
+        },
+      },
+      {
+        path: "calendar",
+        lazy: async () => {
+          const module = await import("../../pages/calendar");
+          return { Component: module.CalendarPage };
+        },
+      },
+      {
+        path: "templates",
+        lazy: async () => {
+          const module = await import("../../pages/template-library");
+          return { Component: module.TemplateLibraryPage };
+        },
+      },
+      {
+        path: "automation",
+        lazy: async () => {
+          const module = await import("../../pages/automation-settings");
+          return { Component: module.AutomationSettingsPage };
+        },
+      },
+      {
+        path: "profile",
+        lazy: async () => {
+          const module = await import("../../pages/business-profile");
+          return { Component: module.BusinessProfilePage };
+        },
+      },
+      {
+        path: "settings",
+        lazy: async () => {
+          const module = await import("../../pages/settings");
+          return { Component: module.SettingsPage };
+        },
+      },
+      {
+        path: "onboarding",
+        lazy: async () => {
+          const module = await import("../../pages/onboarding-wizard");
+          return { Component: module.OnboardingWizardPage };
+        },
+      },
     ],
   },
 ]);
