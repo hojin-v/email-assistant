@@ -1,0 +1,990 @@
+import { useState } from "react";
+import { useNavigate } from "react-router";
+import {
+  Mail,
+  FileText,
+  ChevronRight,
+  ChevronLeft,
+  Check,
+  Lock,
+  Loader2,
+  CheckCircle2,
+  ArrowRight,
+  Upload,
+  X,
+  Plus,
+  Sparkles,
+  Zap,
+  Shield,
+  Settings,
+} from "lucide-react";
+
+const mainSteps = [
+  { id: 1, label: "이메일 연동" },
+  { id: 2, label: "비즈니스 설정" },
+  { id: 3, label: "템플릿 생성" },
+  { id: 4, label: "시작" },
+];
+
+const toneOptions = [
+  {
+    id: "formal",
+    label: "격식체",
+    desc: "존경어를 사용한 공식적인 어조",
+    emoji: "🏢",
+  },
+  {
+    id: "neutral",
+    label: "중립",
+    desc: "자연스럽고 균형 잡힌 어조",
+    emoji: "⚖️",
+  },
+  {
+    id: "friendly",
+    label: "친근한",
+    desc: "따뜻하고 친절한 어조",
+    emoji: "😊",
+  },
+];
+
+const defaultCategories = [
+  { id: "1", name: "가격문의", color: "#3B82F6" },
+  { id: "2", name: "불만접수", color: "#EF4444" },
+  { id: "3", name: "미팅요청", color: "#8B5CF6" },
+  { id: "4", name: "기술지원", color: "#F59E0B" },
+  { id: "5", name: "계약문의", color: "#10B981" },
+  { id: "6", name: "배송문의", color: "#EC4899" },
+  { id: "7", name: "환불요청", color: "#F97316" },
+  { id: "8", name: "일반문의", color: "#6366F1" },
+];
+
+type FaqItem = {
+  id: string;
+  question: string;
+  answer: string;
+};
+
+const leftPanelContent: Record<
+  number,
+  { title: string; subtitle: string }
+> = {
+  1: {
+    title: "이메일 업무를\nAI가 대신합니다",
+    subtitle: "분류부터 답변 초안까지,\n반복되는 이메일 업무를 자동화하세요",
+  },
+  2: {
+    title: "비즈니스 정보를\n입력해주세요",
+    subtitle: "입력한 정보를 바탕으로\nAI가 맞춤 템플릿을 생성합니다",
+  },
+  3: {
+    title: "맞춤 템플릿을\n생성하고 있습니다",
+    subtitle: "비즈니스 정보를 분석하여\n최적의 응답 템플릿을 만들고 있습니다",
+  },
+  4: {
+    title: "모든 준비가\n완료되었습니다",
+    subtitle: "이제 이메일 자동화를\n시작할 수 있습니다",
+  },
+};
+
+export function FirstTimeSetup() {
+  const navigate = useNavigate();
+  const [currentMainStep, setCurrentMainStep] = useState(1);
+  const [currentSubStep, setCurrentSubStep] = useState(0);
+
+  // Email connection state
+  const [emailConnected, setEmailConnected] = useState(false);
+  const [connectedEmail, setConnectedEmail] = useState("");
+
+  // Onboarding states
+  const [tone, setTone] = useState("neutral");
+  const [businessType, setBusinessType] = useState("");
+  const [description, setDescription] = useState("");
+  const [uploadedFile, setUploadedFile] = useState<string | null>(null);
+  const [faqItems, setFaqItems] = useState<FaqItem[]>([]);
+  const [faqDraft, setFaqDraft] = useState({ question: "", answer: "" });
+  const [faqComposerOpen, setFaqComposerOpen] = useState(true);
+  const [categories, setCategories] = useState(defaultCategories);
+  const [newCategory, setNewCategory] = useState("");
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Template generation states
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationStep, setGenerationStep] = useState(0);
+  const [templateProgress, setTemplateProgress] = useState(0);
+
+  const handleEmailConnect = () => {
+    setConnectedEmail("user@gmail.com");
+    setEmailConnected(true);
+  };
+
+  const handleNextMainStep = () => {
+    if (currentMainStep === 1 && emailConnected) {
+      setCurrentMainStep(2);
+      setCurrentSubStep(0);
+    } else if (currentMainStep === 2 && currentSubStep === 2) {
+      setCurrentMainStep(3);
+      setIsGenerating(true);
+      setTimeout(() => setGenerationStep(1), 800);
+      setTimeout(() => setGenerationStep(2), 1600);
+      setTimeout(() => {
+        setTemplateProgress(1);
+        setTimeout(() => setTemplateProgress(2), 400);
+        setTimeout(() => setTemplateProgress(3), 800);
+        setTimeout(() => setTemplateProgress(4), 1200);
+        setTimeout(() => setTemplateProgress(5), 1600);
+      }, 2000);
+      setTimeout(() => setGenerationStep(3), 4000);
+      setTimeout(() => {
+        setIsGenerating(false);
+        setCurrentMainStep(4);
+      }, 5000);
+    }
+  };
+
+  const handleRemoveCategory = (id: string) => {
+    setCategories(categories.filter((c) => c.id !== id));
+  };
+
+  const handleAddCategory = () => {
+    if (newCategory.trim()) {
+      const colors = [
+        "#3B82F6",
+        "#EF4444",
+        "#8B5CF6",
+        "#F59E0B",
+        "#10B981",
+        "#EC4899",
+      ];
+      setCategories([
+        ...categories,
+        {
+          id: Date.now().toString(),
+          name: newCategory.trim(),
+          color: colors[Math.floor(Math.random() * colors.length)],
+        },
+      ]);
+      setNewCategory("");
+    }
+  };
+
+  const handleFaqDraftChange = (
+    field: "question" | "answer",
+    value: string
+  ) => {
+    setFaqDraft((current) => ({ ...current, [field]: value }));
+  };
+
+  const handleSaveFaq = () => {
+    const question = faqDraft.question.trim();
+    const answer = faqDraft.answer.trim();
+
+    if (!question || !answer) {
+      return;
+    }
+
+    setFaqItems((current) => [
+      ...current,
+      {
+        id: Date.now().toString(),
+        question,
+        answer,
+      },
+    ]);
+    setFaqDraft({ question: "", answer: "" });
+    setFaqComposerOpen(false);
+  };
+
+  const handleRemoveFaq = (id: string) => {
+    if (faqItems.length === 1 && faqItems[0].id === id) {
+      setFaqComposerOpen(true);
+    }
+
+    setFaqItems((current) => current.filter((item) => item.id !== id));
+  };
+
+  const panelText = leftPanelContent[currentMainStep];
+  const canSaveFaq =
+    faqDraft.question.trim().length > 0 && faqDraft.answer.trim().length > 0;
+
+  return (
+    <div className="flex min-h-screen">
+      {/* Left Panel - Brand */}
+      <div className="hidden lg:flex w-[40%] bg-gradient-to-b from-[#1E2A3A] to-[#263548] flex-col justify-between p-12 relative overflow-hidden">
+        {/* Subtle background decoration */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-[#2DD4BF]/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-[#2DD4BF]/3 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
+
+        {/* Logo */}
+        <div className="flex items-center gap-3 relative z-10">
+          <div className="w-10 h-10 rounded-xl bg-[#2DD4BF]/20 flex items-center justify-center">
+            <Mail className="w-5 h-5 text-[#2DD4BF]" />
+          </div>
+          <span className="text-white/90 text-[15px] tracking-tight">
+            업무용 이메일 자동화
+          </span>
+        </div>
+
+        {/* Main Copy */}
+        <div className="relative z-10 -mt-8">
+          <h1 className="text-white text-[34px] leading-[1.3] tracking-tight whitespace-pre-line mb-5">
+            {panelText.title}
+          </h1>
+          <p className="text-white/50 text-[15px] leading-relaxed whitespace-pre-line">
+            {panelText.subtitle}
+          </p>
+        </div>
+
+        {/* Trust elements */}
+        <div className="space-y-4 relative z-10">
+          <div className="flex items-center gap-3">
+            <Shield className="w-4 h-4 text-[#2DD4BF]/60 shrink-0" />
+            <span className="text-white/40 text-[13px]">
+              이메일 원문은 외부 서버에 저장되지 않습니다
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <Zap className="w-4 h-4 text-[#2DD4BF]/60 shrink-0" />
+            <span className="text-white/40 text-[13px]">
+              평균 설정 시간 3분
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <Settings className="w-4 h-4 text-[#2DD4BF]/60 shrink-0" />
+            <span className="text-white/40 text-[13px]">
+              언제든 설정 변경 가능
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Panel - Content */}
+      <div className="flex-1 bg-[#F8FAFC] flex flex-col min-h-screen">
+        {/* Step Bar */}
+        <div className="px-6 sm:px-10 pt-8 pb-2">
+          <div className="flex items-center gap-2 max-w-[600px]">
+            {mainSteps.map((step, i) => (
+              <div key={step.id} className="flex items-center gap-2 flex-1">
+                <div
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg w-full transition-all ${
+                    step.id === currentMainStep
+                      ? "bg-[#2DD4BF] text-white"
+                      : step.id < currentMainStep
+                      ? "bg-transparent text-[#2DD4BF]"
+                      : "bg-transparent text-[#94A3B8]"
+                  }`}
+                >
+                  {step.id < currentMainStep ? (
+                    <div className="w-5 h-5 rounded-full border-2 border-[#2DD4BF] flex items-center justify-center shrink-0">
+                      <Check className="w-3 h-3" />
+                    </div>
+                  ) : (
+                    <div
+                      className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 text-[11px] ${
+                        step.id === currentMainStep
+                          ? "bg-white/20 text-white"
+                          : "border-2 border-[#CBD5E1] text-[#94A3B8]"
+                      }`}
+                    >
+                      {step.id}
+                    </div>
+                  )}
+                  <span className="text-[13px] hidden sm:inline whitespace-nowrap">
+                    {step.label}
+                  </span>
+                </div>
+                {i < mainSteps.length - 1 && (
+                  <div
+                    className={`w-6 h-px shrink-0 hidden sm:block ${
+                      step.id < currentMainStep
+                        ? "bg-[#2DD4BF]"
+                        : "bg-[#CBD5E1]"
+                    }`}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Content Area */}
+        <div className="flex-1 flex items-center justify-center px-6 sm:px-10 py-8">
+          <div className="w-full max-w-[560px]">
+            {/* Step 1: Email Connection */}
+            {currentMainStep === 1 && (
+              <div className="bg-white rounded-2xl shadow-sm border border-[#E2E8F0]/60 p-8 sm:p-10">
+                {/* Mobile brand header */}
+                <div className="lg:hidden text-center mb-8">
+                  <div className="w-12 h-12 rounded-xl bg-[#1E2A3A] flex items-center justify-center mx-auto mb-3">
+                    <Mail className="w-6 h-6 text-[#2DD4BF]" />
+                  </div>
+                  <p className="text-[13px] text-[#94A3B8]">업무용 이메일 자동화</p>
+                </div>
+
+                <div className="mb-8 mx-auto max-w-[420px] text-center">
+                  <h2 className="text-[#1E2A3A] text-[20px] mb-2">
+                    업무 이메일 계정을 연결해주세요
+                  </h2>
+                  <p className="text-[14px] text-[#94A3B8]">
+                    수신 이메일 자동화를 시작하려면 이메일 계정 연동이 필요합니다
+                  </p>
+                </div>
+
+                {!emailConnected ? (
+                  <>
+                    {/* Email Provider Selection */}
+                    <div className="grid grid-cols-1 gap-3 mb-6 sm:max-w-[240px] mx-auto">
+                      <div className="rounded-xl border border-[#E2E8F0] bg-white p-5 text-center shadow-sm">
+                        <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-[#EA4335]/8 flex items-center justify-center">
+                          <svg viewBox="0 0 24 24" className="w-7 h-7">
+                            <path
+                              d="M22 6.25V17.75C22 18.44 21.44 19 20.75 19H18V9.04L12 13.53L6 9.04V19H3.25C2.56 19 2 18.44 2 17.75V6.25C2 4.81 3.81 3.99 4.93 4.93L6 5.82L12 10.31L18 5.82L19.07 4.93C20.19 3.99 22 4.81 22 6.25Z"
+                              fill="#EA4335"
+                            />
+                          </svg>
+                        </div>
+                        <p className="text-[14px] text-[#1E2A3A] mb-1">Gmail</p>
+                        <p className="text-[12px] text-[#94A3B8]">
+                          Google 계정으로
+                          <br />
+                          간편 연결
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={handleEmailConnect}
+                      className="mx-auto flex w-full max-w-[320px] items-center justify-center gap-2 rounded-xl bg-[#2DD4BF] px-5 py-3.5 text-[#1E2A3A] transition-colors hover:bg-[#14B8A6]"
+                    >
+                      <Mail className="w-4 h-4" />
+                      Google 계정으로 로그인
+                    </button>
+
+                    {/* Security Notice */}
+                    <div className="mt-8 flex items-center justify-center gap-2 text-[#94A3B8]">
+                      <Lock className="w-3.5 h-3.5" />
+                      <p className="text-[12px]">
+                        이메일 원문은 외부 서버에 저장되지 않습니다
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  /* Connected State */
+                  <div className="text-center py-6">
+                    <div className="w-20 h-20 mx-auto mb-5 rounded-full bg-[#2DD4BF]/10 flex items-center justify-center">
+                      <CheckCircle2 className="w-10 h-10 text-[#2DD4BF]" />
+                    </div>
+                    <h3 className="text-[#1E2A3A] mb-2">연결 완료</h3>
+                    <p className="text-[14px] text-[#64748B] mb-8">
+                      {connectedEmail}
+                    </p>
+                    <button
+                      onClick={handleNextMainStep}
+                      className="inline-flex items-center gap-2 px-8 py-3.5 bg-[#2DD4BF] text-[#1E2A3A] rounded-xl hover:bg-[#14B8A6] transition-colors"
+                    >
+                      다음 단계로
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Step 2: Business Setup */}
+            {currentMainStep === 2 && (
+              <>
+                <div className="bg-white rounded-2xl shadow-sm border border-[#E2E8F0]/60 p-8 sm:p-10 mb-6">
+                  {/* Sub-step 0: Company Profile */}
+                  {currentSubStep === 0 && (
+                    <div className="space-y-6">
+                      <div>
+                        <h2 className="text-[#1E2A3A] text-[20px] mb-2">
+                          회사 프로필 설정
+                        </h2>
+                        <p className="text-[14px] text-[#94A3B8]">
+                          AI가 맞춤형 이메일 응답을 생성하기 위한 기본 정보입니다
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-[13px] text-[#1E2A3A] mb-2">
+                          업종 / 비즈니스 유형
+                        </label>
+                        <select
+                          value={businessType}
+                          onChange={(e) => setBusinessType(e.target.value)}
+                          className="w-full px-4 py-2.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-[14px] text-[#1E2A3A] outline-none focus:ring-2 focus:ring-[#2DD4BF]/30 focus:border-[#2DD4BF]"
+                        >
+                          <option value="">선택하세요</option>
+                          <option value="saas">SaaS / 소프트웨어</option>
+                          <option value="ecommerce">이커머스</option>
+                          <option value="consulting">컨설팅</option>
+                          <option value="manufacturing">제조업</option>
+                          <option value="finance">금융 / 보험</option>
+                          <option value="healthcare">헬스케어</option>
+                          <option value="education">교육</option>
+                          <option value="other">기타</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[13px] text-[#1E2A3A] mb-2">
+                          제품/서비스 설명
+                        </label>
+                        <textarea
+                          value={description}
+                          onChange={(e) => setDescription(e.target.value)}
+                          placeholder="고객에게 제공하는 주요 제품이나 서비스를 설명해 주세요. 이 정보를 바탕으로 AI가 적절한 이메일 응답을 생성합니다."
+                          rows={5}
+                          className="w-full px-4 py-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-[14px] text-[#1E2A3A] placeholder:text-[#94A3B8] outline-none focus:ring-2 focus:ring-[#2DD4BF]/30 focus:border-[#2DD4BF] resize-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[13px] text-[#1E2A3A] mb-3">
+                          이메일 어조 선택
+                        </label>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          {toneOptions.map((option) => (
+                            <button
+                              key={option.id}
+                              onClick={() => setTone(option.id)}
+                              className={`p-4 rounded-xl border-2 text-left transition-all ${
+                                tone === option.id
+                                  ? "border-[#2DD4BF] bg-[#2DD4BF]/5"
+                                  : "border-[#E2E8F0] hover:border-[#CBD5E1]"
+                              }`}
+                            >
+                              <span className="text-[20px] mb-2 block">
+                                {option.emoji}
+                              </span>
+                              <p className="text-[14px] text-[#1E2A3A] mb-0.5">
+                                {option.label}
+                              </p>
+                              <p className="text-[12px] text-[#94A3B8]">
+                                {option.desc}
+                              </p>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Sub-step 1: Business Materials */}
+                  {currentSubStep === 1 && (
+                    <div className="space-y-6">
+                      <div>
+                        <h2 className="text-[#1E2A3A] text-[20px] mb-2">
+                          비즈니스 자료 업로드
+                        </h2>
+                        <p className="text-[14px] text-[#94A3B8]">
+                          비즈니스 매뉴얼이나 FAQ 문서를 업로드하면 더 정확한
+                          응답을 생성합니다
+                        </p>
+                      </div>
+
+                      <div
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          setIsDragging(true);
+                        }}
+                        onDragLeave={() => setIsDragging(false)}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          setIsDragging(false);
+                          setUploadedFile("비즈니스_매뉴얼_2026.pdf");
+                        }}
+                        className={`border-2 border-dashed rounded-xl p-10 text-center transition-all ${
+                          isDragging
+                            ? "border-[#2DD4BF] bg-[#2DD4BF]/5"
+                            : "border-[#E2E8F0] hover:border-[#CBD5E1]"
+                        }`}
+                      >
+                        <Upload className="w-10 h-10 text-[#CBD5E1] mx-auto mb-3" />
+                        <p className="text-[14px] text-[#1E2A3A] mb-1">
+                          파일을 여기에 드래그하거나 클릭하여 업로드
+                        </p>
+                        <p className="text-[12px] text-[#94A3B8]">
+                          PDF, DOCX, TXT 형식 지원 (최대 10MB)
+                        </p>
+                      </div>
+
+                      {uploadedFile && (
+                        <div className="flex items-center gap-3 p-3 bg-[#F0FDF4] border border-[#BBF7D0] rounded-xl">
+                          <FileText className="w-5 h-5 text-[#10B981]" />
+                          <span className="flex-1 text-[13px] text-[#1E2A3A]">
+                            {uploadedFile}
+                          </span>
+                          <button
+                            onClick={() => setUploadedFile(null)}
+                            className="text-[#94A3B8] hover:text-[#EF4444]"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
+
+                      <div className="relative">
+                        <div className="flex items-center gap-4 my-6">
+                          <div className="flex-1 h-px bg-[#E2E8F0]" />
+                          <span className="text-[12px] text-[#94A3B8]">
+                            또는
+                          </span>
+                          <div className="flex-1 h-px bg-[#E2E8F0]" />
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <label className="block text-[13px] text-[#1E2A3A] mb-2">
+                              FAQ / 매뉴얼 내용 직접 입력
+                            </label>
+                            <p className="text-[12px] text-[#94A3B8]">
+                              질문과 답변을 한 쌍씩 저장하면 간단한 카드 형태로
+                              정리됩니다
+                            </p>
+                          </div>
+
+                          {faqItems.length > 0 && !faqComposerOpen ? (
+                            <button
+                              type="button"
+                              onClick={() => setFaqComposerOpen(true)}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-[#E2E8F0] bg-white px-3 py-2 text-[12px] text-[#64748B] transition-colors hover:border-[#CBD5E1] hover:text-[#1E2A3A]"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              FAQ 추가
+                            </button>
+                          ) : null}
+                        </div>
+
+                        {faqItems.length > 0 ? (
+                          <div className="space-y-2">
+                            {faqItems.map((item) => (
+                              <div
+                                key={item.id}
+                                className="flex items-start gap-3 rounded-xl border border-[#E2E8F0] bg-white px-4 py-3"
+                              >
+                                <div className="min-w-0 flex-1 space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className="inline-flex h-5 items-center rounded-full bg-[#1E2A3A]/5 px-2 text-[10px] font-semibold text-[#475569]">
+                                      Q
+                                    </span>
+                                    <p className="min-w-0 truncate text-[13px] font-medium text-[#1E2A3A]">
+                                      {item.question}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="inline-flex h-5 items-center rounded-full bg-[#2DD4BF]/10 px-2 text-[10px] font-semibold text-[#0D9488]">
+                                      A
+                                    </span>
+                                    <p className="min-w-0 flex-1 truncate text-[12px] text-[#64748B]">
+                                      {item.answer}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveFaq(item.id)}
+                                  className="text-[#CBD5E1] transition-colors hover:text-[#EF4444]"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+
+                        {faqComposerOpen ? (
+                          <div className="rounded-xl border border-[#E2E8F0] bg-white p-4 space-y-4">
+                            <div>
+                              <label className="block text-[13px] text-[#1E2A3A] mb-2">
+                                질문
+                              </label>
+                              <input
+                                value={faqDraft.question}
+                                onChange={(e) =>
+                                  handleFaqDraftChange("question", e.target.value)
+                                }
+                                placeholder="예: 환불 정책은 어떻게 되나요?"
+                                className="w-full px-4 py-2.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-[14px] text-[#1E2A3A] placeholder:text-[#94A3B8] outline-none focus:ring-2 focus:ring-[#2DD4BF]/30 focus:border-[#2DD4BF]"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-[13px] text-[#1E2A3A] mb-2">
+                                답변
+                              </label>
+                              <textarea
+                                value={faqDraft.answer}
+                                onChange={(e) =>
+                                  handleFaqDraftChange("answer", e.target.value)
+                                }
+                                placeholder="예: 구매 후 14일 이내에 환불 요청이 가능하며, 사용 이력이 없는 경우 전액 환불됩니다."
+                                rows={4}
+                                className="w-full px-4 py-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-[14px] text-[#1E2A3A] placeholder:text-[#94A3B8] outline-none focus:ring-2 focus:ring-[#2DD4BF]/30 focus:border-[#2DD4BF] resize-none"
+                              />
+                            </div>
+
+                            <div className="flex items-center justify-end gap-2">
+                              {faqItems.length > 0 ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setFaqDraft({ question: "", answer: "" });
+                                    setFaqComposerOpen(false);
+                                  }}
+                                  className="px-4 py-2.5 rounded-xl text-[13px] text-[#64748B] transition-colors hover:text-[#1E2A3A]"
+                                >
+                                  취소
+                                </button>
+                              ) : null}
+
+                              <button
+                                type="button"
+                                onClick={handleSaveFaq}
+                                disabled={!canSaveFaq}
+                                className={`px-4 py-2.5 rounded-xl text-[13px] transition-colors ${
+                                  canSaveFaq
+                                    ? "bg-[#1E2A3A] text-white hover:bg-[#2A3A4E]"
+                                    : "bg-[#E2E8F0] text-[#94A3B8] cursor-not-allowed"
+                                }`}
+                              >
+                                작성 완료
+                              </button>
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Sub-step 2: Email Categories */}
+                  {currentSubStep === 2 && (
+                    <div className="space-y-6">
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <h2 className="text-[#1E2A3A] text-[20px]">
+                            이메일 카테고리 설정
+                          </h2>
+                          <span className="flex items-center gap-1 px-2 py-0.5 bg-[#2DD4BF]/10 rounded-full text-[11px] text-[#0D9488]">
+                            <Sparkles className="w-3 h-3" />
+                            AI 추천
+                          </span>
+                        </div>
+                        <p className="text-[14px] text-[#94A3B8]">
+                          AI가 분석한 추천 카테고리입니다. 추가하거나 삭제할 수
+                          있습니다.
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        {categories.map((cat) => (
+                          <span
+                            key={cat.id}
+                            className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-[#E2E8F0] rounded-lg group hover:border-[#CBD5E1] transition-colors"
+                          >
+                            <span
+                              className="w-2.5 h-2.5 rounded-full"
+                              style={{ backgroundColor: cat.color }}
+                            />
+                            <span className="text-[13px] text-[#1E2A3A]">
+                              {cat.name}
+                            </span>
+                            <button
+                              onClick={() => handleRemoveCategory(cat.id)}
+                              className="text-[#CBD5E1] hover:text-[#EF4444] transition-colors"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={newCategory}
+                          onChange={(e) => setNewCategory(e.target.value)}
+                          onKeyDown={(e) =>
+                            e.key === "Enter" && handleAddCategory()
+                          }
+                          placeholder="새 카테고리 추가..."
+                          className="flex-1 px-4 py-2.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-[14px] text-[#1E2A3A] placeholder:text-[#94A3B8] outline-none focus:ring-2 focus:ring-[#2DD4BF]/30 focus:border-[#2DD4BF]"
+                        />
+                        <button
+                          onClick={handleAddCategory}
+                          className="px-4 py-2.5 bg-[#1E2A3A] text-white rounded-xl hover:bg-[#2A3A4E] transition-colors flex items-center gap-2"
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span className="text-[13px] hidden sm:inline">
+                            추가
+                          </span>
+                        </button>
+                      </div>
+
+                      <div className="bg-[#F8FAFC] rounded-xl p-5 border border-[#E2E8F0]">
+                        <p className="text-[13px] text-[#64748B] mb-3">
+                          카테고리 미리보기
+                        </p>
+                        <div className="space-y-2">
+                          {categories.slice(0, 4).map((cat) => (
+                            <div
+                              key={cat.id}
+                              className="flex items-center gap-3 p-3 bg-white rounded-lg border border-[#E2E8F0]"
+                            >
+                              <span
+                                className="w-1 h-8 rounded-full"
+                                style={{ backgroundColor: cat.color }}
+                              />
+                              <div className="flex-1">
+                                <p className="text-[13px] text-[#1E2A3A]">
+                                  {cat.name}
+                                </p>
+                                <p className="text-[11px] text-[#94A3B8]">
+                                  자동 매칭 키워드가 설정됩니다
+                                </p>
+                              </div>
+                              <span className="text-[11px] text-[#94A3B8]">
+                                템플릿 0개
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Navigation */}
+                <div className="flex items-center justify-between">
+                  <button
+                    onClick={() => {
+                      if (currentSubStep === 0) {
+                        setCurrentMainStep(1);
+                      } else {
+                        setCurrentSubStep(Math.max(0, currentSubStep - 1));
+                      }
+                    }}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[14px] text-[#64748B] hover:text-[#1E2A3A] transition-colors"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    이전
+                  </button>
+
+                  {currentSubStep < 2 ? (
+                    <button
+                      onClick={() => setCurrentSubStep(currentSubStep + 1)}
+                      className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-[14px] bg-[#1E2A3A] text-white hover:bg-[#2A3A4E] transition-colors"
+                    >
+                      다음
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  ) : (
+                    <div className="flex flex-col items-end gap-2">
+                      <button
+                        onClick={handleNextMainStep}
+                        className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-[14px] bg-[#2DD4BF] text-[#1E2A3A] hover:bg-[#14B8A6] transition-colors"
+                      >
+                        템플릿 생성 시작
+                        <Sparkles className="w-4 h-4" />
+                      </button>
+                      <p className="text-[11px] text-[#94A3B8] text-right max-w-[300px]">
+                        설정한 카테고리를 기반으로 AI가 맞춤 템플릿을 자동
+                        생성합니다
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* Step 3: Template Generation */}
+            {currentMainStep === 3 && isGenerating && (
+              <div className="bg-white rounded-2xl shadow-sm border border-[#E2E8F0]/60 p-8 sm:p-10">
+                <div className="flex justify-center mb-6">
+                  <div className="w-16 h-16 rounded-full bg-[#2DD4BF]/10 flex items-center justify-center">
+                    <Loader2 className="w-8 h-8 text-[#2DD4BF] animate-spin" />
+                  </div>
+                </div>
+
+                <h2 className="text-[#1E2A3A] text-[20px] text-center mb-2">
+                  맞춤 템플릿을 생성하고 있습니다
+                </h2>
+                <p className="text-[14px] text-[#94A3B8] text-center mb-8">
+                  입력하신 비즈니스 정보를 분석하여 카테고리별 템플릿을 만들고
+                  있습니다
+                </p>
+
+                <div className="space-y-4 mb-8">
+                  <div className="flex items-start gap-3">
+                    {generationStep > 0 ? (
+                      <Check className="w-5 h-5 text-[#2DD4BF] shrink-0 mt-0.5" />
+                    ) : (
+                      <div className="w-5 h-5 rounded-full border-2 border-[#E2E8F0] shrink-0 mt-0.5" />
+                    )}
+                    <p
+                      className={`text-[13px] ${
+                        generationStep > 0
+                          ? "text-[#1E2A3A]"
+                          : "text-[#94A3B8]"
+                      }`}
+                    >
+                      회사 프로필 분석 완료
+                    </p>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    {generationStep > 1 ? (
+                      <Check className="w-5 h-5 text-[#2DD4BF] shrink-0 mt-0.5" />
+                    ) : generationStep === 1 ? (
+                      <Loader2 className="w-5 h-5 text-[#2DD4BF] animate-spin shrink-0 mt-0.5" />
+                    ) : (
+                      <div className="w-5 h-5 rounded-full border-2 border-[#E2E8F0] shrink-0 mt-0.5" />
+                    )}
+                    <p
+                      className={`text-[13px] ${
+                        generationStep >= 1
+                          ? "text-[#1E2A3A]"
+                          : "text-[#94A3B8]"
+                      }`}
+                    >
+                      비즈니스 자료 학습 완료
+                    </p>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    {generationStep > 2 ? (
+                      <Check className="w-5 h-5 text-[#2DD4BF] shrink-0 mt-0.5" />
+                    ) : generationStep === 2 ? (
+                      <Loader2 className="w-5 h-5 text-[#2DD4BF] animate-spin shrink-0 mt-0.5" />
+                    ) : (
+                      <div className="w-5 h-5 rounded-full border-2 border-[#E2E8F0] shrink-0 mt-0.5" />
+                    )}
+                    <div className="flex-1">
+                      <p
+                        className={`text-[13px] mb-2 ${
+                          generationStep >= 2
+                            ? "text-[#1E2A3A]"
+                            : "text-[#94A3B8]"
+                        }`}
+                      >
+                        카테고리별 템플릿 생성 중
+                      </p>
+                      {generationStep === 2 && (
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="text-[#64748B]">가격문의</span>
+                            <span className="text-[#94A3B8]">
+                              {templateProgress}/5
+                            </span>
+                          </div>
+                          <div className="w-full h-1.5 bg-[#F1F5F9] rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-[#2DD4BF] transition-all duration-300"
+                              style={{
+                                width: `${(templateProgress / 5) * 100}%`,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    {generationStep > 3 ? (
+                      <Check className="w-5 h-5 text-[#2DD4BF] shrink-0 mt-0.5" />
+                    ) : (
+                      <div className="w-5 h-5 rounded-full border-2 border-[#E2E8F0] shrink-0 mt-0.5" />
+                    )}
+                    <p
+                      className={`text-[13px] ${
+                        generationStep > 3
+                          ? "text-[#1E2A3A]"
+                          : "text-[#94A3B8]"
+                      }`}
+                    >
+                      키워드 및 분류 규칙 설정
+                    </p>
+                  </div>
+                </div>
+
+                <div className="text-center mb-4">
+                  <p className="text-[12px] text-[#94A3B8]">
+                    약 30초~1분 소요됩니다
+                  </p>
+                </div>
+
+                <div className="text-center">
+                  <button className="text-[12px] text-[#94A3B8] hover:text-[#64748B] transition-colors">
+                    취소하고 나중에 설정하기
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 4: Setup Complete */}
+            {currentMainStep === 4 && (
+              <div className="bg-white rounded-2xl shadow-sm border border-[#E2E8F0]/60 p-8 sm:p-10">
+                <div className="flex justify-center mb-6">
+                  <div className="w-20 h-20 rounded-full bg-[#2DD4BF]/10 flex items-center justify-center">
+                    <CheckCircle2 className="w-12 h-12 text-[#2DD4BF]" />
+                  </div>
+                </div>
+
+                <h2 className="text-[#1E2A3A] text-[20px] text-center mb-2">
+                  모든 설정이 완료되었습니다
+                </h2>
+                <p className="text-[14px] text-[#94A3B8] text-center mb-8">
+                  이제 수신 이메일을 자동으로 분류하고 답변 초안을 생성할 준비가
+                  되었습니다
+                </p>
+
+                {/* Completion Checklist */}
+                <div className="bg-[#F8FAFC] rounded-xl p-5 border border-[#E2E8F0] mb-8">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-5 h-5 rounded-full bg-[#2DD4BF]/10 flex items-center justify-center">
+                        <Check className="w-3 h-3 text-[#2DD4BF]" />
+                      </div>
+                      <span className="text-[13px] text-[#1E2A3A]">
+                        Gmail 연동 완료 ({connectedEmail})
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="w-5 h-5 rounded-full bg-[#2DD4BF]/10 flex items-center justify-center">
+                        <Check className="w-3 h-3 text-[#2DD4BF]" />
+                      </div>
+                      <span className="text-[13px] text-[#1E2A3A]">
+                        비즈니스 프로필 설정 완료
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="w-5 h-5 rounded-full bg-[#2DD4BF]/10 flex items-center justify-center">
+                        <Check className="w-3 h-3 text-[#2DD4BF]" />
+                      </div>
+                      <span className="text-[13px] text-[#1E2A3A]">
+                        템플릿 {categories.length * 3}개 생성 완료
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Button */}
+                <button
+                  onClick={() => navigate("/app")}
+                  className="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-[#2DD4BF] text-[#1E2A3A] rounded-xl hover:bg-[#14B8A6] transition-colors"
+                >
+                  대시보드로 이동
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
