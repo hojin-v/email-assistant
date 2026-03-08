@@ -1,0 +1,104 @@
+import { Bell } from "lucide-react";
+import { useNavigate } from "react-router";
+import { StatusBadge } from "../../../shared/ui/primitives/StatusBadge";
+
+const toneToBadge = {
+  teal: "teal",
+  amber: "warning",
+  red: "red",
+};
+
+export function NotificationPanel({
+  open,
+  notifications,
+  activeFilter,
+  onToggle,
+  onFilterChange,
+  onMarkAllRead,
+  onNotificationRead,
+}) {
+  const navigate = useNavigate();
+  const unreadCount = notifications.filter((item) => !item.read).length;
+  const visibleNotifications =
+    activeFilter === "unread"
+      ? notifications.filter((item) => !item.read)
+      : notifications;
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        className="relative flex h-10 w-10 items-center justify-center rounded-full text-[#64748B] transition hover:bg-[#F1F5F9]"
+        onClick={onToggle}
+      >
+        <Bell className="h-5 w-5" />
+        {unreadCount ? (
+          <span className="absolute right-0 top-0 inline-flex min-w-[18px] -translate-y-1/4 translate-x-1/4 items-center justify-center rounded-full bg-[#2DD4BF] px-1.5 py-0.5 text-[10px] font-semibold text-[#083344]">
+            {unreadCount}
+          </span>
+        ) : null}
+      </button>
+
+      {open ? (
+        <div className="absolute right-0 top-[calc(100%+10px)] z-30 w-[min(92vw,380px)] rounded-2xl border border-border bg-card p-4 shadow-xl">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <p className="text-sm font-semibold text-foreground">알림</p>
+            <button type="button" className="text-xs font-medium text-[#0F766E]" onClick={onMarkAllRead}>
+              모두 읽음 처리
+            </button>
+          </div>
+
+          <div className="mb-4 flex gap-2">
+            <button
+              type="button"
+              className={`rounded-full px-3 py-1.5 text-xs font-medium ${
+                activeFilter === "all"
+                  ? "bg-[#1E2A3A] text-white"
+                  : "bg-[#F1F5F9] text-[#64748B]"
+              }`}
+              onClick={() => onFilterChange("all")}
+            >
+              전체
+            </button>
+            <button
+              type="button"
+              className={`rounded-full px-3 py-1.5 text-xs font-medium ${
+                activeFilter === "unread"
+                  ? "bg-[#1E2A3A] text-white"
+                  : "bg-[#F1F5F9] text-[#64748B]"
+              }`}
+              onClick={() => onFilterChange("unread")}
+            >
+              미확인
+            </button>
+          </div>
+
+          <div className="max-h-[360px] space-y-2 overflow-y-auto">
+            {visibleNotifications.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={`w-full rounded-xl border px-3 py-3 text-left transition ${
+                  item.read
+                    ? "border-border bg-card"
+                    : "border-[#99F6E4] bg-[#F0FDFA] dark:bg-[#0F2F2D]"
+                }`}
+                onClick={() => {
+                  onNotificationRead(item.id);
+                  navigate(item.actionPath);
+                }}
+              >
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <p className="text-sm font-medium text-foreground">{item.title}</p>
+                  <StatusBadge label={item.actionLabel} tone={toneToBadge[item.tone]} />
+                </div>
+                <p className="text-xs text-muted-foreground">{item.content}</p>
+                <p className="mt-2 text-[11px] text-slate-400">{item.time}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
