@@ -1,11 +1,18 @@
+import type { SettingsTabId } from "../../../shared/types";
+
 const tabs = [
   { id: "account", label: "계정" },
   { id: "notifications", label: "알림" },
   { id: "display", label: "화면" },
   { id: "email", label: "이메일 연동" },
-];
+] as const satisfies ReadonlyArray<{ id: SettingsTabId; label: string }>;
 
-export function SettingsTabs({ activeTab, onChange }) {
+interface SettingsTabsProps {
+  activeTab: SettingsTabId;
+  onChange: (tab: SettingsTabId) => void;
+}
+
+export function SettingsTabs({ activeTab, onChange }: SettingsTabsProps) {
   return (
     <div className="mb-6 border-b border-border">
       <div className="flex flex-wrap gap-5">

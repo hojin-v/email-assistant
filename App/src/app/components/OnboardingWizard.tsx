@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Building2,
   FileText,
@@ -15,6 +15,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { useNavigate } from "react-router";
+import { toast } from "sonner";
 
 const toneOptions = [
   {
@@ -56,6 +57,8 @@ const steps = [
 
 export function OnboardingWizard() {
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const generationTimeoutsRef = useRef<number[]>([]);
   const [currentStep, setCurrentStep] = useState(0);
   const [tone, setTone] = useState("neutral");
   const [businessType, setBusinessType] = useState("");
@@ -69,6 +72,57 @@ export function OnboardingWizard() {
   const [isCompleted, setIsCompleted] = useState(false);
   const [generationStep, setGenerationStep] = useState(0);
   const [templateProgress, setTemplateProgress] = useState(0);
+
+  const clearGenerationTimeouts = () => {
+    generationTimeoutsRef.current.forEach((timeoutId) => {
+      window.clearTimeout(timeoutId);
+    });
+    generationTimeoutsRef.current = [];
+  };
+
+  useEffect(() => clearGenerationTimeouts, []);
+
+  const handleUploadedFiles = (files: FileList | null) => {
+    const nextFile = files?.[0];
+
+    if (!nextFile) {
+      return;
+    }
+
+    setUploadedFile(nextFile.name);
+    toast.success(`${nextFile.name} 파일을 추가했습니다.`);
+  };
+
+  const handleStartGeneration = () => {
+    clearGenerationTimeouts();
+    setIsGenerating(true);
+    setGenerationStep(0);
+    setTemplateProgress(0);
+
+    generationTimeoutsRef.current = [
+      window.setTimeout(() => setGenerationStep(1), 800),
+      window.setTimeout(() => setGenerationStep(2), 1600),
+      window.setTimeout(() => setTemplateProgress(1), 2000),
+      window.setTimeout(() => setTemplateProgress(2), 2400),
+      window.setTimeout(() => setTemplateProgress(3), 2800),
+      window.setTimeout(() => setTemplateProgress(4), 3200),
+      window.setTimeout(() => setTemplateProgress(5), 3600),
+      window.setTimeout(() => setGenerationStep(3), 4000),
+      window.setTimeout(() => {
+        setIsGenerating(false);
+        setIsCompleted(true);
+      }, 5000),
+    ];
+  };
+
+  const handleCancelGeneration = () => {
+    clearGenerationTimeouts();
+    setIsGenerating(false);
+    setGenerationStep(0);
+    setTemplateProgress(0);
+    toast.message("템플릿 생성은 나중에 다시 시작할 수 있습니다.");
+    navigate("/app");
+  };
 
   const handleRemoveCategory = (id: string) => {
     setCategories(categories.filter((c) => c.id !== id));
@@ -218,26 +272,34 @@ export function OnboardingWizard() {
             </div>
 
             {/* Drag & drop zone */}
-            <div
-              onDragOver={(e) => {
-                e.preventDefault();
-                setIsDragging(true);
-              }}
-              onDragLeave={() => setIsDragging(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setIsDragging(false);
-                setUploadedFile("비즈니스_매뉴얼_2026.pdf");
-              }}
-              className={`border-2 border-dashed rounded-xl p-10 text-center transition-all ${
-                isDragging
-                  ? "border-[#2DD4BF] bg-[#2DD4BF]/5"
-                  : "border-[#E2E8F0] hover:border-[#CBD5E1]"
-              }`}
-            >
-              <Upload className="w-10 h-10 text-[#CBD5E1] mx-auto mb-3" />
-              <p className="text-[14px] text-[#1E2A3A] mb-1">
-                파일을 여기에 드래그하거나 클릭하여 업로드
+                      <div
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          setIsDragging(true);
+                        }}
+                        onDragLeave={() => setIsDragging(false)}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          setIsDragging(false);
+                          handleUploadedFiles(e.dataTransfer.files);
+                        }}
+                        onClick={() => fileInputRef.current?.click()}
+                        className={`border-2 border-dashed rounded-xl p-10 text-center transition-all ${
+                          isDragging
+                            ? "border-[#2DD4BF] bg-[#2DD4BF]/5"
+                            : "border-[#E2E8F0] hover:border-[#CBD5E1]"
+                        }`}
+                      >
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept=".pdf,.doc,.docx,.txt"
+                          className="hidden"
+                          onChange={(e) => handleUploadedFiles(e.target.files)}
+                        />
+                        <Upload className="w-10 h-10 text-[#CBD5E1] mx-auto mb-3" />
+                        <p className="text-[14px] text-[#1E2A3A] mb-1">
+                          파일을 여기에 드래그하거나 클릭하여 업로드
               </p>
               <p className="text-[12px] text-[#94A3B8]">
                 PDF, DOCX, TXT 형식 지원 (최대 10MB)
@@ -398,24 +460,7 @@ export function OnboardingWizard() {
           {currentStep === steps.length - 1 ? (
             <div className="flex flex-col items-end gap-2">
               <button
-                onClick={() => {
-                  setIsGenerating(true);
-                  // Simulate generation steps
-                  setTimeout(() => setGenerationStep(1), 800);
-                  setTimeout(() => setGenerationStep(2), 1600);
-                  setTimeout(() => {
-                    setTemplateProgress(1);
-                    setTimeout(() => setTemplateProgress(2), 400);
-                    setTimeout(() => setTemplateProgress(3), 800);
-                    setTimeout(() => setTemplateProgress(4), 1200);
-                    setTimeout(() => setTemplateProgress(5), 1600);
-                  }, 2000);
-                  setTimeout(() => setGenerationStep(3), 4000);
-                  setTimeout(() => {
-                    setIsGenerating(false);
-                    setIsCompleted(true);
-                  }, 5000);
-                }}
+                onClick={handleStartGeneration}
                 className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-[14px] bg-[#2DD4BF] text-[#1E2A3A] hover:bg-[#14B8A6] transition-colors"
               >
                 템플릿 생성 시작
@@ -534,7 +579,11 @@ export function OnboardingWizard() {
             </div>
 
             <div className="text-center">
-              <button className="text-[12px] text-[#94A3B8] hover:text-[#64748B] transition-colors">
+              <button
+                type="button"
+                onClick={handleCancelGeneration}
+                className="text-[12px] text-[#94A3B8] hover:text-[#64748B] transition-colors"
+              >
                 취소하고 나중에 설정하기
               </button>
             </div>
@@ -588,14 +637,14 @@ export function OnboardingWizard() {
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row gap-3">
               <button
-                onClick={() => navigate("/templates")}
+                onClick={() => navigate("/app/templates")}
                 className="flex-1 flex items-center justify-center gap-2 px-5 py-3 bg-[#2DD4BF] text-[#1E2A3A] rounded-lg hover:bg-[#14B8A6] transition-colors"
               >
                 템플릿 확인하기
                 <ArrowRight className="w-4 h-4" />
               </button>
               <button
-                onClick={() => navigate("/settings")}
+                onClick={() => navigate("/app/settings")}
                 className="flex-1 px-5 py-3 bg-white border border-[#E2E8F0] text-[#64748B] rounded-lg hover:bg-[#F8FAFC] transition-colors"
               >
                 이메일 계정 연결하기

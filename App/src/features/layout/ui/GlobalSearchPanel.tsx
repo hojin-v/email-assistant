@@ -1,10 +1,11 @@
-import { useDeferredValue, useMemo } from "react";
+import { type Dispatch, type SetStateAction, useDeferredValue, useMemo } from "react";
 import { Search } from "lucide-react";
 import { useLocation, useNavigate } from "react-router";
 import { searchIndex } from "../model/search-data";
 import { EmptyState } from "../../../shared/ui/primitives/EmptyState";
+import type { SearchIndexItem, SearchSectionKey } from "../../../shared/types";
 
-function getSearchContext(pathname) {
+function getSearchContext(pathname: string): { key: SearchSectionKey; title: string } {
   if (pathname.includes("/inbox")) {
     return { key: "inbox", title: "이메일 검색" };
   }
@@ -18,21 +19,37 @@ function getSearchContext(pathname) {
   return { key: "inbox", title: "검색" };
 }
 
-export function GlobalSearchPanel({ open, query, setQuery, onToggle, onClose }) {
+interface GlobalSearchPanelProps {
+  open: boolean;
+  query: string;
+  setQuery: Dispatch<SetStateAction<string>>;
+  onToggle: () => void;
+  onClose: () => void;
+}
+
+const typedSearchIndex = searchIndex as Record<SearchSectionKey, SearchIndexItem[]>;
+
+export function GlobalSearchPanel({
+  open,
+  query,
+  setQuery,
+  onToggle,
+  onClose,
+}: GlobalSearchPanelProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const deferredQuery = useDeferredValue(query);
   const searchContext = getSearchContext(location.pathname);
 
   const results = useMemo(() => {
-    const items = searchIndex[searchContext.key] || [];
+    const items = typedSearchIndex[searchContext.key] || [];
     const keyword = deferredQuery.trim().toLowerCase();
 
     if (!keyword) {
       return items;
     }
 
-    return items.filter((item) =>
+    return items.filter((item: SearchIndexItem) =>
       `${item.title} ${item.subtitle} ${item.meta}`.toLowerCase().includes(keyword)
     );
   }, [deferredQuery, searchContext.key]);
@@ -64,7 +81,7 @@ export function GlobalSearchPanel({ open, query, setQuery, onToggle, onClose }) 
 
           <div className="max-h-[360px] space-y-2 overflow-y-auto">
             {results.length ? (
-              results.map((item) => (
+              results.map((item: SearchIndexItem) => (
                 <button
                   key={item.id}
                   type="button"

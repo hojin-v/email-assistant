@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Plus,
   Pencil,
@@ -6,32 +6,39 @@ import {
   Check,
   ExternalLink,
   Calendar,
-  ChevronRight,
 } from "lucide-react";
-
-const connectedAccounts = [
-  {
-    id: "1",
-    type: "Gmail",
-    email: "support@mycompany.co.kr",
-    status: "connected",
-    icon: "G",
-    color: "#EA4335",
-  },
-  {
-    id: "2",
-    type: "Outlook",
-    email: "info@mycompany.co.kr",
-    status: "connected",
-    icon: "O",
-    color: "#0078D4",
-  },
-];
+import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "./ui/alert-dialog";
 
 interface CategoryRule {
   id: string;
   name: string;
   keywords: string[];
+  template: string;
+  autoSend: boolean;
+  color: string;
+}
+
+interface RuleDraft {
+  name: string;
+  keywordsText: string;
   template: string;
   autoSend: boolean;
   color: string;
@@ -88,221 +95,373 @@ const initialRules: CategoryRule[] = [
   },
 ];
 
+const colorOptions = ["#3B82F6", "#EF4444", "#8B5CF6", "#F59E0B", "#10B981", "#EC4899"];
+
+const emptyRuleDraft: RuleDraft = {
+  name: "",
+  keywordsText: "",
+  template: "",
+  autoSend: false,
+  color: colorOptions[0],
+};
+
 export function AutomationSettings() {
-  const [rules, setRules] = useState(initialRules);
+  const [rules, setRules] = useState<CategoryRule[]>(initialRules);
   const [autoCalendar, setAutoCalendar] = useState(true);
   const [googleCalendarConnected, setGoogleCalendarConnected] = useState(true);
+  const [ruleDialogOpen, setRuleDialogOpen] = useState(false);
+  const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
+  const [ruleDraft, setRuleDraft] = useState<RuleDraft>(emptyRuleDraft);
+  const [deleteTarget, setDeleteTarget] = useState<CategoryRule | null>(null);
+  const [autoCalendarCategories, setAutoCalendarCategories] = useState<string[]>(["미팅요청"]);
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+
+  const availableCategories = useMemo(
+    () => rules.map((rule) => rule.name),
+    [rules]
+  );
 
   const toggleAutoSend = (id: string) => {
-    setRules(
-      rules.map((r) => (r.id === id ? { ...r, autoSend: !r.autoSend } : r))
+    setRules((current) =>
+      current.map((rule) =>
+        rule.id === id ? { ...rule, autoSend: !rule.autoSend } : rule
+      )
     );
   };
 
+  const openRuleDialog = (rule?: CategoryRule) => {
+    setEditingRuleId(rule?.id || null);
+    setRuleDraft(
+      rule
+        ? {
+            name: rule.name,
+            keywordsText: rule.keywords.join(", "),
+            template: rule.template,
+            autoSend: rule.autoSend,
+            color: rule.color,
+          }
+        : emptyRuleDraft
+    );
+    setRuleDialogOpen(true);
+  };
+
+  const handleSaveRule = () => {
+    const keywords = ruleDraft.keywordsText
+      .split(",")
+      .map((keyword) => keyword.trim())
+      .filter(Boolean);
+
+    if (!ruleDraft.name.trim() || !ruleDraft.template.trim() || !keywords.length) {
+      toast.error("카테고리명, 키워드, 템플릿을 모두 입력하세요.");
+      return;
+    }
+
+    if (editingRuleId) {
+      setRules((current) =>
+        current.map((rule) =>
+          rule.id === editingRuleId
+            ? {
+                ...rule,
+                name: ruleDraft.name.trim(),
+                keywords,
+                template: ruleDraft.template.trim(),
+                autoSend: ruleDraft.autoSend,
+                color: ruleDraft.color,
+              }
+            : rule
+        )
+      );
+      toast.success("카테고리 규칙을 수정했습니다.");
+    } else {
+      setRules((current) => [
+        ...current,
+        {
+          id: String(Date.now()),
+          name: ruleDraft.name.trim(),
+          keywords,
+          template: ruleDraft.template.trim(),
+          autoSend: ruleDraft.autoSend,
+          color: ruleDraft.color,
+        },
+      ]);
+      toast.success("새 카테고리 규칙을 추가했습니다.");
+    }
+
+    setRuleDialogOpen(false);
+  };
+
+  const handleDeleteRule = () => {
+    if (!deleteTarget) {
+      return;
+    }
+
+    setRules((current) =>
+      current.filter((rule) => rule.id !== deleteTarget.id)
+    );
+    setAutoCalendarCategories((current) =>
+      current.filter((category) => category !== deleteTarget.name)
+    );
+    setDeleteTarget(null);
+    toast.success("카테고리 규칙을 삭제했습니다.");
+  };
+
+  const handleConnectCalendar = () => {
+    setGoogleCalendarConnected(true);
+    toast.success("Google 캘린더를 연결했습니다.");
+  };
+
+  const handleDisconnectCalendar = () => {
+    setGoogleCalendarConnected(false);
+    setAutoCalendar(false);
+    toast("Google 캘린더 연결을 해제했습니다.");
+  };
+
+  const handleApplyCalendarCategories = () => {
+    setCategoryDialogOpen(false);
+    toast.success("자동 등록 카테고리를 업데이트했습니다.");
+  };
+
   return (
-    <div className="p-4 lg:p-8 max-w-[1200px] mx-auto">
-      <div className="mb-8">
-        <h1 className="text-[#1E2A3A] mb-1">자동화 설정</h1>
-        <p className="text-[14px] text-[#64748B]">
-          이메일 자동화의 동작 방식과 연결 계정을 관리합니다
-        </p>
-      </div>
-
-      {/* Category Rules Table */}
-      <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between p-6 border-b border-[#E2E8F0]">
-          <h3 className="text-[#1E2A3A]">카테고리 규칙</h3>
-          <button className="flex items-center gap-2 px-4 py-2 bg-[#1E2A3A] text-white rounded-lg text-[13px] hover:bg-[#2A3A4E] transition-colors">
-            <Plus className="w-4 h-4" />
-            규칙 추가
-          </button>
+    <>
+      <div className="mx-auto max-w-[1200px] p-4 lg:p-8">
+        <div className="mb-8">
+          <h1 className="mb-1 text-[#1E2A3A]">자동화 설정</h1>
+          <p className="text-[14px] text-[#64748B]">
+            이메일 자동화의 동작 방식과 연결 계정을 관리합니다
+          </p>
         </div>
 
-        {/* Desktop table */}
-        <div className="hidden md:block overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-[#F8FAFC]">
-                <th className="text-left px-6 py-3 text-[11px] text-[#94A3B8] uppercase tracking-wider">
-                  카테고리
-                </th>
-                <th className="text-left px-6 py-3 text-[11px] text-[#94A3B8] uppercase tracking-wider">
-                  매칭 키워드
-                </th>
-                <th className="text-left px-6 py-3 text-[11px] text-[#94A3B8] uppercase tracking-wider">
-                  지정 템플릿
-                </th>
-                <th className="text-center px-6 py-3 text-[11px] text-[#94A3B8] uppercase tracking-wider">
-                  자동 발송
-                </th>
-                <th className="text-right px-6 py-3 text-[11px] text-[#94A3B8] uppercase tracking-wider">
-                  작업
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#F1F5F9]">
-              {rules.map((rule) => (
-                <tr key={rule.id} className="hover:bg-[#FAFBFC] transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="w-2.5 h-2.5 rounded-full"
-                        style={{ backgroundColor: rule.color }}
-                      />
-                      <span className="text-[13px] text-[#1E2A3A]">
-                        {rule.name}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex flex-wrap gap-1">
-                      {rule.keywords.map((kw) => (
-                        <span
-                          key={kw}
-                          className="px-2 py-0.5 bg-[#F1F5F9] rounded text-[11px] text-[#64748B]"
-                        >
-                          {kw}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="text-[13px] text-[#64748B]">
-                      {rule.template}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <button
-                      onClick={() => toggleAutoSend(rule.id)}
-                      className={`relative w-10 h-5.5 rounded-full transition-colors ${
-                        rule.autoSend ? "bg-[#2DD4BF]" : "bg-[#CBD5E1]"
-                      }`}
-                    >
-                      <span
-                        className={`absolute top-0.5 w-4.5 h-4.5 rounded-full bg-white shadow-sm transition-transform ${
-                          rule.autoSend ? "left-5" : "left-0.5"
-                        }`}
-                      />
-                    </button>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center justify-end gap-1">
-                      <button className="p-1.5 rounded-md hover:bg-[#F1F5F9] text-[#94A3B8] hover:text-[#1E2A3A] transition-colors">
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                      <button className="p-1.5 rounded-md hover:bg-[#FEF2F2] text-[#94A3B8] hover:text-[#EF4444] transition-colors">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Mobile cards */}
-        <div className="md:hidden divide-y divide-[#F1F5F9]">
-          {rules.map((rule) => (
-            <div key={rule.id} className="p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <span
-                    className="w-2.5 h-2.5 rounded-full"
-                    style={{ backgroundColor: rule.color }}
-                  />
-                  <span className="text-[14px] text-[#1E2A3A]">
-                    {rule.name}
-                  </span>
-                </div>
-                <button
-                  onClick={() => toggleAutoSend(rule.id)}
-                  className={`relative w-10 h-5.5 rounded-full transition-colors ${
-                    rule.autoSend ? "bg-[#2DD4BF]" : "bg-[#CBD5E1]"
-                  }`}
-                >
-                  <span
-                    className={`absolute top-0.5 w-4.5 h-4.5 rounded-full bg-white shadow-sm transition-transform ${
-                      rule.autoSend ? "left-5" : "left-0.5"
-                    }`}
-                  />
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-1 mb-2">
-                {rule.keywords.map((kw) => (
-                  <span
-                    key={kw}
-                    className="px-2 py-0.5 bg-[#F1F5F9] rounded text-[11px] text-[#64748B]"
-                  >
-                    {kw}
-                  </span>
-                ))}
-              </div>
-              <p className="text-[12px] text-[#94A3B8]">{rule.template}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Calendar Rules */}
-      <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-sm p-6 mt-6">
-        <div className="flex items-center justify-between mb-5">
-          <h3 className="text-[#1E2A3A]">캘린더 연동</h3>
-          {!googleCalendarConnected && (
-            <button className="flex items-center gap-2 px-4 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg text-[13px] text-[#64748B] hover:bg-[#F1F5F9] transition-colors">
-              <Plus className="w-4 h-4" />
-              Google 캘린더 연결
+        <div className="overflow-hidden rounded-xl border border-[#E2E8F0] bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-[#E2E8F0] p-6">
+            <h3 className="text-[#1E2A3A]">카테고리 규칙</h3>
+            <button
+              onClick={() => openRuleDialog()}
+              className="flex items-center gap-2 rounded-lg bg-[#1E2A3A] px-4 py-2 text-[13px] text-white transition-colors hover:bg-[#2A3A4E]"
+            >
+              <Plus className="h-4 w-4" />
+              규칙 추가
             </button>
-          )}
+          </div>
+
+          <div className="hidden overflow-x-auto md:block">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-[#F8FAFC]">
+                  <th className="px-6 py-3 text-left text-[11px] uppercase tracking-wider text-[#94A3B8]">
+                    카테고리
+                  </th>
+                  <th className="px-6 py-3 text-left text-[11px] uppercase tracking-wider text-[#94A3B8]">
+                    매칭 키워드
+                  </th>
+                  <th className="px-6 py-3 text-left text-[11px] uppercase tracking-wider text-[#94A3B8]">
+                    지정 템플릿
+                  </th>
+                  <th className="px-6 py-3 text-center text-[11px] uppercase tracking-wider text-[#94A3B8]">
+                    자동 발송
+                  </th>
+                  <th className="px-6 py-3 text-right text-[11px] uppercase tracking-wider text-[#94A3B8]">
+                    작업
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#F1F5F9]">
+                {rules.map((rule) => (
+                  <tr key={rule.id} className="transition-colors hover:bg-[#FAFBFC]">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="h-2.5 w-2.5 rounded-full"
+                          style={{ backgroundColor: rule.color }}
+                        />
+                        <span className="text-[13px] text-[#1E2A3A]">
+                          {rule.name}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-wrap gap-1">
+                        {rule.keywords.map((keyword) => (
+                          <span
+                            key={keyword}
+                            className="rounded bg-[#F1F5F9] px-2 py-0.5 text-[11px] text-[#64748B]"
+                          >
+                            {keyword}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-[13px] text-[#64748B]">
+                        {rule.template}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <button
+                        onClick={() => toggleAutoSend(rule.id)}
+                        className={`relative h-5.5 w-10 rounded-full transition-colors ${
+                          rule.autoSend ? "bg-[#2DD4BF]" : "bg-[#CBD5E1]"
+                        }`}
+                      >
+                        <span
+                          className={`absolute top-0.5 h-4.5 w-4.5 rounded-full bg-white shadow-sm transition-transform ${
+                            rule.autoSend ? "left-5" : "left-0.5"
+                          }`}
+                        />
+                      </button>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => openRuleDialog(rule)}
+                          className="rounded-md p-1.5 text-[#94A3B8] transition-colors hover:bg-[#F1F5F9] hover:text-[#1E2A3A]"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setDeleteTarget(rule)}
+                          className="rounded-md p-1.5 text-[#94A3B8] transition-colors hover:bg-[#FEF2F2] hover:text-[#EF4444]"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="divide-y divide-[#F1F5F9] md:hidden">
+            {rules.map((rule) => (
+              <div key={rule.id} className="space-y-3 p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="h-2.5 w-2.5 rounded-full"
+                      style={{ backgroundColor: rule.color }}
+                    />
+                    <span className="text-[14px] text-[#1E2A3A]">{rule.name}</span>
+                  </div>
+                  <button
+                    onClick={() => toggleAutoSend(rule.id)}
+                    className={`relative h-5.5 w-10 rounded-full transition-colors ${
+                      rule.autoSend ? "bg-[#2DD4BF]" : "bg-[#CBD5E1]"
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-0.5 h-4.5 w-4.5 rounded-full bg-white shadow-sm transition-transform ${
+                        rule.autoSend ? "left-5" : "left-0.5"
+                      }`}
+                    />
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {rule.keywords.map((keyword) => (
+                    <span
+                      key={keyword}
+                      className="rounded bg-[#F1F5F9] px-2 py-0.5 text-[11px] text-[#64748B]"
+                    >
+                      {keyword}
+                    </span>
+                  ))}
+                </div>
+                <p className="text-[12px] text-[#94A3B8]">{rule.template}</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => openRuleDialog(rule)}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-[#E2E8F0] px-4 py-2 text-[12px] text-[#64748B]"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    편집
+                  </button>
+                  <button
+                    onClick={() => setDeleteTarget(rule)}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-[#FECACA] px-4 py-2 text-[12px] text-[#EF4444]"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    삭제
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
-        <div className="space-y-3">
-          {/* Google Calendar Connection Status */}
-          {googleCalendarConnected ? (
-            <div className="flex items-center gap-4 p-4 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
-              <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-[#4285F4] text-white text-[14px]">
-                <Calendar className="w-5 h-5" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-[14px] text-[#1E2A3A]">
-                    Google Calendar
-                  </span>
-                  <span className="px-2 py-0.5 rounded-full bg-[#10B981]/10 text-[10px] text-[#10B981]">
-                    연결됨
-                  </span>
-                </div>
-                <p className="text-[12px] text-[#94A3B8] truncate">
-                  calendar@mycompany.co.kr
-                </p>
-              </div>
-              <button className="p-2 text-[#94A3B8] hover:text-[#64748B] transition-colors">
-                <ExternalLink className="w-4 h-4" />
+        <div className="mt-6 rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-sm">
+          <div className="mb-5 flex items-center justify-between">
+            <h3 className="text-[#1E2A3A]">캘린더 연동</h3>
+            {!googleCalendarConnected ? (
+              <button
+                onClick={handleConnectCalendar}
+                className="flex items-center gap-2 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-2 text-[13px] text-[#64748B] transition-colors hover:bg-[#F1F5F9]"
+              >
+                <Plus className="h-4 w-4" />
+                Google 캘린더 연결
               </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-4 p-4 bg-[#F8FAFC] rounded-xl border border-dashed border-[#E2E8F0]">
-              <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-[#E2E8F0] text-[#94A3B8]">
-                <Calendar className="w-5 h-5" />
-              </div>
-              <div className="flex-1">
-                <p className="text-[13px] text-[#94A3B8]">
-                  Google 캘린더를 연결하세요
-                </p>
-                <p className="text-[11px] text-[#CBD5E1]">
-                  일정 자동 등록 기능을 사용하려면 캘린더 연동이 필요합니다
-                </p>
-              </div>
-            </div>
-          )}
+            ) : null}
+          </div>
 
-          {/* Auto Registration Settings - Only show when connected */}
-          {googleCalendarConnected && (
-            <>
-              <div className="pt-3 border-t border-[#E2E8F0]">
-                <div className="flex items-center justify-between mb-4">
+          <div className="space-y-3">
+            {googleCalendarConnected ? (
+              <div className="flex items-center gap-4 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#4285F4] text-white text-[14px]">
+                  <Calendar className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[14px] text-[#1E2A3A]">
+                      Google Calendar
+                    </span>
+                    <span className="rounded-full bg-[#10B981]/10 px-2 py-0.5 text-[10px] text-[#10B981]">
+                      연결됨
+                    </span>
+                  </div>
+                  <p className="truncate text-[12px] text-[#94A3B8]">
+                    calendar@mycompany.co.kr
+                  </p>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() =>
+                      window.open(
+                        "https://calendar.google.com",
+                        "_blank",
+                        "noopener,noreferrer"
+                      )
+                    }
+                    className="p-2 text-[#94A3B8] transition-colors hover:text-[#64748B]"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={handleDisconnectCalendar}
+                    className="rounded-lg border border-[#E2E8F0] px-3 py-1.5 text-[12px] text-[#64748B]"
+                  >
+                    해제
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-4 rounded-xl border border-dashed border-[#E2E8F0] bg-[#F8FAFC] p-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#E2E8F0] text-[#94A3B8]">
+                  <Calendar className="h-5 w-5" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-[13px] text-[#94A3B8]">
+                    Google 캘린더를 연결하세요
+                  </p>
+                  <p className="text-[11px] text-[#CBD5E1]">
+                    일정 자동 등록 기능을 사용하려면 캘린더 연동이 필요합니다
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {googleCalendarConnected ? (
+              <div className="border-t border-[#E2E8F0] pt-3">
+                <div className="mb-4 flex items-center justify-between">
                   <div>
-                    <h4 className="text-[13px] text-[#1E2A3A] mb-1">
+                    <h4 className="mb-1 text-[13px] text-[#1E2A3A]">
                       일정 자동 등록
                     </h4>
                     <p className="text-[11px] text-[#94A3B8]">
@@ -310,41 +469,235 @@ export function AutomationSettings() {
                     </p>
                   </div>
                   <button
-                    onClick={() => setAutoCalendar(!autoCalendar)}
-                    className={`relative w-10 h-5.5 rounded-full transition-colors ${
+                    onClick={() => setAutoCalendar((current) => !current)}
+                    className={`relative h-5.5 w-10 rounded-full transition-colors ${
                       autoCalendar ? "bg-[#2DD4BF]" : "bg-[#CBD5E1]"
                     }`}
                   >
                     <span
-                      className={`absolute top-0.5 w-4.5 h-4.5 rounded-full bg-white shadow-sm transition-transform ${
+                      className={`absolute top-0.5 h-4.5 w-4.5 rounded-full bg-white shadow-sm transition-transform ${
                         autoCalendar ? "left-5" : "left-0.5"
                       }`}
                     />
                   </button>
                 </div>
 
-                {/* Category selection when enabled */}
-                {autoCalendar && (
-                  <div className="mt-3 p-3 bg-white rounded-lg border border-[#E2E8F0]">
-                    <p className="text-[11px] text-[#64748B] uppercase tracking-wide mb-2">
+                {autoCalendar ? (
+                  <div className="mt-3 rounded-lg border border-[#E2E8F0] bg-white p-3">
+                    <p className="mb-2 text-[11px] uppercase tracking-wide text-[#64748B]">
                       자동 등록 카테고리
                     </p>
                     <div className="flex flex-wrap gap-2">
-                      <span className="px-2.5 py-1 bg-[#8B5CF6]/10 text-[#8B5CF6] rounded-md text-[11px] flex items-center gap-1.5">
-                        <Check className="w-3 h-3" />
-                        미팅요청
-                      </span>
-                      <button className="px-2.5 py-1 bg-[#F1F5F9] text-[#64748B] rounded-md text-[11px] hover:bg-[#E2E8F0] transition-colors">
+                      {autoCalendarCategories.map((category) => (
+                        <span
+                          key={category}
+                          className="flex items-center gap-1.5 rounded-md bg-[#8B5CF6]/10 px-2.5 py-1 text-[11px] text-[#8B5CF6]"
+                        >
+                          <Check className="h-3 w-3" />
+                          {category}
+                        </span>
+                      ))}
+                      <button
+                        onClick={() => setCategoryDialogOpen(true)}
+                        className="rounded-md bg-[#F1F5F9] px-2.5 py-1 text-[11px] text-[#64748B] transition-colors hover:bg-[#E2E8F0]"
+                      >
                         + 카테고리 추가
                       </button>
                     </div>
                   </div>
-                )}
+                ) : null}
               </div>
-            </>
-          )}
+            ) : null}
+          </div>
         </div>
       </div>
-    </div>
+
+      <Dialog open={ruleDialogOpen} onOpenChange={setRuleDialogOpen}>
+        <DialogContent className="sm:max-w-[560px]">
+          <DialogHeader>
+            <DialogTitle>
+              {editingRuleId ? "카테고리 규칙 수정" : "카테고리 규칙 추가"}
+            </DialogTitle>
+            <DialogDescription>
+              이메일 분류와 템플릿 자동 연결 규칙을 설정합니다.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <label className="block space-y-2 text-sm text-foreground">
+              <span>카테고리명</span>
+              <input
+                value={ruleDraft.name}
+                onChange={(event) =>
+                  setRuleDraft((current) => ({
+                    ...current,
+                    name: event.target.value,
+                  }))
+                }
+                className="h-11 w-full rounded-xl border border-border bg-background px-4"
+              />
+            </label>
+
+            <label className="block space-y-2 text-sm text-foreground">
+              <span>매칭 키워드</span>
+              <input
+                value={ruleDraft.keywordsText}
+                onChange={(event) =>
+                  setRuleDraft((current) => ({
+                    ...current,
+                    keywordsText: event.target.value,
+                  }))
+                }
+                placeholder="쉼표로 구분하세요"
+                className="h-11 w-full rounded-xl border border-border bg-background px-4"
+              />
+            </label>
+
+            <label className="block space-y-2 text-sm text-foreground">
+              <span>지정 템플릿</span>
+              <input
+                value={ruleDraft.template}
+                onChange={(event) =>
+                  setRuleDraft((current) => ({
+                    ...current,
+                    template: event.target.value,
+                  }))
+                }
+                className="h-11 w-full rounded-xl border border-border bg-background px-4"
+              />
+            </label>
+
+            <div className="space-y-2 text-sm text-foreground">
+              <span className="block">표시 색상</span>
+              <div className="flex gap-2">
+                {colorOptions.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() =>
+                      setRuleDraft((current) => ({
+                        ...current,
+                        color,
+                      }))
+                    }
+                    className={`h-8 w-8 rounded-full border-2 ${
+                      ruleDraft.color === color ? "border-[#1E2A3A]" : "border-transparent"
+                    }`}
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                setRuleDraft((current) => ({
+                  ...current,
+                  autoSend: !current.autoSend,
+                }))
+              }
+              className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-sm ${
+                ruleDraft.autoSend
+                  ? "border-[#2DD4BF] bg-[#2DD4BF]/5 text-[#0F766E]"
+                  : "border-border bg-background text-muted-foreground"
+              }`}
+            >
+              자동 발송 사용
+              <span>{ruleDraft.autoSend ? "ON" : "OFF"}</span>
+            </button>
+          </div>
+
+          <DialogFooter>
+            <button
+              type="button"
+              className="rounded-xl border border-border px-4 py-2 text-sm text-muted-foreground"
+              onClick={() => setRuleDialogOpen(false)}
+            >
+              취소
+            </button>
+            <button
+              type="button"
+              className="rounded-xl bg-[#1E2A3A] px-4 py-2 text-sm text-white"
+              onClick={handleSaveRule}
+            >
+              저장
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>규칙을 삭제할까요?</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{deleteTarget?.name}" 카테고리 규칙이 제거됩니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>취소</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteRule}>
+              삭제
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle>자동 등록 카테고리 선택</DialogTitle>
+            <DialogDescription>
+              Google 캘린더에 자동으로 등록할 이메일 카테고리를 고르세요.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            {availableCategories.map((category) => {
+              const selected = autoCalendarCategories.includes(category);
+              return (
+                <button
+                  key={category}
+                  type="button"
+                  onClick={() =>
+                    setAutoCalendarCategories((current) =>
+                      selected
+                        ? current.filter((item) => item !== category)
+                        : [...current, category]
+                    )
+                  }
+                  className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-sm transition ${
+                    selected
+                      ? "border-[#2DD4BF] bg-[#2DD4BF]/5 text-[#0F766E]"
+                      : "border-border bg-background text-foreground"
+                  }`}
+                >
+                  <span>{category}</span>
+                  <span>{selected ? "선택됨" : "선택"}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <DialogFooter>
+            <button
+              type="button"
+              className="rounded-xl border border-border px-4 py-2 text-sm text-muted-foreground"
+              onClick={() => setCategoryDialogOpen(false)}
+            >
+              취소
+            </button>
+            <button
+              type="button"
+              className="rounded-xl bg-[#1E2A3A] px-4 py-2 text-sm text-white"
+              onClick={handleApplyCalendarCategories}
+            >
+              적용
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

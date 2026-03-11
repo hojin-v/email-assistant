@@ -1,4 +1,12 @@
-export function PageHeader({ title, description, action }) {
+import type { ReactNode } from "react";
+
+interface PageHeaderProps {
+  title: string;
+  description?: string;
+  action?: ReactNode;
+}
+
+export function PageHeader({ title, description, action }: PageHeaderProps) {
   return (
     <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
       <div>

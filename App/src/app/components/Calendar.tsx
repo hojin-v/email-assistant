@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router";
 import {
   ChevronLeft,
   ChevronRight,
@@ -13,12 +14,33 @@ import {
   X,
   ExternalLink,
   Sparkles,
+  Pencil,
+  Trash2,
 } from "lucide-react";
+import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "./ui/alert-dialog";
 
 export interface CalendarEvent {
   id: string;
   title: string;
-  date: string; // YYYY-MM-DD
+  date: string;
   startTime: string;
   endTime: string;
   type: "meeting" | "call" | "video" | "deadline";
@@ -30,7 +52,18 @@ export interface CalendarEvent {
   notes?: string;
 }
 
-const calendarEvents: CalendarEvent[] = [
+interface CalendarEventDraft {
+  title: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  type: CalendarEvent["type"];
+  location: string;
+  attendeesText: string;
+  notes: string;
+}
+
+const initialEvents: CalendarEvent[] = [
   {
     id: "e1",
     title: "테크솔루션 엔터프라이즈 플랜 상담",
@@ -172,29 +205,141 @@ function formatDate(year: number, month: number, day: number) {
   return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
-const typeIcons: Record<string, typeof Video> = {
+function draftFromEvent(event: CalendarEvent): CalendarEventDraft {
+  return {
+    title: event.title,
+    date: event.date,
+    startTime: event.startTime,
+    endTime: event.endTime,
+    type: event.type,
+    location: event.location || "",
+    attendeesText: event.attendees.map((attendee) => attendee.name).join(", "),
+    notes: event.notes || "",
+  };
+}
+
+function buildAttendees(attendeesText: string) {
+  return attendeesText
+    .split(",")
+    .map((name) => name.trim())
+    .filter(Boolean)
+    .map((name, index) => ({
+      name,
+      email: `guest${index + 1}@example.com`,
+      company: "외부 참석자",
+    }));
+}
+
+const typeIcons: Record<CalendarEvent["type"], typeof Video> = {
   meeting: Users,
   call: Clock,
   video: Video,
   deadline: CalendarCheck,
 };
 
-const typeLabels: Record<string, string> = {
+const typeLabels: Record<CalendarEvent["type"], string> = {
   meeting: "대면 미팅",
   call: "전화",
   video: "화상회의",
   deadline: "마감",
 };
 
+const colorByType: Record<CalendarEvent["type"], string> = {
+  meeting: "#8B5CF6",
+  call: "#F59E0B",
+  video: "#3B82F6",
+  deadline: "#EF4444",
+};
+
 export function Calendar() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
   const [currentYear, setCurrentYear] = useState(2026);
-  const [currentMonth, setCurrentMonth] = useState(2); // March (0-indexed)
+  const [currentMonth, setCurrentMonth] = useState(2);
   const [selectedDate, setSelectedDate] = useState<string | null>("2026-03-02");
-  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorMode, setEditorMode] = useState<"create" | "edit">("create");
+  const [draft, setDraft] = useState<CalendarEventDraft>({
+    title: "",
+    date: "2026-03-02",
+    startTime: "09:00",
+    endTime: "10:00",
+    type: "meeting",
+    location: "",
+    attendeesText: "",
+    notes: "",
+  });
+  const [deleteTarget, setDeleteTarget] = useState<CalendarEvent | null>(null);
 
   const daysInMonth = getDaysInMonth(currentYear, currentMonth);
   const firstDay = getFirstDayOfMonth(currentYear, currentMonth);
   const trailingDays = Math.max(0, 42 - (firstDay + daysInMonth));
+
+  const selectedEvent =
+    events.find((event) => event.id === selectedEventId) || null;
+
+  useEffect(() => {
+    const state = location.state as
+      | {
+          prefillEvent?: Partial<CalendarEvent> & {
+            title: string;
+            date: string;
+            startTime: string;
+            endTime: string;
+            type: CalendarEvent["type"];
+            location?: string;
+            notes?: string;
+            fromEmail?: CalendarEvent["fromEmail"];
+          };
+          autoSubmit?: boolean;
+        }
+      | null;
+
+    if (!state?.prefillEvent) {
+      return;
+    }
+
+    const prefillDraft: CalendarEventDraft = {
+      title: state.prefillEvent.title,
+      date: state.prefillEvent.date,
+      startTime: state.prefillEvent.startTime,
+      endTime: state.prefillEvent.endTime,
+      type: state.prefillEvent.type,
+      location: state.prefillEvent.location || "",
+      attendeesText: state.prefillEvent.fromEmail?.sender || "",
+      notes: state.prefillEvent.notes || "",
+    };
+
+    setSelectedDate(prefillDraft.date);
+
+    if (state.autoSubmit) {
+      const newEvent: CalendarEvent = {
+        id: String(Date.now()),
+        title: prefillDraft.title,
+        date: prefillDraft.date,
+        startTime: prefillDraft.startTime,
+        endTime: prefillDraft.endTime,
+        type: prefillDraft.type,
+        location: prefillDraft.location,
+        attendees: buildAttendees(prefillDraft.attendeesText),
+        fromEmail: state.prefillEvent.fromEmail,
+        color: colorByType[prefillDraft.type],
+        confirmed: false,
+        notes: prefillDraft.notes,
+      };
+      setEvents((current) => [newEvent, ...current]);
+      setSelectedEventId(newEvent.id);
+      toast.success("일정을 캘린더에 추가했습니다.");
+    } else {
+      setDraft(prefillDraft);
+      setEditorMode("create");
+      setEditorOpen(true);
+    }
+
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location.pathname, location.state, navigate]);
 
   const changeMonth = (direction: number) => {
     const nextDate = new Date(currentYear, currentMonth + direction, 1);
@@ -207,458 +352,747 @@ export function Calendar() {
     setCurrentYear(nextYear);
     setCurrentMonth(nextMonth);
     setSelectedDate(formatDate(nextYear, nextMonth, nextDay));
-    setSelectedEvent(null);
+    setSelectedEventId(null);
   };
 
   const getEventsForDate = (dateStr: string) =>
-    calendarEvents.filter((e) => e.date === dateStr);
+    events.filter((event) => event.date === dateStr);
 
   const selectedDateEvents = selectedDate ? getEventsForDate(selectedDate) : [];
+  const emailLinkedEvents = useMemo(
+    () => events.filter((event) => event.fromEmail),
+    [events]
+  );
+  const pendingEvents = useMemo(
+    () => events.filter((event) => !event.confirmed),
+    [events]
+  );
+
+  const openCreateDialog = () => {
+    setEditorMode("create");
+    setDraft({
+      title: "",
+      date: selectedDate || "2026-03-02",
+      startTime: "09:00",
+      endTime: "10:00",
+      type: "meeting",
+      location: "",
+      attendeesText: "",
+      notes: "",
+    });
+    setEditorOpen(true);
+  };
+
+  const openEditDialog = (event: CalendarEvent) => {
+    setEditorMode("edit");
+    setSelectedEventId(event.id);
+    setDraft(draftFromEvent(event));
+    setEditorOpen(true);
+  };
+
+  const handleSaveEvent = () => {
+    if (!draft.title.trim()) {
+      toast.error("일정 제목을 입력하세요.");
+      return;
+    }
+
+    if (editorMode === "edit" && selectedEvent) {
+      setEvents((current) =>
+        current.map((event) =>
+          event.id === selectedEvent.id
+            ? {
+                ...event,
+                title: draft.title.trim(),
+                date: draft.date,
+                startTime: draft.startTime,
+                endTime: draft.endTime,
+                type: draft.type,
+                location: draft.location,
+                attendees: buildAttendees(draft.attendeesText),
+                color: colorByType[draft.type],
+                notes: draft.notes,
+              }
+            : event
+        )
+      );
+      toast.success("일정을 수정했습니다.");
+    } else {
+      const newEvent: CalendarEvent = {
+        id: String(Date.now()),
+        title: draft.title.trim(),
+        date: draft.date,
+        startTime: draft.startTime,
+        endTime: draft.endTime,
+        type: draft.type,
+        location: draft.location,
+        attendees: buildAttendees(draft.attendeesText),
+        color: colorByType[draft.type],
+        confirmed: draft.type === "deadline",
+        notes: draft.notes,
+      };
+      setEvents((current) => [newEvent, ...current]);
+      setSelectedEventId(newEvent.id);
+      toast.success("새 일정을 추가했습니다.");
+    }
+
+    setSelectedDate(draft.date);
+    setEditorOpen(false);
+  };
+
+  const handleConfirmEvent = () => {
+    if (!selectedEvent) {
+      return;
+    }
+
+    setEvents((current) =>
+      current.map((event) =>
+        event.id === selectedEvent.id ? { ...event, confirmed: true } : event
+      )
+    );
+    toast.success("일정을 확정했습니다.");
+  };
+
+  const handleDeleteEvent = () => {
+    if (!deleteTarget) {
+      return;
+    }
+
+    setEvents((current) =>
+      current.filter((event) => event.id !== deleteTarget.id)
+    );
+    if (selectedEventId === deleteTarget.id) {
+      setSelectedEventId(null);
+    }
+    toast.success("일정을 삭제했습니다.");
+    setDeleteTarget(null);
+  };
+
+  const openMeetingLink = () => {
+    if (!selectedEvent) {
+      return;
+    }
+
+    window.open(
+      `https://calendar.google.com/calendar/u/0/r/eventedit/${selectedEvent.id}`,
+      "_blank",
+      "noopener,noreferrer"
+    );
+  };
 
   const today = "2026-03-02";
 
-  // Upcoming events from email
-  const emailLinkedEvents = calendarEvents.filter((e) => e.fromEmail);
-  const pendingEvents = calendarEvents.filter((e) => !e.confirmed);
-
   return (
-    <div className="flex h-full w-full min-h-0 min-w-0 flex-col bg-background lg:flex-row">
-      {/* Main calendar area */}
-      <div className="scrollbar-none min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-4 lg:px-6 lg:py-5">
-        <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          {pendingEvents.length > 0 ? (
-            <div className="flex items-start gap-3 rounded-xl border border-[#FFEDD5] bg-[#FFF7ED] p-4 lg:max-w-[640px]">
-              <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#F59E0B]/15">
-                <Sparkles className="w-4 h-4 text-[#F59E0B]" />
+    <>
+      <div className="flex h-full w-full min-h-0 min-w-0 flex-col bg-background lg:flex-row">
+        <div className="scrollbar-none min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-4 lg:px-6 lg:py-5">
+          <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            {pendingEvents.length > 0 ? (
+              <div className="flex items-start gap-3 rounded-xl border border-[#FFEDD5] bg-[#FFF7ED] p-4 lg:max-w-[640px]">
+                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#F59E0B]/15">
+                  <Sparkles className="h-4 w-4 text-[#F59E0B]" />
+                </div>
+                <div className="flex-1">
+                  <p className="mb-0.5 text-[13px] text-[#92400E]">
+                    확인 대기 중인 일정이 {pendingEvents.length}건 있습니다
+                  </p>
+                  <p className="text-[11px] text-[#B45309]">
+                    이메일에서 AI가 감지한 일정입니다. 확인하고 캘린더에 확정하세요.
+                  </p>
+                </div>
               </div>
-              <div className="flex-1">
-                <p className="mb-0.5 text-[13px] text-[#92400E]">
-                  확인 대기 중인 일정이 {pendingEvents.length}건 있습니다
-                </p>
-                <p className="text-[11px] text-[#B45309]">
-                  이메일에서 AI가 감지한 일정입니다. 확인하고 캘린더에 확정하세요.
-                </p>
-              </div>
-            </div>
-          ) : null}
+            ) : null}
 
-          <button
-            className={`flex items-center gap-2 rounded-lg bg-[#2DD4BF] px-4 py-2.5 text-[#1E2A3A] shadow-sm transition-colors hover:bg-[#14B8A6] ${
-              pendingEvents.length > 0 ? "self-start lg:self-auto" : "self-end"
-            }`}
-          >
-            <Plus className="w-4 h-4" />
-            <span className="text-[13px]">일정 추가</span>
-          </button>
-        </div>
-
-        {/* Month navigation */}
-        <div className="w-full overflow-hidden rounded-xl border border-[#E2E8F0] bg-white shadow-sm">
-          <div className="flex items-center justify-between p-4 border-b border-[#E2E8F0]">
             <button
-              onClick={() => changeMonth(-1)}
-              className="p-2 rounded-lg hover:bg-[#F1F5F9] text-[#64748B] transition-colors"
+              onClick={openCreateDialog}
+              className={`flex items-center gap-2 rounded-lg bg-[#2DD4BF] px-4 py-2.5 text-[#1E2A3A] shadow-sm transition-colors hover:bg-[#14B8A6] ${
+                pendingEvents.length > 0 ? "self-start lg:self-auto" : "self-end"
+              }`}
             >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-            <h3 className="text-[#1E2A3A]">
-              {currentYear}년 {MONTHS_KR[currentMonth]}
-            </h3>
-            <button
-              onClick={() => changeMonth(1)}
-              className="p-2 rounded-lg hover:bg-[#F1F5F9] text-[#64748B] transition-colors"
-            >
-              <ChevronRight className="w-5 h-5" />
+              <Plus className="h-4 w-4" />
+              <span className="text-[13px]">일정 추가</span>
             </button>
           </div>
 
-          {/* Day headers */}
-          <div className="grid w-full grid-cols-7 bg-[#F8FAFC]">
-            {DAYS_KR.map((day) => (
-              <div
-                key={day}
-                className={`py-2.5 text-center text-[12px] ${
-                  day === "일"
-                    ? "text-[#EF4444]"
-                    : day === "토"
-                    ? "text-[#3B82F6]"
-                    : "text-[#94A3B8]"
-                }`}
-              >
-                {day}
-              </div>
-            ))}
-          </div>
-
-          {/* Calendar grid */}
-          <div className="grid w-full grid-cols-7">
-            {/* Empty cells before first day */}
-            {Array.from({ length: firstDay }).map((_, i) => (
-              <div
-                key={`empty-${i}`}
-                className="h-[92px] border-t border-r border-[#F1F5F9] bg-[#FAFBFC] lg:h-[112px]"
-              />
-            ))}
-            {/* Day cells */}
-            {Array.from({ length: daysInMonth }).map((_, i) => {
-              const day = i + 1;
-              const dateStr = formatDate(currentYear, currentMonth, day);
-              const dayEvents = getEventsForDate(dateStr);
-              const visibleDayEvents = dayEvents.slice(0, 2);
-              const emptyEventSlots = Math.max(0, 2 - visibleDayEvents.length);
-              const isToday = dateStr === today;
-              const isSelected = dateStr === selectedDate;
-              const dayOfWeek = (firstDay + i) % 7;
-
-              return (
-                <button
-                  key={day}
-                  onClick={() => setSelectedDate(dateStr)}
-                  className={`relative h-[92px] border-t border-r border-[#F1F5F9] p-1.5 text-left transition-colors lg:h-[112px] ${
-                    isSelected
-                      ? "bg-[#2DD4BF]/5 ring-2 ring-inset ring-[#2DD4BF]/30"
-                      : "hover:bg-[#F8FAFC]"
-                  }`}
-                >
-                  <span
-                    className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-[13px] ${
-                      isToday
-                        ? "bg-[#1E2A3A] text-white"
-                        : dayOfWeek === 0
-                        ? "text-[#EF4444]"
-                        : dayOfWeek === 6
-                        ? "text-[#3B82F6]"
-                        : "text-[#1E2A3A]"
-                    }`}
-                  >
-                    {day}
-                  </span>
-                  <div className="mt-1 flex min-h-[38px] flex-col gap-0.5">
-                    {visibleDayEvents.map((ev) => (
-                      <div
-                        key={ev.id}
-                        className="flex h-[17px] items-center gap-1 rounded px-1.5 py-0.5 text-[10px] truncate cursor-pointer"
-                        style={{
-                          backgroundColor: `${ev.color}15`,
-                          color: ev.color,
-                        }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedEvent(ev);
-                        }}
-                      >
-                        <span className="flex w-2.5 shrink-0 items-center justify-center">
-                          {ev.fromEmail ? <Mail className="h-2.5 w-2.5 shrink-0" /> : <span className="h-2.5 w-2.5 opacity-0" />}
-                        </span>
-                        <span className="flex w-1.5 shrink-0 items-center justify-center">
-                          {!ev.confirmed ? (
-                            <span className="h-1.5 w-1.5 rounded-full bg-[#F59E0B]" />
-                          ) : (
-                            <span className="h-1.5 w-1.5 opacity-0" />
-                          )}
-                        </span>
-                        <span className="truncate">{ev.title}</span>
-                      </div>
-                    ))}
-                    {Array.from({ length: emptyEventSlots }).map((_, emptyIndex) => (
-                      <div key={`empty-slot-${dateStr}-${emptyIndex}`} className="h-[17px]" />
-                    ))}
-                    {dayEvents.length > 2 && (
-                      <span className="text-[10px] text-[#94A3B8] px-1.5">
-                        +{dayEvents.length - 2}개 더
-                      </span>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
-
-            {Array.from({ length: trailingDays }).map((_, i) => (
-              <div
-                key={`trailing-empty-${i}`}
-                className="h-[92px] border-t border-r border-[#F1F5F9] bg-[#FAFBFC] lg:h-[112px]"
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Right sidebar - day detail / event detail */}
-      <div className="scrollbar-none min-h-0 shrink-0 overflow-y-auto border-l border-[#E2E8F0] bg-white lg:w-[360px] xl:w-[400px]">
-        {selectedEvent ? (
-          /* Event detail */
-          <div>
-            <div className="flex items-center justify-between p-4 border-b border-[#E2E8F0]">
-              <h3 className="text-[14px] text-[#1E2A3A]">일정 상세</h3>
+          <div className="w-full overflow-hidden rounded-xl border border-[#E2E8F0] bg-white shadow-sm">
+            <div className="flex items-center justify-between border-b border-[#E2E8F0] p-4">
               <button
-                onClick={() => setSelectedEvent(null)}
-                className="p-1.5 rounded-lg hover:bg-[#F1F5F9] text-[#94A3B8]"
+                onClick={() => changeMonth(-1)}
+                className="rounded-lg p-2 text-[#64748B] transition-colors hover:bg-[#F1F5F9]"
               >
-                <X className="w-4 h-4" />
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <h3 className="text-[#1E2A3A]">
+                {currentYear}년 {MONTHS_KR[currentMonth]}
+              </h3>
+              <button
+                onClick={() => changeMonth(1)}
+                className="rounded-lg p-2 text-[#64748B] transition-colors hover:bg-[#F1F5F9]"
+              >
+                <ChevronRight className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="p-5 space-y-5">
-              {/* Title with status */}
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <span
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: selectedEvent.color }}
-                  />
-                  {!selectedEvent.confirmed && (
-                    <span className="px-2 py-0.5 rounded-full bg-[#FFF7ED] text-[#D97706] text-[10px]">
-                      확인 대기
-                    </span>
-                  )}
-                  {selectedEvent.confirmed && (
-                    <span className="px-2 py-0.5 rounded-full bg-[#F0FDF4] text-[#16A34A] text-[10px]">
-                      확정됨
-                    </span>
-                  )}
+            <div className="grid w-full grid-cols-7 bg-[#F8FAFC]">
+              {DAYS_KR.map((day) => (
+                <div
+                  key={day}
+                  className={`py-2.5 text-center text-[12px] ${
+                    day === "일"
+                      ? "text-[#EF4444]"
+                      : day === "토"
+                      ? "text-[#3B82F6]"
+                      : "text-[#94A3B8]"
+                  }`}
+                >
+                  {day}
                 </div>
-                <h2 className="text-[#1E2A3A] mb-1">{selectedEvent.title}</h2>
-              </div>
-
-              {/* Time & type */}
-              <div className="flex items-center gap-3 p-3 bg-[#F8FAFC] rounded-lg">
-                {(() => {
-                  const TypeIcon = typeIcons[selectedEvent.type];
-                  return <TypeIcon className="w-4 h-4 text-[#64748B]" />;
-                })()}
-                <div>
-                  <p className="text-[13px] text-[#1E2A3A]">
-                    {selectedEvent.date.replace(/-/g, ".")} {selectedEvent.startTime} - {selectedEvent.endTime}
-                  </p>
-                  <p className="text-[11px] text-[#94A3B8]">
-                    {typeLabels[selectedEvent.type]}
-                  </p>
-                </div>
-              </div>
-
-              {/* Location */}
-              {selectedEvent.location && (
-                <div className="flex items-start gap-3">
-                  <MapPin className="w-4 h-4 text-[#94A3B8] mt-0.5 shrink-0" />
-                  <div>
-                    <p className="text-[13px] text-[#1E2A3A]">
-                      {selectedEvent.location}
-                    </p>
-                    {(selectedEvent.type === "video") && (
-                      <button className="flex items-center gap-1 mt-1 text-[11px] text-[#2DD4BF] hover:text-[#14B8A6]">
-                        <ExternalLink className="w-3 h-3" />
-                        회의 링크 열기
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Attendees */}
-              {selectedEvent.attendees.length > 0 && (
-                <div>
-                  <p className="text-[11px] text-[#94A3B8] uppercase tracking-wider mb-2">
-                    참석자
-                  </p>
-                  <div className="space-y-2">
-                    {selectedEvent.attendees.map((a) => (
-                      <div key={a.email} className="flex items-center gap-3">
-                        <div className="w-7 h-7 rounded-full bg-[#1E2A3A] flex items-center justify-center text-white text-[10px]">
-                          {a.name[0]}
-                        </div>
-                        <div>
-                          <p className="text-[12px] text-[#1E2A3A]">
-                            {a.name}{" "}
-                            <span className="text-[#94A3B8]">
-                              · {a.company}
-                            </span>
-                          </p>
-                          <p className="text-[10px] text-[#CBD5E1]">
-                            {a.email}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Email source */}
-              {selectedEvent.fromEmail && (
-                <div className="p-3 bg-[#2DD4BF]/5 border border-[#2DD4BF]/20 rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Mail className="w-3.5 h-3.5 text-[#0D9488]" />
-                    <span className="text-[11px] text-[#0D9488]">
-                      이메일에서 감지된 일정
-                    </span>
-                  </div>
-                  <p className="text-[12px] text-[#1E2A3A]">
-                    {selectedEvent.fromEmail.sender}님의 이메일
-                  </p>
-                  <p className="text-[11px] text-[#64748B] truncate">
-                    "{selectedEvent.fromEmail.subject}"
-                  </p>
-                </div>
-              )}
-
-              {/* Notes */}
-              {selectedEvent.notes && (
-                <div>
-                  <p className="text-[11px] text-[#94A3B8] uppercase tracking-wider mb-2">
-                    메모
-                  </p>
-                  <p className="text-[12px] text-[#64748B] leading-relaxed">
-                    {selectedEvent.notes}
-                  </p>
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="pt-3 border-t border-[#F1F5F9] flex gap-2">
-                {!selectedEvent.confirmed ? (
-                  <>
-                    <button className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-[#2DD4BF] text-[#1E2A3A] rounded-lg hover:bg-[#14B8A6] transition-colors text-[13px]">
-                      <CalendarCheck className="w-4 h-4" />
-                      일정 확정
-                    </button>
-                    <button className="px-4 py-2.5 border border-[#E2E8F0] rounded-lg text-[13px] text-[#64748B] hover:bg-[#F8FAFC] transition-colors">
-                      수정
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-[#E2E8F0] text-[#1E2A3A] rounded-lg hover:bg-[#F8FAFC] transition-colors text-[13px]">
-                      수정
-                    </button>
-                    <button className="px-4 py-2.5 border border-[#E2E8F0] rounded-lg text-[13px] text-[#EF4444] hover:bg-[#FEF2F2] transition-colors">
-                      삭제
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        ) : (
-          /* Day detail list */
-          <div>
-            <div className="p-4 border-b border-[#E2E8F0]">
-              <h3 className="text-[14px] text-[#1E2A3A]">
-                {selectedDate
-                  ? `${selectedDate.replace(/-/g, ".")} 일정`
-                  : "날짜를 선택하세요"}
-              </h3>
-              <p className="text-[11px] text-[#94A3B8] mt-0.5">
-                {selectedDateEvents.length > 0
-                  ? `${selectedDateEvents.length}개 일정`
-                  : "등록된 일정이 없습니다"}
-              </p>
+              ))}
             </div>
 
-            {selectedDateEvents.length === 0 && (
-              <div className="px-4 py-4">
-                <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-5">
-                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-white">
-                    <CalendarCheck className="h-5 w-5 text-[#CBD5E1]" />
-                  </div>
-                  <p className="mb-1 text-[13px] text-[#94A3B8]">
-                    이 날에는 일정이 없습니다
-                  </p>
-                  <p className="text-[11px] text-[#CBD5E1]">
-                    이메일에서 감지된 일정이 자동으로 추가됩니다
-                  </p>
-                </div>
-              </div>
-            )}
+            <div className="grid w-full grid-cols-7">
+              {Array.from({ length: firstDay }).map((_, index) => (
+                <div
+                  key={`empty-${index}`}
+                  className="h-[92px] border-r border-t border-[#F1F5F9] bg-[#FAFBFC] lg:h-[112px]"
+                />
+              ))}
 
-            <div className="divide-y divide-[#F1F5F9]">
-              {selectedDateEvents.map((event) => {
-                const TypeIcon = typeIcons[event.type];
+              {Array.from({ length: daysInMonth }).map((_, index) => {
+                const day = index + 1;
+                const dateStr = formatDate(currentYear, currentMonth, day);
+                const dayEvents = getEventsForDate(dateStr);
+                const visibleDayEvents = dayEvents.slice(0, 2);
+                const isToday = dateStr === today;
+                const isSelected = dateStr === selectedDate;
+                const dayOfWeek = (firstDay + index) % 7;
+
                 return (
                   <button
-                    key={event.id}
-                    onClick={() => setSelectedEvent(event)}
-                    className="w-full text-left p-4 hover:bg-[#F8FAFC] transition-colors"
+                    key={day}
+                    onClick={() => {
+                      setSelectedDate(dateStr);
+                      setSelectedEventId(null);
+                    }}
+                    className={`relative h-[92px] border-r border-t border-[#F1F5F9] p-1.5 text-left transition-colors lg:h-[112px] ${
+                      isSelected
+                        ? "bg-[#2DD4BF]/5 ring-2 ring-inset ring-[#2DD4BF]/30"
+                        : "hover:bg-[#F8FAFC]"
+                    }`}
                   >
-                    <div className="flex items-start gap-3">
-                      <div
-                        className="w-1 h-12 rounded-full shrink-0 mt-0.5"
-                        style={{ backgroundColor: event.color }}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          {!event.confirmed && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B]" />
-                          )}
-                          <span className="text-[13px] text-[#1E2A3A] truncate">
-                            {event.title}
+                    <span
+                      className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-[13px] ${
+                        isToday
+                          ? "bg-[#1E2A3A] text-white"
+                          : dayOfWeek === 0
+                          ? "text-[#EF4444]"
+                          : dayOfWeek === 6
+                          ? "text-[#3B82F6]"
+                          : "text-[#1E2A3A]"
+                      }`}
+                    >
+                      {day}
+                    </span>
+
+                    <div className="mt-1 flex min-h-[38px] flex-col gap-0.5">
+                      {visibleDayEvents.map((event) => (
+                        <div
+                          key={event.id}
+                          className="flex h-[17px] cursor-pointer items-center gap-1 truncate rounded px-1.5 py-0.5 text-[10px]"
+                          style={{
+                            backgroundColor: `${event.color}15`,
+                            color: event.color,
+                          }}
+                          onClick={(eventClick) => {
+                            eventClick.stopPropagation();
+                            setSelectedEventId(event.id);
+                            setSelectedDate(event.date);
+                          }}
+                        >
+                          <span className="flex w-2.5 shrink-0 items-center justify-center">
+                            {event.fromEmail ? (
+                              <Mail className="h-2.5 w-2.5 shrink-0" />
+                            ) : (
+                              <span className="h-2.5 w-2.5 opacity-0" />
+                            )}
                           </span>
+                          <span className="flex w-1.5 shrink-0 items-center justify-center">
+                            {!event.confirmed ? (
+                              <span className="h-1.5 w-1.5 rounded-full bg-[#F59E0B]" />
+                            ) : (
+                              <span className="h-1.5 w-1.5 opacity-0" />
+                            )}
+                          </span>
+                          <span className="truncate">{event.title}</span>
                         </div>
-                        <div className="flex items-center gap-3 text-[11px] text-[#94A3B8]">
-                          <span className="flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            {event.startTime} - {event.endTime}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <TypeIcon className="w-3 h-3" />
-                            {typeLabels[event.type]}
-                          </span>
-                        </div>
-                        {event.fromEmail && (
-                          <span className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 bg-[#2DD4BF]/10 rounded text-[10px] text-[#0D9488]">
-                            <Mail className="w-2.5 h-2.5" />
-                            {event.fromEmail.sender}님 이메일
-                          </span>
-                        )}
-                      </div>
-                      <MoreHorizontal className="w-4 h-4 text-[#CBD5E1] shrink-0" />
+                      ))}
+                      {dayEvents.length > 2 ? (
+                        <span className="px-1.5 text-[10px] text-[#94A3B8]">
+                          +{dayEvents.length - 2}개 더
+                        </span>
+                      ) : null}
                     </div>
                   </button>
                 );
               })}
-            </div>
 
-            {/* Email-linked upcoming events */}
-            <div className="border-t border-[#E2E8F0]">
-              <div className="px-4 pt-4 pb-2">
-                <p className="text-[11px] text-[#94A3B8] uppercase tracking-wider flex items-center gap-1.5">
-                  <Sparkles className="w-3 h-3" />
-                  이메일에서 감지된 일정
-                </p>
-              </div>
-              <div className="px-4 pb-4 space-y-2">
-                {emailLinkedEvents.slice(0, 4).map((event) => (
-                  <button
-                    key={event.id}
-                    onClick={() => {
-                      setSelectedDate(event.date);
-                      setSelectedEvent(event);
-                    }}
-                    className="w-full text-left p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] hover:border-[#CBD5E1] transition-colors"
-                  >
-                    <div className="flex items-center gap-2 mb-1">
-                      <span
-                        className="w-2 h-2 rounded-full"
-                        style={{ backgroundColor: event.color }}
-                      />
-                      <span className="text-[12px] text-[#1E2A3A] truncate flex-1">
-                        {event.title}
-                      </span>
-                      {!event.confirmed && (
-                        <span className="text-[9px] text-[#D97706] bg-[#FFF7ED] px-1.5 py-0.5 rounded-full">
-                          대기
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[10px] text-[#94A3B8]">
-                      {event.date.replace(/-/g, ".")} {event.startTime}
-                    </p>
-                  </button>
-                ))}
-              </div>
+              {Array.from({ length: trailingDays }).map((_, index) => (
+                <div
+                  key={`trailing-${index}`}
+                  className="h-[92px] border-r border-t border-[#F1F5F9] bg-[#FAFBFC] lg:h-[112px]"
+                />
+              ))}
             </div>
           </div>
-        )}
+        </div>
+
+        <div className="scrollbar-none min-h-0 shrink-0 overflow-y-auto border-l border-[#E2E8F0] bg-white lg:w-[360px] xl:w-[400px]">
+          {selectedEvent ? (
+            <div>
+              <div className="flex items-center justify-between border-b border-[#E2E8F0] p-4">
+                <h3 className="text-[14px] text-[#1E2A3A]">일정 상세</h3>
+                <button
+                  onClick={() => setSelectedEventId(null)}
+                  className="rounded-lg p-1.5 text-[#94A3B8] hover:bg-[#F1F5F9]"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="space-y-5 p-5">
+                <div>
+                  <div className="mb-2 flex items-center gap-2">
+                    <span
+                      className="h-3 w-3 rounded-full"
+                      style={{ backgroundColor: selectedEvent.color }}
+                    />
+                    {!selectedEvent.confirmed ? (
+                      <span className="rounded-full bg-[#FFF7ED] px-2 py-0.5 text-[10px] text-[#D97706]">
+                        확인 대기
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-[#F0FDF4] px-2 py-0.5 text-[10px] text-[#16A34A]">
+                        확정됨
+                      </span>
+                    )}
+                  </div>
+                  <h2 className="mb-1 text-[#1E2A3A]">{selectedEvent.title}</h2>
+                </div>
+
+                <div className="flex items-center gap-3 rounded-lg bg-[#F8FAFC] p-3">
+                  {(() => {
+                    const TypeIcon = typeIcons[selectedEvent.type];
+                    return <TypeIcon className="h-4 w-4 text-[#64748B]" />;
+                  })()}
+                  <div>
+                    <p className="text-[13px] text-[#1E2A3A]">
+                      {selectedEvent.date.replace(/-/g, ".")} {selectedEvent.startTime} - {selectedEvent.endTime}
+                    </p>
+                    <p className="text-[11px] text-[#94A3B8]">
+                      {typeLabels[selectedEvent.type]}
+                    </p>
+                  </div>
+                </div>
+
+                {selectedEvent.location ? (
+                  <div className="flex items-start gap-3">
+                    <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#94A3B8]" />
+                    <div>
+                      <p className="text-[13px] text-[#1E2A3A]">
+                        {selectedEvent.location}
+                      </p>
+                      {selectedEvent.type === "video" ? (
+                        <button
+                          onClick={openMeetingLink}
+                          className="mt-1 flex items-center gap-1 text-[11px] text-[#2DD4BF] hover:text-[#14B8A6]"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          회의 링크 열기
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+
+                {selectedEvent.attendees.length > 0 ? (
+                  <div>
+                    <p className="mb-2 text-[11px] uppercase tracking-wider text-[#94A3B8]">
+                      참석자
+                    </p>
+                    <div className="space-y-2">
+                      {selectedEvent.attendees.map((attendee) => (
+                        <div key={attendee.email} className="flex items-center gap-3">
+                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1E2A3A] text-[10px] text-white">
+                            {attendee.name[0]}
+                          </div>
+                          <div>
+                            <p className="text-[12px] text-[#1E2A3A]">
+                              {attendee.name}
+                              <span className="text-[#94A3B8]"> · {attendee.company}</span>
+                            </p>
+                            <p className="text-[10px] text-[#CBD5E1]">{attendee.email}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {selectedEvent.fromEmail ? (
+                  <div className="rounded-lg border border-[#2DD4BF]/20 bg-[#2DD4BF]/5 p-3">
+                    <div className="mb-2 flex items-center gap-2">
+                      <Mail className="h-3.5 w-3.5 text-[#0D9488]" />
+                      <span className="text-[11px] text-[#0D9488]">
+                        이메일에서 감지된 일정
+                      </span>
+                    </div>
+                    <p className="text-[12px] text-[#1E2A3A]">
+                      {selectedEvent.fromEmail.sender}님의 이메일
+                    </p>
+                    <p className="truncate text-[11px] text-[#64748B]">
+                      "{selectedEvent.fromEmail.subject}"
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => navigate("/app/inbox")}
+                      className="mt-2 text-[11px] text-[#0D9488] underline-offset-4 hover:underline"
+                    >
+                      원본 이메일 보기
+                    </button>
+                  </div>
+                ) : null}
+
+                {selectedEvent.notes ? (
+                  <div>
+                    <p className="mb-2 text-[11px] uppercase tracking-wider text-[#94A3B8]">
+                      메모
+                    </p>
+                    <p className="text-[12px] leading-relaxed text-[#64748B]">
+                      {selectedEvent.notes}
+                    </p>
+                  </div>
+                ) : null}
+
+                <div className="flex gap-2 border-t border-[#F1F5F9] pt-3">
+                  {!selectedEvent.confirmed ? (
+                    <>
+                      <button
+                        onClick={handleConfirmEvent}
+                        className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#2DD4BF] px-4 py-2.5 text-[13px] text-[#1E2A3A] transition-colors hover:bg-[#14B8A6]"
+                      >
+                        <CalendarCheck className="h-4 w-4" />
+                        일정 확정
+                      </button>
+                      <button
+                        onClick={() => openEditDialog(selectedEvent)}
+                        className="rounded-lg border border-[#E2E8F0] px-4 py-2.5 text-[13px] text-[#64748B] transition-colors hover:bg-[#F8FAFC]"
+                      >
+                        수정
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => openEditDialog(selectedEvent)}
+                        className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] text-[#1E2A3A] transition-colors hover:bg-[#F8FAFC]"
+                      >
+                        <Pencil className="h-4 w-4" />
+                        수정
+                      </button>
+                      <button
+                        onClick={() => setDeleteTarget(selectedEvent)}
+                        className="rounded-lg border border-[#E2E8F0] px-4 py-2.5 text-[13px] text-[#EF4444] transition-colors hover:bg-[#FEF2F2]"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div className="border-b border-[#E2E8F0] p-4">
+                <h3 className="text-[14px] text-[#1E2A3A]">
+                  {selectedDate ? `${selectedDate.replace(/-/g, ".")} 일정` : "날짜를 선택하세요"}
+                </h3>
+                <p className="mt-0.5 text-[11px] text-[#94A3B8]">
+                  {selectedDateEvents.length > 0
+                    ? `${selectedDateEvents.length}개 일정`
+                    : "등록된 일정이 없습니다"}
+                </p>
+              </div>
+
+              {selectedDateEvents.length === 0 ? (
+                <div className="px-4 py-4">
+                  <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-5">
+                    <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-white">
+                      <CalendarCheck className="h-5 w-5 text-[#CBD5E1]" />
+                    </div>
+                    <p className="mb-1 text-[13px] text-[#94A3B8]">
+                      이 날에는 일정이 없습니다
+                    </p>
+                    <p className="text-[11px] text-[#CBD5E1]">
+                      직접 추가하거나 이메일에서 감지된 일정을 등록할 수 있습니다
+                    </p>
+                    <button
+                      onClick={openCreateDialog}
+                      className="mt-4 rounded-lg bg-[#1E2A3A] px-4 py-2 text-[12px] text-white"
+                    >
+                      일정 추가
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="divide-y divide-[#F1F5F9]">
+                {selectedDateEvents.map((event) => {
+                  const TypeIcon = typeIcons[event.type];
+                  return (
+                    <button
+                      key={event.id}
+                      onClick={() => setSelectedEventId(event.id)}
+                      className="w-full p-4 text-left transition-colors hover:bg-[#F8FAFC]"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div
+                          className="mt-0.5 h-12 w-1 shrink-0 rounded-full"
+                          style={{ backgroundColor: event.color }}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="mb-1 flex items-center gap-2">
+                            {!event.confirmed ? (
+                              <span className="h-1.5 w-1.5 rounded-full bg-[#F59E0B]" />
+                            ) : null}
+                            <span className="truncate text-[13px] text-[#1E2A3A]">
+                              {event.title}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3 text-[11px] text-[#94A3B8]">
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {event.startTime} - {event.endTime}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <TypeIcon className="h-3 w-3" />
+                              {typeLabels[event.type]}
+                            </span>
+                          </div>
+                          {event.fromEmail ? (
+                            <span className="mt-1.5 inline-flex items-center gap-1 rounded bg-[#2DD4BF]/10 px-2 py-0.5 text-[10px] text-[#0D9488]">
+                              <Mail className="h-2.5 w-2.5" />
+                              {event.fromEmail.sender}님 이메일
+                            </span>
+                          ) : null}
+                        </div>
+                        <MoreHorizontal className="h-4 w-4 shrink-0 text-[#CBD5E1]" />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="border-t border-[#E2E8F0]">
+                <div className="px-4 pb-2 pt-4">
+                  <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-[#94A3B8]">
+                    <Sparkles className="h-3 w-3" />
+                    이메일에서 감지된 일정
+                  </p>
+                </div>
+                <div className="space-y-2 px-4 pb-4">
+                  {emailLinkedEvents.slice(0, 4).map((event) => (
+                    <button
+                      key={event.id}
+                      onClick={() => {
+                        setSelectedDate(event.date);
+                        setSelectedEventId(event.id);
+                      }}
+                      className="w-full rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-3 text-left transition-colors hover:border-[#CBD5E1]"
+                    >
+                      <div className="mb-1 flex items-center gap-2">
+                        <span
+                          className="h-2 w-2 rounded-full"
+                          style={{ backgroundColor: event.color }}
+                        />
+                        <span className="flex-1 truncate text-[12px] text-[#1E2A3A]">
+                          {event.title}
+                        </span>
+                        {!event.confirmed ? (
+                          <span className="rounded-full bg-[#FFF7ED] px-1.5 py-0.5 text-[9px] text-[#D97706]">
+                            대기
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="text-[10px] text-[#94A3B8]">
+                        {event.date.replace(/-/g, ".")} {event.startTime}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+
+      <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>
+              {editorMode === "edit" ? "일정 수정" : "일정 추가"}
+            </DialogTitle>
+            <DialogDescription>
+              캘린더에 표시할 일정 정보를 입력하세요.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="space-y-2 text-sm text-foreground">
+              <span>제목</span>
+              <input
+                value={draft.title}
+                onChange={(event) =>
+                  setDraft((current) => ({ ...current, title: event.target.value }))
+                }
+                className="h-11 w-full rounded-xl border border-border bg-background px-4"
+              />
+            </label>
+
+            <label className="space-y-2 text-sm text-foreground">
+              <span>유형</span>
+              <select
+                value={draft.type}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    type: event.target.value as CalendarEvent["type"],
+                  }))
+                }
+                className="h-11 w-full rounded-xl border border-border bg-background px-4"
+              >
+                <option value="meeting">대면 미팅</option>
+                <option value="video">화상회의</option>
+                <option value="call">전화</option>
+                <option value="deadline">마감</option>
+              </select>
+            </label>
+
+            <label className="space-y-2 text-sm text-foreground">
+              <span>날짜</span>
+              <input
+                type="date"
+                value={draft.date}
+                onChange={(event) =>
+                  setDraft((current) => ({ ...current, date: event.target.value }))
+                }
+                className="h-11 w-full rounded-xl border border-border bg-background px-4"
+              />
+            </label>
+
+            <div className="grid grid-cols-2 gap-3">
+              <label className="space-y-2 text-sm text-foreground">
+                <span>시작</span>
+                <input
+                  type="time"
+                  value={draft.startTime}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      startTime: event.target.value,
+                    }))
+                  }
+                  className="h-11 w-full rounded-xl border border-border bg-background px-4"
+                />
+              </label>
+              <label className="space-y-2 text-sm text-foreground">
+                <span>종료</span>
+                <input
+                  type="time"
+                  value={draft.endTime}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      endTime: event.target.value,
+                    }))
+                  }
+                  className="h-11 w-full rounded-xl border border-border bg-background px-4"
+                />
+              </label>
+            </div>
+
+            <label className="space-y-2 text-sm text-foreground md:col-span-2">
+              <span>장소 또는 링크</span>
+              <input
+                value={draft.location}
+                onChange={(event) =>
+                  setDraft((current) => ({ ...current, location: event.target.value }))
+                }
+                className="h-11 w-full rounded-xl border border-border bg-background px-4"
+              />
+            </label>
+
+            <label className="space-y-2 text-sm text-foreground md:col-span-2">
+              <span>참석자</span>
+              <input
+                value={draft.attendeesText}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    attendeesText: event.target.value,
+                  }))
+                }
+                placeholder="이름을 쉼표로 구분하세요"
+                className="h-11 w-full rounded-xl border border-border bg-background px-4"
+              />
+            </label>
+
+            <label className="space-y-2 text-sm text-foreground md:col-span-2">
+              <span>메모</span>
+              <textarea
+                rows={4}
+                value={draft.notes}
+                onChange={(event) =>
+                  setDraft((current) => ({ ...current, notes: event.target.value }))
+                }
+                className="w-full rounded-xl border border-border bg-background px-4 py-3"
+              />
+            </label>
+          </div>
+
+          <DialogFooter>
+            <button
+              type="button"
+              className="rounded-xl border border-border px-4 py-2 text-sm text-muted-foreground"
+              onClick={() => setEditorOpen(false)}
+            >
+              취소
+            </button>
+            <button
+              type="button"
+              className="rounded-xl bg-[#1E2A3A] px-4 py-2 text-sm text-white"
+              onClick={handleSaveEvent}
+            >
+              저장
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>일정을 삭제할까요?</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{deleteTarget?.title}" 일정은 캘린더에서 제거됩니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>취소</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteEvent}>
+              삭제
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
