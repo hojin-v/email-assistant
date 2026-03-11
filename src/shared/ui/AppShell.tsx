@@ -8,13 +8,16 @@ import { AppSidebar } from "../../features/layout/ui/AppSidebar";
 import { GlobalSearchPanel } from "../../features/layout/ui/GlobalSearchPanel";
 import { NotificationPanel } from "../../features/layout/ui/NotificationPanel";
 import { ProfileMenu } from "../../features/layout/ui/ProfileMenu";
+import type { NotificationItem } from "../types";
 
 export function AppShell() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [notifications, setNotifications] = useState(initialNotifications);
-  const [notificationFilter, setNotificationFilter] = useState("all");
+  const [notifications, setNotifications] = useState<NotificationItem[]>(
+    initialNotifications as NotificationItem[]
+  );
+  const [notificationFilter, setNotificationFilter] = useState<"all" | "unread">("all");
   const { resolvedTheme, setTheme } = useTheme();
   const location = useLocation();
 
@@ -25,7 +28,7 @@ export function AppShell() {
   const setNotificationOpen = useUiStore((state) => state.setNotificationOpen);
   const setProfileOpen = useUiStore((state) => state.setProfileOpen);
 
-  const panelsRef = useRef(null);
+  const panelsRef = useRef<HTMLDivElement | null>(null);
   const showSearch = ["/app/inbox", "/app/calendar", "/app/templates"].some((path) =>
     location.pathname.startsWith(path)
   );
@@ -35,8 +38,8 @@ export function AppShell() {
     : "flex-1 px-4 py-4 lg:px-6 lg:py-6";
 
   useEffect(() => {
-    function handleClickOutside(event) {
-      if (panelsRef.current && !panelsRef.current.contains(event.target)) {
+    function handleClickOutside(event: MouseEvent) {
+      if (panelsRef.current && !panelsRef.current.contains(event.target as Node)) {
         setSearchOpen(false);
         setNotificationOpen(false);
         setProfileOpen(false);
@@ -103,7 +106,7 @@ export function AppShell() {
                   onMarkAllRead={() =>
                     setNotifications((current) => current.map((item) => ({ ...item, read: true })))
                   }
-                  onNotificationRead={(id) =>
+                  onNotificationRead={(id: string) =>
                     setNotifications((current) =>
                       current.map((item) => (item.id === id ? { ...item, read: true } : item))
                     )

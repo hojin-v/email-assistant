@@ -1,11 +1,37 @@
 import { NavLink } from "react-router";
-import { ChevronLeft, ChevronRight, Mail, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Mail, X, type LucideIcon } from "lucide-react";
 import { navigationGroups } from "../model/navigation";
 
-const primaryGroup = navigationGroups.find((group) => group.id === "primary");
-const secondaryGroup = navigationGroups.find((group) => group.id === "secondary");
+interface NavigationItem {
+  to: string;
+  label: string;
+  icon: LucideIcon;
+  badge?: string;
+  end?: boolean;
+}
 
-export function AppSidebar({ collapsed, mobileOpen, onToggleCollapse, onCloseMobile }) {
+interface NavigationGroup {
+  id: string;
+  items: NavigationItem[];
+}
+
+interface AppSidebarProps {
+  collapsed: boolean;
+  mobileOpen: boolean;
+  onToggleCollapse: () => void;
+  onCloseMobile: () => void;
+}
+
+const typedNavigationGroups = navigationGroups as NavigationGroup[];
+const primaryGroup = typedNavigationGroups.find((group) => group.id === "primary");
+const secondaryGroup = typedNavigationGroups.find((group) => group.id === "secondary");
+
+export function AppSidebar({
+  collapsed,
+  mobileOpen,
+  onToggleCollapse,
+  onCloseMobile,
+}: AppSidebarProps) {
   const itemBaseClass = collapsed
     ? "justify-center px-2"
     : "gap-3 px-3";

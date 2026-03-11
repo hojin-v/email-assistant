@@ -1,8 +1,18 @@
 import { StatusBadge } from "../../../shared/ui/primitives/StatusBadge";
 import { emailStatusMeta } from "../../../entities/email/model/email-data";
 import { ScheduleDetectionCard } from "./ScheduleDetectionCard";
+import type { EmailItem, EmailStatus, StatusBadgeTone } from "../../../shared/types";
 
-export function EmailThreadPanel({ email }) {
+const metaByStatus = emailStatusMeta as Record<
+  EmailStatus,
+  { label: string; tone: StatusBadgeTone; banner: string }
+>;
+
+interface EmailThreadPanelProps {
+  email: EmailItem | null;
+}
+
+export function EmailThreadPanel({ email }: EmailThreadPanelProps) {
   if (!email) {
     return null;
   }
@@ -11,7 +21,7 @@ export function EmailThreadPanel({ email }) {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-2">
         <StatusBadge label={email.category} tone="teal" />
-        <StatusBadge label={emailStatusMeta[email.status].label} tone={emailStatusMeta[email.status].tone} />
+        <StatusBadge label={metaByStatus[email.status].label} tone={metaByStatus[email.status].tone} />
       </div>
 
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -40,7 +50,7 @@ export function EmailThreadPanel({ email }) {
         <pre className="whitespace-pre-wrap font-sans text-[14px] leading-8 text-[#475569]">{email.body}</pre>
       </div>
 
-      <ScheduleDetectionCard schedule={email.schedule} />
+      <ScheduleDetectionCard schedule={email.schedule} emailId={email.id} emailSubject={email.subject} />
     </div>
   );
 }

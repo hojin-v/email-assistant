@@ -1,5 +1,25 @@
-export function InboxStatusTabs({ activeStatus, pendingCount, onChange }) {
-  const tabs = [
+import type { EmailStatus } from "../../../shared/types";
+
+type InboxStatus = "all" | EmailStatus;
+
+interface InboxStatusTabsProps {
+  activeStatus: InboxStatus;
+  pendingCount: number;
+  onChange: (status: InboxStatus) => void;
+}
+
+interface TabDefinition {
+  id: InboxStatus;
+  label: string;
+  badge?: number;
+}
+
+export function InboxStatusTabs({
+  activeStatus,
+  pendingCount,
+  onChange,
+}: InboxStatusTabsProps) {
+  const tabs: TabDefinition[] = [
     { id: "all", label: "전체" },
     { id: "pending", label: "대기 중", badge: pendingCount },
     { id: "completed", label: "처리 완료" },

@@ -6,9 +6,15 @@ import { AccountSettingsPanel } from "../../features/settings/ui/AccountSettings
 import { NotificationSettingsPanel } from "../../features/settings/ui/NotificationSettingsPanel";
 import { DisplaySettingsPanel } from "../../features/settings/ui/DisplaySettingsPanel";
 import { EmailIntegrationSettingsPanel } from "../../features/settings/ui/EmailIntegrationSettingsPanel";
+import type {
+  DisplaySettings,
+  SettingsTabId,
+} from "../../shared/types";
 
 export function SettingsPage() {
-  const [activeTab, setActiveTab] = useState(defaultSettingsState.activeTab);
+  const [activeTab, setActiveTab] = useState<SettingsTabId>(
+    defaultSettingsState.activeTab as SettingsTabId
+  );
 
   return (
     <div className="mx-auto max-w-[1240px]">
@@ -19,7 +25,9 @@ export function SettingsPage() {
       {activeTab === "notifications" ? (
         <NotificationSettingsPanel notifications={defaultSettingsState.notifications} />
       ) : null}
-      {activeTab === "display" ? <DisplaySettingsPanel display={defaultSettingsState.display} /> : null}
+      {activeTab === "display" ? (
+        <DisplaySettingsPanel display={defaultSettingsState.display as DisplaySettings} />
+      ) : null}
       {activeTab === "email" ? (
         <EmailIntegrationSettingsPanel accounts={defaultSettingsState.emailAccounts} />
       ) : null}

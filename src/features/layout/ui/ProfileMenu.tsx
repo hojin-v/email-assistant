@@ -1,7 +1,21 @@
 import { LogOut, Moon, Settings } from "lucide-react";
 import { useNavigate } from "react-router";
 
-export function ProfileMenu({ open, theme, onToggle, onThemeChange, onClose }) {
+interface ProfileMenuProps {
+  open: boolean;
+  theme: "light" | "dark";
+  onToggle: () => void;
+  onThemeChange: () => void;
+  onClose: () => void;
+}
+
+export function ProfileMenu({
+  open,
+  theme,
+  onToggle,
+  onThemeChange,
+  onClose,
+}: ProfileMenuProps) {
   const navigate = useNavigate();
   const nextThemeLabel = theme === "light" ? "다크" : "라이트";
 

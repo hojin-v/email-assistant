@@ -1,8 +1,15 @@
 import { useState } from "react";
 import { GripVertical, Moon, SunMedium } from "lucide-react";
 import { useTheme } from "next-themes";
+import type { DisplaySettings, DisplayWidget } from "../../../shared/types";
+import { toast } from "sonner";
 
-function WidgetToggle({ checked, onToggle }) {
+interface WidgetToggleProps {
+  checked: boolean;
+  onToggle: () => void;
+}
+
+function WidgetToggle({ checked, onToggle }: WidgetToggleProps) {
   return (
     <button
       type="button"
@@ -21,10 +28,14 @@ function WidgetToggle({ checked, onToggle }) {
   );
 }
 
-export function DisplaySettingsPanel({ display }) {
+interface DisplaySettingsPanelProps {
+  display: DisplaySettings;
+}
+
+export function DisplaySettingsPanel({ display }: DisplaySettingsPanelProps) {
   const { resolvedTheme, setTheme } = useTheme();
   const currentTheme = resolvedTheme === "dark" ? "dark" : "light";
-  const [widgets, setWidgets] = useState(display.widgets);
+  const [widgets, setWidgets] = useState<DisplayWidget[]>(display.widgets);
 
   return (
     <div className="space-y-6">
@@ -78,7 +89,7 @@ export function DisplaySettingsPanel({ display }) {
         </p>
 
         <div className="mt-5 space-y-2.5">
-          {widgets.map((widget) => (
+          {widgets.map((widget: DisplayWidget) => (
             <div
               key={widget.id}
               className="flex items-center justify-between rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3"
@@ -91,8 +102,8 @@ export function DisplaySettingsPanel({ display }) {
               <WidgetToggle
                 checked={widget.visible}
                 onToggle={() =>
-                  setWidgets((current) =>
-                    current.map((item) =>
+                  setWidgets((current: DisplayWidget[]) =>
+                    current.map((item: DisplayWidget) =>
                       item.id === widget.id ? { ...item, visible: !item.visible } : item
                     )
                   )
@@ -107,6 +118,7 @@ export function DisplaySettingsPanel({ display }) {
         <button
           type="button"
           className="rounded-xl bg-[#1E2A3A] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#2A3A4E]"
+          onClick={() => toast.success("화면 설정을 저장했습니다.")}
         >
           저장
         </button>

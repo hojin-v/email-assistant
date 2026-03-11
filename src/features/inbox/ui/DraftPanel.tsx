@@ -1,7 +1,15 @@
+import { useNavigate } from "react-router";
 import { AlertTriangle, CheckCircle2, FileText, PencilLine, Send, SkipForward } from "lucide-react";
+import { toast } from "sonner";
 import { emailStatusMeta } from "../../../entities/email/model/email-data";
+import type { EmailItem, EmailStatus } from "../../../shared/types";
 
-const templateNameByCategory = {
+const metaByStatus = emailStatusMeta as Record<
+  EmailStatus,
+  { label: string; tone: string; banner: string }
+>;
+
+const templateNameByCategory: Record<string, string> = {
   가격문의: "가격 안내 템플릿",
   불만접수: "불만 접수 응답 템플릿",
   미팅요청: "미팅 조율 템플릿",
@@ -9,7 +17,7 @@ const templateNameByCategory = {
   기술지원: "기술 지원 템플릿",
 };
 
-const variableTypeByToken = {
+const variableTypeByToken: Record<string, "auto" | "required"> = {
   "{{회사명}}": "auto",
   "{{가격}}": "auto",
   "{{할인율}}": "auto",
@@ -21,7 +29,7 @@ const variableTypeByToken = {
   "{{담당자명}}": "required",
 };
 
-function getPanelTitle(status) {
+function getPanelTitle(status: EmailStatus) {
   if (status === "completed") {
     return "발송된 답변 내용";
   }
@@ -32,7 +40,7 @@ function getPanelTitle(status) {
   return "매칭된 답변 템플릿";
 }
 
-function getPanelDescription(status) {
+function getPanelDescription(status: EmailStatus) {
   if (status !== "pending") {
     return "";
   }
@@ -40,11 +48,11 @@ function getPanelDescription(status) {
   return "하이라이트된 항목을 확인하고 필요 시 수정 후 발송하세요";
 }
 
-function getVariableCounts(text) {
+function getVariableCounts(text: string) {
   const tokens = text.match(/{{[^}]+}}/g) || [];
 
   return tokens.reduce(
-    (accumulator, token) => {
+    (accumulator: { auto: number; required: number }, token: string) => {
       const type = variableTypeByToken[token] || "auto";
 
       if (type === "required") {
@@ -59,8 +67,8 @@ function getVariableCounts(text) {
   );
 }
 
-function renderDraftText(text, highlight) {
-  return text.split(/({{[^}]+}})/).map((part, index) => {
+function renderDraftText(text: string, highlight: boolean) {
+  return text.split(/({{[^}]+}})/).map((part: string, index: number) => {
     if (!part.startsWith("{{") || !part.endsWith("}}")) {
       return <span key={`${part}-${index}`}>{part}</span>;
     }
@@ -83,7 +91,12 @@ function renderDraftText(text, highlight) {
   });
 }
 
-function StatusBanner({ status, sentTime }) {
+interface StatusBannerProps {
+  status: EmailStatus;
+  sentTime: string;
+}
+
+function StatusBanner({ status, sentTime }: StatusBannerProps) {
   if (!sentTime) {
     return null;
   }
@@ -109,12 +122,35 @@ function StatusBanner({ status, sentTime }) {
   return null;
 }
 
-export function DraftPanel({ email }) {
+interface DraftPanelProps {
+  email: EmailItem | null;
+  onSend?: () => void;
+  onEditSend?: () => void;
+  onSkip?: () => void;
+}
+
+export function DraftPanel({
+  email,
+  onSend,
+  onEditSend,
+  onSkip,
+}: DraftPanelProps) {
+  const navigate = useNavigate();
+
   if (!email) {
     return null;
   }
 
-  const meta = emailStatusMeta[email.status];
+  const handleOpenTemplate = () => {
+    navigate("/app/templates", {
+      state: {
+        templateName,
+        emailCategory: email.category,
+      },
+    });
+  };
+
+  const meta = metaByStatus[email.status];
   const readonly = email.status !== "pending";
   const templateName = templateNameByCategory[email.category] || "기본 답변 템플릿";
   const counts = getVariableCounts(email.draft);
@@ -140,7 +176,11 @@ export function DraftPanel({ email }) {
             <FileText className="h-3.5 w-3.5 shrink-0 text-[#94A3B8]" />
             <span className="truncate text-xs text-[#64748B]">{templateName}</span>
           </div>
-          <button type="button" className="shrink-0 text-xs font-medium text-[#14B8A6]">
+          <button
+            type="button"
+            className="shrink-0 text-xs font-medium text-[#14B8A6]"
+            onClick={handleOpenTemplate}
+          >
             템플릿 보기 →
           </button>
         </div>
@@ -191,6 +231,13 @@ export function DraftPanel({ email }) {
             <button
               type="button"
               className="inline-flex min-w-[126px] items-center justify-center gap-2 rounded-xl bg-[#2DD4BF] px-4 py-2.5 text-sm font-medium text-[#1E2A3A] transition hover:bg-[#14B8A6]"
+              onClick={() => {
+                if (onSend) {
+                  onSend();
+                  return;
+                }
+                toast.success("답변을 발송했습니다.");
+              }}
             >
               <Send className="h-4 w-4" />
               발송하기
@@ -199,6 +246,13 @@ export function DraftPanel({ email }) {
             <button
               type="button"
               className="inline-flex min-w-[126px] items-center justify-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-[#64748B] transition hover:border-[#CBD5E1] hover:text-[#1E2A3A]"
+              onClick={() => {
+                if (onEditSend) {
+                  onEditSend();
+                  return;
+                }
+                toast.success("초안을 검토 후 발송했습니다.");
+              }}
             >
               <PencilLine className="h-4 w-4" />
               편집 후 발송
@@ -208,6 +262,13 @@ export function DraftPanel({ email }) {
           <button
             type="button"
             className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-[#94A3B8] transition hover:text-[#64748B]"
+            onClick={() => {
+              if (onSkip) {
+                onSkip();
+                return;
+              }
+              toast("이 메일을 건너뛰었습니다.");
+            }}
           >
             <SkipForward className="h-4 w-4" />
             건너뛰기
