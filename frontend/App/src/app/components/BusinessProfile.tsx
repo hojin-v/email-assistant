@@ -1,10 +1,8 @@
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import {
   Building2,
   FileText,
-  Upload,
-  X,
   Pencil,
   Trash2,
   Plus,
@@ -12,6 +10,25 @@ import {
   Save,
   ArrowRight,
 } from "lucide-react";
+import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "./ui/alert-dialog";
 
 const toneOptions = [
   { id: "formal", label: "격식체" },
@@ -31,8 +48,26 @@ interface FAQItem {
   answer: string;
 }
 
+interface FAQDraft {
+  question: string;
+  answer: string;
+}
+
+const impactedTemplates = [
+  "가격 안내 템플릿",
+  "미팅 일정 확인 템플릿",
+  "기술 지원 접수 템플릿",
+  "계약 안내 템플릿",
+];
+
+const emptyFaqDraft: FAQDraft = {
+  question: "",
+  answer: "",
+};
+
 export function BusinessProfile() {
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [businessType, setBusinessType] = useState("saas");
   const [tone, setTone] = useState("neutral");
   const [description, setDescription] = useState(
@@ -55,233 +90,505 @@ export function BusinessProfile() {
     },
   ]);
   const [hasChanges, setHasChanges] = useState(true);
+  const [faqDialogOpen, setFaqDialogOpen] = useState(false);
+  const [editingFaqId, setEditingFaqId] = useState<string | null>(null);
+  const [faqDraft, setFaqDraft] = useState<FAQDraft>(emptyFaqDraft);
+  const [faqDeleteTarget, setFaqDeleteTarget] = useState<FAQItem | null>(null);
+  const [regenerateMode, setRegenerateMode] = useState<"bulk" | "select" | null>(null);
+  const [selectedTemplates, setSelectedTemplates] = useState<string[]>([
+    impactedTemplates[0],
+    impactedTemplates[1],
+  ]);
 
-  const handleRemoveFile = (id: string) => {
-    setUploadedFiles(uploadedFiles.filter((f) => f.id !== id));
-    setHasChanges(true);
+  const impactedCount = useMemo(
+    () => impactedTemplates.length + uploadedFiles.length + faqItems.length - 2,
+    [faqItems.length, uploadedFiles.length]
+  );
+
+  const markChanged = () => setHasChanges(true);
+
+  const handleSaveProfile = () => {
+    setHasChanges(false);
+    toast.success("비즈니스 프로필을 저장했습니다.");
   };
 
-  const handleRemoveFAQ = (id: string) => {
-    setFAQItems(faqItems.filter((f) => f.id !== id));
-    setHasChanges(true);
+  const handleRemoveFile = (id: string) => {
+    setUploadedFiles((current) => current.filter((file) => file.id !== id));
+    markChanged();
+    toast.success("파일을 제거했습니다.");
+  };
+
+  const openFaqDialog = (item?: FAQItem) => {
+    setEditingFaqId(item?.id || null);
+    setFaqDraft(
+      item
+        ? { question: item.question, answer: item.answer }
+        : emptyFaqDraft
+    );
+    setFaqDialogOpen(true);
+  };
+
+  const handleSaveFaq = () => {
+    if (!faqDraft.question.trim() || !faqDraft.answer.trim()) {
+      toast.error("질문과 답변을 모두 입력하세요.");
+      return;
+    }
+
+    if (editingFaqId) {
+      setFAQItems((current: FAQItem[]) =>
+        current.map((item: FAQItem) =>
+          item.id === editingFaqId
+            ? {
+                ...item,
+                question: faqDraft.question.trim(),
+                answer: faqDraft.answer.trim(),
+              }
+            : item
+        )
+      );
+      toast.success("FAQ 항목을 수정했습니다.");
+    } else {
+      setFAQItems((current: FAQItem[]) => [
+        ...current,
+        {
+          id: String(Date.now()),
+          question: faqDraft.question.trim(),
+          answer: faqDraft.answer.trim(),
+        },
+      ]);
+      toast.success("FAQ 항목을 추가했습니다.");
+    }
+
+    markChanged();
+    setFaqDialogOpen(false);
+  };
+
+  const handleDeleteFaq = () => {
+    if (!faqDeleteTarget) {
+      return;
+    }
+
+    setFAQItems((current: FAQItem[]) =>
+      current.filter((item: FAQItem) => item.id !== faqDeleteTarget.id)
+    );
+    setFaqDeleteTarget(null);
+    markChanged();
+    toast.success("FAQ 항목을 삭제했습니다.");
+  };
+
+  const handleFileSelection = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const files = Array.from(event.target.files || []);
+
+    if (!files.length) {
+      return;
+    }
+
+    const newFiles = files.map((file, index) => ({
+      id: `${Date.now()}-${index}`,
+      name: file.name,
+      uploadDate: "오늘",
+    }));
+
+    setUploadedFiles((current) => [...newFiles, ...current]);
+    markChanged();
+    toast.success(`${files.length}개 파일을 추가했습니다.`);
+    event.target.value = "";
+  };
+
+  const handleRegenerateTemplates = () => {
+    const targetCount =
+      regenerateMode === "bulk"
+        ? impactedCount
+        : selectedTemplates.length;
+
+    setHasChanges(false);
+    setRegenerateMode(null);
+    toast.success(`템플릿 ${targetCount}개를 재생성했습니다.`);
   };
 
   return (
-    <div className="p-4 lg:p-8 max-w-[1200px] mx-auto">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-[#1E2A3A] mb-1">비즈니스 프로필</h1>
-        <p className="text-[14px] text-[#64748B]">
-          AI 템플릿 생성에 사용되는 비즈니스 정보를 관리합니다
-        </p>
-      </div>
-
-      {/* Section 1: Company Profile */}
-      <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-sm p-6 mb-6">
-        <div className="flex items-center gap-2 mb-5">
-          <Building2 className="w-5 h-5 text-[#2DD4BF]" />
-          <h3 className="text-[#1E2A3A]">회사 프로필</h3>
+    <>
+      <div className="mx-auto max-w-[1200px] p-4 lg:p-8">
+        <div className="mb-8">
+          <h1 className="mb-1 text-[#1E2A3A]">비즈니스 프로필</h1>
+          <p className="text-[14px] text-[#64748B]">
+            AI 템플릿 생성에 사용되는 비즈니스 정보를 관리합니다
+          </p>
         </div>
 
-        <div className="space-y-5">
-          {/* Business Type */}
-          <div>
-            <label className="block text-[13px] text-[#1E2A3A] mb-2">
-              업종 / 비즈니스 유형
-            </label>
-            <select
-              value={businessType}
-              onChange={(e) => setBusinessType(e.target.value)}
-              className="w-full px-4 py-2.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg text-[14px] text-[#1E2A3A] outline-none focus:ring-2 focus:ring-[#2DD4BF]/30 focus:border-[#2DD4BF]"
-            >
-              <option value="saas">SaaS / 소프트웨어</option>
-              <option value="ecommerce">이커머스</option>
-              <option value="consulting">컨설팅</option>
-              <option value="manufacturing">제조업</option>
-              <option value="finance">금융 / 보험</option>
-              <option value="healthcare">헬스케어</option>
-              <option value="education">교육</option>
-              <option value="other">기타</option>
-            </select>
+        <div className="mb-6 rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-sm">
+          <div className="mb-5 flex items-center gap-2">
+            <Building2 className="h-5 w-5 text-[#2DD4BF]" />
+            <h3 className="text-[#1E2A3A]">회사 프로필</h3>
           </div>
 
-          {/* Tone Selection */}
-          <div>
-            <label className="block text-[13px] text-[#1E2A3A] mb-2">
-              이메일 어조
-            </label>
-            <div className="flex gap-2">
-              {toneOptions.map((option) => (
-                <button
-                  key={option.id}
-                  onClick={() => setTone(option.id)}
-                  className={`px-4 py-2 rounded-lg text-[13px] transition-all ${
-                    tone === option.id
-                      ? "bg-[#2DD4BF] text-[#1E2A3A]"
-                      : "bg-[#F8FAFC] text-[#64748B] border border-[#E2E8F0] hover:border-[#CBD5E1]"
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
+          <div className="space-y-5">
+            <div>
+              <label className="mb-2 block text-[13px] text-[#1E2A3A]">
+                업종 / 비즈니스 유형
+              </label>
+              <select
+                value={businessType}
+                onChange={(event) => {
+                  setBusinessType(event.target.value);
+                  markChanged();
+                }}
+                className="w-full rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-2.5 text-[14px] text-[#1E2A3A] outline-none focus:border-[#2DD4BF] focus:ring-2 focus:ring-[#2DD4BF]/30"
+              >
+                <option value="saas">SaaS / 소프트웨어</option>
+                <option value="ecommerce">이커머스</option>
+                <option value="consulting">컨설팅</option>
+                <option value="manufacturing">제조업</option>
+                <option value="finance">금융 / 보험</option>
+                <option value="healthcare">헬스케어</option>
+                <option value="education">교육</option>
+                <option value="other">기타</option>
+              </select>
             </div>
-          </div>
 
-          {/* Product/Service Description */}
-          <div>
-            <label className="block text-[13px] text-[#1E2A3A] mb-2">
-              제품/서비스 설명
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={4}
-              className="w-full px-4 py-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg text-[14px] text-[#1E2A3A] placeholder:text-[#94A3B8] outline-none focus:ring-2 focus:ring-[#2DD4BF]/30 focus:border-[#2DD4BF] resize-none"
-            />
-          </div>
-
-          {/* Save Button */}
-          <div className="flex justify-end pt-3 border-t border-[#E2E8F0]">
-            <button className="flex items-center gap-2 px-4 py-2 bg-[#1E2A3A] text-white rounded-lg text-[13px] hover:bg-[#2A3A4E] transition-colors">
-              <Save className="w-4 h-4" />
-              저장
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Section 2: Business Materials */}
-      <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-sm p-6 mb-6">
-        <div className="flex items-center gap-2 mb-5">
-          <FileText className="w-5 h-5 text-[#2DD4BF]" />
-          <h3 className="text-[#1E2A3A]">비즈니스 자료</h3>
-        </div>
-
-        {/* Uploaded Files */}
-        <div className="mb-6">
-          <h4 className="text-[13px] text-[#1E2A3A] mb-3">업로드된 파일</h4>
-          <div className="space-y-2">
-            {uploadedFiles.map((file) => (
-              <div
-                key={file.id}
-                className="flex items-center gap-3 p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] group hover:border-[#CBD5E1] transition-colors"
-              >
-                <FileText className="w-5 h-5 text-[#64748B]" />
-                <span className="flex-1 text-[13px] text-[#1E2A3A]">
-                  {file.name}
-                </span>
-                <span className="text-[11px] text-[#94A3B8]">
-                  {file.uploadDate} 업로드
-                </span>
-                <button
-                  onClick={() => handleRemoveFile(file.id)}
-                  className="p-1.5 rounded-md hover:bg-[#FEF2F2] text-[#94A3B8] hover:text-[#EF4444] transition-all opacity-0 group-hover:opacity-100"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ))}
-
-            {/* Add File Button */}
-            <button className="w-full flex items-center gap-3 p-3 bg-[#F8FAFC] rounded-lg border-2 border-dashed border-[#E2E8F0] hover:border-[#2DD4BF] hover:bg-[#2DD4BF]/5 transition-all text-left group">
-              <div className="w-5 h-5 flex items-center justify-center text-[#94A3B8] group-hover:text-[#2DD4BF]">
-                <Plus className="w-5 h-5" />
-              </div>
-              <span className="text-[13px] text-[#94A3B8] group-hover:text-[#1E2A3A] transition-colors">
-                파일 추가
-              </span>
-            </button>
-          </div>
-        </div>
-
-        {/* FAQ Items */}
-        <div>
-          <h4 className="text-[13px] text-[#1E2A3A] mb-3">
-            FAQ / 매뉴얼 직접 입력
-          </h4>
-          <div className="space-y-2">
-            {faqItems.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-start gap-3 p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] group hover:border-[#CBD5E1] transition-colors"
-              >
-                <div className="flex-1">
-                  <p className="text-[13px] text-[#1E2A3A] mb-1">
-                    Q: {item.question}
-                  </p>
-                  <p className="text-[12px] text-[#64748B]">
-                    A: {item.answer}
-                  </p>
-                </div>
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button className="p-1.5 rounded-md hover:bg-white text-[#94A3B8] hover:text-[#1E2A3A] transition-all">
-                    <Pencil className="w-3.5 h-3.5" />
-                  </button>
+            <div>
+              <label className="mb-2 block text-[13px] text-[#1E2A3A]">
+                이메일 어조
+              </label>
+              <div className="flex gap-2">
+                {toneOptions.map((option) => (
                   <button
-                    onClick={() => handleRemoveFAQ(item.id)}
-                    className="p-1.5 rounded-md hover:bg-[#FEF2F2] text-[#94A3B8] hover:text-[#EF4444] transition-all"
+                    key={option.id}
+                    onClick={() => {
+                      setTone(option.id);
+                      markChanged();
+                    }}
+                    className={`rounded-lg px-4 py-2 text-[13px] transition-all ${
+                      tone === option.id
+                        ? "bg-[#2DD4BF] text-[#1E2A3A]"
+                        : "border border-[#E2E8F0] bg-[#F8FAFC] text-[#64748B] hover:border-[#CBD5E1]"
+                    }`}
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    {option.label}
                   </button>
-                </div>
+                ))}
               </div>
-            ))}
+            </div>
 
-            {/* Add FAQ Button */}
-            <button className="w-full flex items-center gap-3 p-3 bg-[#F8FAFC] rounded-lg border-2 border-dashed border-[#E2E8F0] hover:border-[#2DD4BF] hover:bg-[#2DD4BF]/5 transition-all text-left group">
-              <div className="w-5 h-5 flex items-center justify-center text-[#94A3B8] group-hover:text-[#2DD4BF]">
-                <Plus className="w-5 h-5" />
-              </div>
-              <span className="text-[13px] text-[#94A3B8] group-hover:text-[#1E2A3A] transition-colors">
-                항목 추가
-              </span>
-            </button>
+            <div>
+              <label className="mb-2 block text-[13px] text-[#1E2A3A]">
+                제품/서비스 설명
+              </label>
+              <textarea
+                value={description}
+                onChange={(event) => {
+                  setDescription(event.target.value);
+                  markChanged();
+                }}
+                rows={4}
+                className="w-full resize-none rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3 text-[14px] text-[#1E2A3A] outline-none focus:border-[#2DD4BF] focus:ring-2 focus:ring-[#2DD4BF]/30"
+              />
+            </div>
+
+            <div className="flex justify-end border-t border-[#E2E8F0] pt-3">
+              <button
+                onClick={handleSaveProfile}
+                className="flex items-center gap-2 rounded-lg bg-[#1E2A3A] px-4 py-2 text-[13px] text-white transition-colors hover:bg-[#2A3A4E]"
+              >
+                <Save className="h-4 w-4" />
+                저장
+              </button>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Section 3: Material Change Warning Banner */}
-      {hasChanges && (
-        <div className="bg-[#FEF3C7] border border-[#FDE68A] rounded-xl p-5">
-          <div className="flex items-start gap-3 mb-4">
-            <AlertTriangle className="w-5 h-5 text-[#D97706] shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="text-[14px] text-[#92400E] mb-1">
-                비즈니스 자료가 변경되었습니다.
-              </p>
-              <p className="text-[12px] text-[#B45309]">
-                영향받는 템플릿 8개가 있습니다.
-              </p>
+        <div className="mb-6 rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-sm">
+          <div className="mb-5 flex items-center gap-2">
+            <FileText className="h-5 w-5 text-[#2DD4BF]" />
+            <h3 className="text-[#1E2A3A]">비즈니스 자료</h3>
+          </div>
+
+          <div className="mb-6">
+            <h4 className="mb-3 text-[13px] text-[#1E2A3A]">업로드된 파일</h4>
+            <div className="space-y-2">
+              {uploadedFiles.map((file) => (
+                <div
+                  key={file.id}
+                  className="group flex items-center gap-3 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-3 transition-colors hover:border-[#CBD5E1]"
+                >
+                  <FileText className="h-5 w-5 text-[#64748B]" />
+                  <span className="flex-1 text-[13px] text-[#1E2A3A]">
+                    {file.name}
+                  </span>
+                  <span className="text-[11px] text-[#94A3B8]">
+                    {file.uploadDate} 업로드
+                  </span>
+                  <button
+                    onClick={() => handleRemoveFile(file.id)}
+                    className="rounded-md p-1.5 text-[#94A3B8] opacity-0 transition-all hover:bg-[#FEF2F2] hover:text-[#EF4444] group-hover:opacity-100"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="group flex w-full items-center gap-3 rounded-lg border-2 border-dashed border-[#E2E8F0] bg-[#F8FAFC] p-3 text-left transition-all hover:border-[#2DD4BF] hover:bg-[#2DD4BF]/5"
+              >
+                <div className="flex h-5 w-5 items-center justify-center text-[#94A3B8] group-hover:text-[#2DD4BF]">
+                  <Plus className="h-5 w-5" />
+                </div>
+                <span className="text-[13px] text-[#94A3B8] transition-colors group-hover:text-[#1E2A3A]">
+                  파일 추가
+                </span>
+              </button>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <button className="px-4 py-2 bg-[#1E2A3A] text-white rounded-lg text-[13px] hover:bg-[#2A3A4E] transition-colors">
-              템플릿 일괄 재생성
-            </button>
-            <button className="px-4 py-2 bg-white border border-[#E2E8F0] text-[#64748B] rounded-lg text-[13px] hover:bg-[#F8FAFC] transition-colors">
-              개별 선택 후 재생성
+          <div>
+            <h4 className="mb-3 text-[13px] text-[#1E2A3A]">
+              FAQ / 매뉴얼 직접 입력
+            </h4>
+            <div className="space-y-2">
+              {faqItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="group flex items-start gap-3 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-3 transition-colors hover:border-[#CBD5E1]"
+                >
+                  <div className="flex-1">
+                    <p className="mb-1 text-[13px] text-[#1E2A3A]">
+                      Q: {item.question}
+                    </p>
+                    <p className="text-[12px] text-[#64748B]">
+                      A: {item.answer}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                    <button
+                      onClick={() => openFaqDialog(item)}
+                      className="rounded-md p-1.5 text-[#94A3B8] transition-all hover:bg-white hover:text-[#1E2A3A]"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setFaqDeleteTarget(item)}
+                      className="rounded-md p-1.5 text-[#94A3B8] transition-all hover:bg-[#FEF2F2] hover:text-[#EF4444]"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              <button
+                onClick={() => openFaqDialog()}
+                className="group flex w-full items-center gap-3 rounded-lg border-2 border-dashed border-[#E2E8F0] bg-[#F8FAFC] p-3 text-left transition-all hover:border-[#2DD4BF] hover:bg-[#2DD4BF]/5"
+              >
+                <div className="flex h-5 w-5 items-center justify-center text-[#94A3B8] group-hover:text-[#2DD4BF]">
+                  <Plus className="h-5 w-5" />
+                </div>
+                <span className="text-[13px] text-[#94A3B8] transition-colors group-hover:text-[#1E2A3A]">
+                  항목 추가
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {hasChanges ? (
+          <div className="rounded-xl border border-[#FDE68A] bg-[#FEF3C7] p-5">
+            <div className="mb-4 flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-[#D97706]" />
+              <div className="flex-1">
+                <p className="mb-1 text-[14px] text-[#92400E]">
+                  비즈니스 자료가 변경되었습니다.
+                </p>
+                <p className="text-[12px] text-[#B45309]">
+                  영향받는 템플릿 {impactedCount}개가 있습니다.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setRegenerateMode("bulk")}
+                className="rounded-lg bg-[#1E2A3A] px-4 py-2 text-[13px] text-white transition-colors hover:bg-[#2A3A4E]"
+              >
+                템플릿 일괄 재생성
+              </button>
+              <button
+                onClick={() => setRegenerateMode("select")}
+                className="rounded-lg border border-[#E2E8F0] bg-white px-4 py-2 text-[13px] text-[#64748B] transition-colors hover:bg-[#F8FAFC]"
+              >
+                개별 선택 후 재생성
+              </button>
+              <button
+                onClick={() => setHasChanges(false)}
+                className="rounded-lg px-4 py-2 text-[13px] text-[#64748B] transition-colors hover:text-[#1E2A3A]"
+              >
+                나중에
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        <div className="mt-8 text-center">
+          <button
+            onClick={() => navigate("/")}
+            className="inline-flex items-center gap-1 text-[12px] text-[#94A3B8] transition-colors hover:text-[#64748B]"
+          >
+            초기 온보딩 설정 다시 보기
+            <ArrowRight className="h-3 w-3" />
+          </button>
+        </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          className="hidden"
+          onChange={handleFileSelection}
+        />
+      </div>
+
+      <Dialog open={faqDialogOpen} onOpenChange={setFaqDialogOpen}>
+        <DialogContent className="sm:max-w-[560px]">
+          <DialogHeader>
+            <DialogTitle>
+              {editingFaqId ? "FAQ 항목 수정" : "FAQ 항목 추가"}
+            </DialogTitle>
+            <DialogDescription>
+              자주 쓰는 답변이나 운영 정책을 직접 입력해 템플릿 품질을 높일 수
+              있습니다.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <label className="block space-y-2 text-sm text-foreground">
+              <span>질문</span>
+              <input
+                value={faqDraft.question}
+                onChange={(event) =>
+                  setFaqDraft((current) => ({
+                    ...current,
+                    question: event.target.value,
+                  }))
+                }
+                className="h-11 w-full rounded-xl border border-border bg-background px-4"
+              />
+            </label>
+            <label className="block space-y-2 text-sm text-foreground">
+              <span>답변</span>
+              <textarea
+                rows={5}
+                value={faqDraft.answer}
+                onChange={(event) =>
+                  setFaqDraft((current) => ({
+                    ...current,
+                    answer: event.target.value,
+                  }))
+                }
+                className="w-full rounded-xl border border-border bg-background px-4 py-3"
+              />
+            </label>
+          </div>
+
+          <DialogFooter>
+            <button
+              type="button"
+              className="rounded-xl border border-border px-4 py-2 text-sm text-muted-foreground"
+              onClick={() => setFaqDialogOpen(false)}
+            >
+              취소
             </button>
             <button
-              onClick={() => setHasChanges(false)}
-              className="px-4 py-2 text-[#64748B] rounded-lg text-[13px] hover:text-[#1E2A3A] transition-colors"
+              type="button"
+              className="rounded-xl bg-[#1E2A3A] px-4 py-2 text-sm text-white"
+              onClick={handleSaveFaq}
             >
-              나중에
+              저장
             </button>
-          </div>
-        </div>
-      )}
-      
-      {/* Footer Link */}
-      <div className="mt-8 text-center">
-        <button
-          onClick={() => navigate("/")}
-          className="inline-flex items-center gap-1 text-[12px] text-[#94A3B8] hover:text-[#64748B] transition-colors"
-        >
-          초기 온보딩 설정 다시 보기
-          <ArrowRight className="w-3 h-3" />
-        </button>
-      </div>
-    </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={Boolean(faqDeleteTarget)} onOpenChange={(open) => !open && setFaqDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>FAQ 항목을 삭제할까요?</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{faqDeleteTarget?.question}" 항목이 비즈니스 자료에서 제거됩니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>취소</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteFaq}>
+              삭제
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={Boolean(regenerateMode)} onOpenChange={(open) => !open && setRegenerateMode(null)}>
+        <DialogContent className="sm:max-w-[560px]">
+          <DialogHeader>
+            <DialogTitle>
+              {regenerateMode === "bulk"
+                ? "영향받는 템플릿 일괄 재생성"
+                : "재생성할 템플릿 선택"}
+            </DialogTitle>
+            <DialogDescription>
+              {regenerateMode === "bulk"
+                ? `현재 변경 내용을 기준으로 템플릿 ${impactedCount}개를 다시 생성합니다.`
+                : "변경된 비즈니스 자료를 반영할 템플릿을 선택하세요."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {regenerateMode === "select" ? (
+            <div className="space-y-2">
+              {impactedTemplates.map((template) => {
+                const selected = selectedTemplates.includes(template);
+                return (
+                  <button
+                    key={template}
+                    type="button"
+                    onClick={() =>
+                      setSelectedTemplates((current) =>
+                        selected
+                          ? current.filter((item) => item !== template)
+                          : [...current, template]
+                      )
+                    }
+                    className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-sm transition ${
+                      selected
+                        ? "border-[#2DD4BF] bg-[#2DD4BF]/5 text-[#0F766E]"
+                        : "border-border bg-background text-foreground"
+                    }`}
+                  >
+                    <span>{template}</span>
+                    <span>{selected ? "선택됨" : "선택"}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+
+          <DialogFooter>
+            <button
+              type="button"
+              className="rounded-xl border border-border px-4 py-2 text-sm text-muted-foreground"
+              onClick={() => setRegenerateMode(null)}
+            >
+              취소
+            </button>
+            <button
+              type="button"
+              className="rounded-xl bg-[#1E2A3A] px-4 py-2 text-sm text-white"
+              onClick={handleRegenerateTemplates}
+            >
+              재생성 시작
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

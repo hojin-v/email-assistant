@@ -4,14 +4,25 @@ import { EmailListPanel } from "../../features/inbox/ui/EmailListPanel";
 import { InboxStatusTabs } from "../../features/inbox/ui/InboxStatusTabs";
 import { EmailThreadPanel } from "../../features/inbox/ui/EmailThreadPanel";
 import { DraftPanel } from "../../features/inbox/ui/DraftPanel";
-import { getEmailsByStatus, getPendingEmailCount } from "../../entities/email/model/email-data";
+import { emailItems } from "../../entities/email/model/email-data";
+import type { EmailItem, EmailStatus } from "../../shared/types";
+import { toast } from "sonner";
+
+type InboxStatus = "all" | EmailStatus;
 
 export function InboxPage() {
-  const [activeStatus, setActiveStatus] = useState("pending");
+  const [emails, setEmails] = useState<EmailItem[]>(emailItems as EmailItem[]);
+  const [activeStatus, setActiveStatus] = useState<InboxStatus>("pending");
   const [selectedEmailId, setSelectedEmailId] = useState("1");
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
 
-  const visibleEmails = useMemo(() => getEmailsByStatus(activeStatus), [activeStatus]);
+  const visibleEmails = useMemo<EmailItem[]>(
+    () =>
+      activeStatus === "all"
+        ? emails
+        : emails.filter((item: EmailItem) => item.status === activeStatus),
+    [activeStatus, emails]
+  );
 
   useEffect(() => {
     if (!visibleEmails.length) {
@@ -20,21 +31,84 @@ export function InboxPage() {
       return;
     }
 
-    if (!visibleEmails.some((item) => item.id === selectedEmailId)) {
+    if (!visibleEmails.some((item: EmailItem) => item.id === selectedEmailId)) {
       setSelectedEmailId(visibleEmails[0].id);
     }
   }, [selectedEmailId, visibleEmails]);
 
-  const selectedEmail = visibleEmails.find((item) => item.id === selectedEmailId) || visibleEmails[0] || null;
+  const selectedEmail =
+    visibleEmails.find((item: EmailItem) => item.id === selectedEmailId) ||
+    visibleEmails[0] ||
+    null;
 
-  const handleStatusChange = (status) => {
+  const handleStatusChange = (status: InboxStatus) => {
     setActiveStatus(status);
     setMobileDetailOpen(false);
   };
 
-  const handleSelectEmail = (id) => {
+  const handleSelectEmail = (id: string) => {
     setSelectedEmailId(id);
     setMobileDetailOpen(true);
+  };
+
+  const updateSelectedEmail = (
+    updater: (current: EmailItem) => EmailItem,
+    successMessage: string
+  ) => {
+    setEmails((current) =>
+      current.map((item) =>
+        item.id === selectedEmailId ? updater(item) : item
+      )
+    );
+    toast.success(successMessage);
+  };
+
+  const pendingCount = emails.filter((item: EmailItem) => item.status === "pending").length;
+
+  const handleSend = () => {
+    if (!selectedEmail) {
+      return;
+    }
+
+    updateSelectedEmail(
+      (item) => ({
+        ...item,
+        status: "completed",
+        sentTime: "방금 전",
+      }),
+      "답변을 발송했습니다."
+    );
+  };
+
+  const handleEditSend = () => {
+    if (!selectedEmail) {
+      return;
+    }
+
+    updateSelectedEmail(
+      (item) => ({
+        ...item,
+        status: "completed",
+        sentTime: "방금 전",
+        draft: `${item.draft}\n\n[검토 후 발송됨]`,
+      }),
+      "수정본을 발송했습니다."
+    );
+  };
+
+  const handleSkip = () => {
+    if (!selectedEmail) {
+      return;
+    }
+
+    updateSelectedEmail(
+      (item) => ({
+        ...item,
+        status: "auto-sent",
+        sentTime: "방금 전",
+      }),
+      "이메일을 건너뛰고 자동 처리 상태로 이동했습니다."
+    );
   };
 
   return (
@@ -56,7 +130,12 @@ export function InboxPage() {
             </div>
 
             <div className="rounded-[24px] border border-border bg-card p-4 shadow-sm">
-              <DraftPanel email={selectedEmail} />
+              <DraftPanel
+                email={selectedEmail}
+                onSend={handleSend}
+                onEditSend={handleEditSend}
+                onSkip={handleSkip}
+              />
             </div>
           </div>
         ) : (
@@ -64,7 +143,7 @@ export function InboxPage() {
             <div className="px-4 pt-4">
               <InboxStatusTabs
                 activeStatus={activeStatus}
-                pendingCount={getPendingEmailCount()}
+                pendingCount={pendingCount}
                 onChange={handleStatusChange}
               />
             </div>
@@ -86,7 +165,7 @@ export function InboxPage() {
             <div>
               <InboxStatusTabs
                 activeStatus={activeStatus}
-                pendingCount={getPendingEmailCount()}
+                pendingCount={pendingCount}
                 onChange={handleStatusChange}
               />
             </div>
@@ -97,7 +176,7 @@ export function InboxPage() {
               <EmailListPanel
                 emails={visibleEmails}
                 selectedEmailId={selectedEmail?.id}
-                onSelect={(id) => setSelectedEmailId(id)}
+                onSelect={(id: string) => setSelectedEmailId(id)}
               />
             </div>
           </div>
@@ -111,7 +190,12 @@ export function InboxPage() {
 
         <div className="min-h-0 bg-card">
           <div className="scrollbar-none h-full overflow-y-auto px-5 py-5">
-            <DraftPanel email={selectedEmail} />
+            <DraftPanel
+              email={selectedEmail}
+              onSend={handleSend}
+              onEditSend={handleEditSend}
+              onSkip={handleSkip}
+            />
           </div>
         </div>
       </div>

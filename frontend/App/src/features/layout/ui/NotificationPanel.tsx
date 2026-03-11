@@ -1,12 +1,23 @@
 import { Bell } from "lucide-react";
 import { useNavigate } from "react-router";
 import { StatusBadge } from "../../../shared/ui/primitives/StatusBadge";
+import type { NotificationItem, StatusBadgeTone } from "../../../shared/types";
 
 const toneToBadge = {
   teal: "teal",
   amber: "warning",
   red: "red",
-};
+} satisfies Record<NotificationItem["tone"], StatusBadgeTone>;
+
+interface NotificationPanelProps {
+  open: boolean;
+  notifications: NotificationItem[];
+  activeFilter: "all" | "unread";
+  onToggle: () => void;
+  onFilterChange: (filter: "all" | "unread") => void;
+  onMarkAllRead: () => void;
+  onNotificationRead: (id: string) => void;
+}
 
 export function NotificationPanel({
   open,
@@ -16,12 +27,12 @@ export function NotificationPanel({
   onFilterChange,
   onMarkAllRead,
   onNotificationRead,
-}) {
+}: NotificationPanelProps) {
   const navigate = useNavigate();
-  const unreadCount = notifications.filter((item) => !item.read).length;
+  const unreadCount = notifications.filter((item: NotificationItem) => !item.read).length;
   const visibleNotifications =
     activeFilter === "unread"
-      ? notifications.filter((item) => !item.read)
+      ? notifications.filter((item: NotificationItem) => !item.read)
       : notifications;
 
   return (
@@ -74,7 +85,7 @@ export function NotificationPanel({
           </div>
 
           <div className="max-h-[360px] space-y-2 overflow-y-auto">
-            {visibleNotifications.map((item) => (
+            {visibleNotifications.map((item: NotificationItem) => (
               <button
                 key={item.id}
                 type="button"

@@ -1,4 +1,20 @@
-export function SectionCard({ title, description, action, children, className = "" }) {
+import type { ReactNode } from "react";
+
+interface SectionCardProps {
+  title?: string;
+  description?: string;
+  action?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}
+
+export function SectionCard({
+  title,
+  description,
+  action,
+  children,
+  className = "",
+}: SectionCardProps) {
   return (
     <section className={`rounded-2xl border border-border bg-card shadow-sm ${className}`.trim()}>
       {(title || description || action) && (

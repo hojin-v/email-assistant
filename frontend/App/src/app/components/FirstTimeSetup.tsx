@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import {
   Mail,
@@ -18,6 +18,7 @@ import {
   Shield,
   Settings,
 } from "lucide-react";
+import { toast } from "sonner";
 
 const mainSteps = [
   { id: 1, label: "이메일 연동" },
@@ -88,6 +89,8 @@ const leftPanelContent: Record<
 
 export function FirstTimeSetup() {
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const generationTimeoutsRef = useRef<number[]>([]);
   const [currentMainStep, setCurrentMainStep] = useState(1);
   const [currentSubStep, setCurrentSubStep] = useState(0);
 
@@ -112,9 +115,62 @@ export function FirstTimeSetup() {
   const [generationStep, setGenerationStep] = useState(0);
   const [templateProgress, setTemplateProgress] = useState(0);
 
+  const clearGenerationTimeouts = () => {
+    generationTimeoutsRef.current.forEach((timeoutId) => {
+      window.clearTimeout(timeoutId);
+    });
+    generationTimeoutsRef.current = [];
+  };
+
+  useEffect(() => clearGenerationTimeouts, []);
+
   const handleEmailConnect = () => {
     setConnectedEmail("user@gmail.com");
     setEmailConnected(true);
+    toast.success("이메일 계정 연결을 완료했습니다.");
+  };
+
+  const handleUploadedFiles = (files: FileList | null) => {
+    const nextFile = files?.[0];
+
+    if (!nextFile) {
+      return;
+    }
+
+    setUploadedFile(nextFile.name);
+    toast.success(`${nextFile.name} 파일을 추가했습니다.`);
+  };
+
+  const startTemplateGeneration = () => {
+    clearGenerationTimeouts();
+    setCurrentMainStep(3);
+    setIsGenerating(true);
+    setGenerationStep(0);
+    setTemplateProgress(0);
+
+    generationTimeoutsRef.current = [
+      window.setTimeout(() => setGenerationStep(1), 800),
+      window.setTimeout(() => setGenerationStep(2), 1600),
+      window.setTimeout(() => setTemplateProgress(1), 2000),
+      window.setTimeout(() => setTemplateProgress(2), 2400),
+      window.setTimeout(() => setTemplateProgress(3), 2800),
+      window.setTimeout(() => setTemplateProgress(4), 3200),
+      window.setTimeout(() => setTemplateProgress(5), 3600),
+      window.setTimeout(() => setGenerationStep(3), 4000),
+      window.setTimeout(() => {
+        setIsGenerating(false);
+        setCurrentMainStep(4);
+      }, 5000),
+    ];
+  };
+
+  const handleCancelGeneration = () => {
+    clearGenerationTimeouts();
+    setIsGenerating(false);
+    setGenerationStep(0);
+    setTemplateProgress(0);
+    toast.message("설정은 저장되지 않았지만 나중에 다시 진행할 수 있습니다.");
+    navigate("/app");
   };
 
   const handleNextMainStep = () => {
@@ -122,22 +178,7 @@ export function FirstTimeSetup() {
       setCurrentMainStep(2);
       setCurrentSubStep(0);
     } else if (currentMainStep === 2 && currentSubStep === 2) {
-      setCurrentMainStep(3);
-      setIsGenerating(true);
-      setTimeout(() => setGenerationStep(1), 800);
-      setTimeout(() => setGenerationStep(2), 1600);
-      setTimeout(() => {
-        setTemplateProgress(1);
-        setTimeout(() => setTemplateProgress(2), 400);
-        setTimeout(() => setTemplateProgress(3), 800);
-        setTimeout(() => setTemplateProgress(4), 1200);
-        setTimeout(() => setTemplateProgress(5), 1600);
-      }, 2000);
-      setTimeout(() => setGenerationStep(3), 4000);
-      setTimeout(() => {
-        setIsGenerating(false);
-        setCurrentMainStep(4);
-      }, 5000);
+      startTemplateGeneration();
     }
   };
 
@@ -492,14 +533,22 @@ export function FirstTimeSetup() {
                         onDrop={(e) => {
                           e.preventDefault();
                           setIsDragging(false);
-                          setUploadedFile("비즈니스_매뉴얼_2026.pdf");
+                          handleUploadedFiles(e.dataTransfer.files);
                         }}
+                        onClick={() => fileInputRef.current?.click()}
                         className={`border-2 border-dashed rounded-xl p-10 text-center transition-all ${
                           isDragging
                             ? "border-[#2DD4BF] bg-[#2DD4BF]/5"
                             : "border-[#E2E8F0] hover:border-[#CBD5E1]"
                         }`}
                       >
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept=".pdf,.doc,.docx,.txt"
+                          className="hidden"
+                          onChange={(e) => handleUploadedFiles(e.target.files)}
+                        />
                         <Upload className="w-10 h-10 text-[#CBD5E1] mx-auto mb-3" />
                         <p className="text-[14px] text-[#1E2A3A] mb-1">
                           파일을 여기에 드래그하거나 클릭하여 업로드
@@ -918,7 +967,11 @@ export function FirstTimeSetup() {
                 </div>
 
                 <div className="text-center">
-                  <button className="text-[12px] text-[#94A3B8] hover:text-[#64748B] transition-colors">
+                  <button
+                    type="button"
+                    onClick={handleCancelGeneration}
+                    className="text-[12px] text-[#94A3B8] hover:text-[#64748B] transition-colors"
+                  >
                     취소하고 나중에 설정하기
                   </button>
                 </div>

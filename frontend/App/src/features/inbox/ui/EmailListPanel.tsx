@@ -1,19 +1,35 @@
 import { EmptyState } from "../../../shared/ui/primitives/EmptyState";
 import { StatusBadge } from "../../../shared/ui/primitives/StatusBadge";
 import { emailStatusMeta } from "../../../entities/email/model/email-data";
+import type { EmailItem, EmailStatus, StatusBadgeTone } from "../../../shared/types";
 
-function getTone(status) {
-  return emailStatusMeta[status]?.tone || "neutral";
+const metaByStatus = emailStatusMeta as Record<
+  EmailStatus,
+  { label: string; tone: StatusBadgeTone; banner: string }
+>;
+
+function getTone(status: EmailStatus): StatusBadgeTone {
+  return metaByStatus[status]?.tone || "neutral";
 }
 
-export function EmailListPanel({ emails, selectedEmailId, onSelect }) {
+interface EmailListPanelProps {
+  emails: EmailItem[];
+  selectedEmailId?: string;
+  onSelect: (id: string) => void;
+}
+
+export function EmailListPanel({
+  emails,
+  selectedEmailId,
+  onSelect,
+}: EmailListPanelProps) {
   if (!emails.length) {
     return <EmptyState title="이메일이 없습니다" description="선택한 상태에 해당하는 이메일이 없습니다." />;
   }
 
   return (
     <div className="space-y-2">
-      {emails.map((email) => {
+      {emails.map((email: EmailItem) => {
         const selected = selectedEmailId === email.id;
 
         return (
@@ -42,7 +58,7 @@ export function EmailListPanel({ emails, selectedEmailId, onSelect }) {
 
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <StatusBadge label={email.category} tone="teal" />
-                  <StatusBadge label={emailStatusMeta[email.status].label} tone={getTone(email.status)} />
+                  <StatusBadge label={metaByStatus[email.status].label} tone={getTone(email.status)} />
                   {email.schedule?.detected ? <StatusBadge label="일정 감지" tone="teal" /> : null}
                 </div>
               </div>
