@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import {
   Mail,
@@ -19,6 +19,14 @@ import {
   Settings,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  businessTypeOptions,
+  categoryColorPalette,
+  getBusinessTypeLabel,
+  getRecommendedCategoriesForDomain,
+  recommendedCategoryOptions,
+  type RecommendedCategoryOption,
+} from "../../shared/config/onboarding-options";
 
 const mainSteps = [
   { id: 1, label: "이메일 연동" },
@@ -46,17 +54,6 @@ const toneOptions = [
     desc: "따뜻하고 친절한 어조",
     emoji: "😊",
   },
-];
-
-const defaultCategories = [
-  { id: "1", name: "가격문의", color: "#3B82F6" },
-  { id: "2", name: "불만접수", color: "#EF4444" },
-  { id: "3", name: "미팅요청", color: "#8B5CF6" },
-  { id: "4", name: "기술지원", color: "#F59E0B" },
-  { id: "5", name: "계약문의", color: "#10B981" },
-  { id: "6", name: "배송문의", color: "#EC4899" },
-  { id: "7", name: "환불요청", color: "#F97316" },
-  { id: "8", name: "일반문의", color: "#6366F1" },
 ];
 
 type FaqItem = {
@@ -91,6 +88,7 @@ export function FirstTimeSetup() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const generationTimeoutsRef = useRef<number[]>([]);
+  const categoryComposerRef = useRef<HTMLDivElement | null>(null);
   const [currentMainStep, setCurrentMainStep] = useState(1);
   const [currentSubStep, setCurrentSubStep] = useState(0);
 
@@ -106,8 +104,9 @@ export function FirstTimeSetup() {
   const [faqItems, setFaqItems] = useState<FaqItem[]>([]);
   const [faqDraft, setFaqDraft] = useState({ question: "", answer: "" });
   const [faqComposerOpen, setFaqComposerOpen] = useState(true);
-  const [categories, setCategories] = useState(defaultCategories);
+  const [categories, setCategories] = useState<RecommendedCategoryOption[]>([]);
   const [newCategory, setNewCategory] = useState("");
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
   // Template generation states
@@ -123,6 +122,40 @@ export function FirstTimeSetup() {
   };
 
   useEffect(() => clearGenerationTimeouts, []);
+
+  useEffect(() => {
+    setCategories(getRecommendedCategoriesForDomain(businessType));
+    setNewCategory("");
+    setCategoryDropdownOpen(false);
+  }, [businessType]);
+
+  useEffect(() => {
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (!categoryComposerRef.current?.contains(event.target as Node)) {
+        setCategoryDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, []);
+
+  const availableCategorySuggestions = recommendedCategoryOptions.filter(
+    (option) => !categories.some((category) => category.name === option.name),
+  );
+
+  const groupedCategorySuggestions = useMemo(
+    () =>
+      businessTypeOptions
+        .map((option) => ({
+          businessType: option,
+          items: availableCategorySuggestions.filter(
+            (category) => category.domain === option.value,
+          ),
+        }))
+        .filter((group) => group.items.length > 0),
+    [availableCategorySuggestions],
+  );
 
   const handleEmailConnect = () => {
     setConnectedEmail("user@gmail.com");
@@ -187,25 +220,36 @@ export function FirstTimeSetup() {
   };
 
   const handleAddCategory = () => {
-    if (newCategory.trim()) {
-      const colors = [
-        "#3B82F6",
-        "#EF4444",
-        "#8B5CF6",
-        "#F59E0B",
-        "#10B981",
-        "#EC4899",
-      ];
+    const categoryName = newCategory.trim();
+
+    if (categoryName) {
+      if (categories.some((category) => category.name === categoryName)) {
+        toast.error("이미 추가된 카테고리입니다.");
+        return;
+      }
+
+      const recommendedCategory = availableCategorySuggestions.find(
+        (option) => option.name === categoryName,
+      );
+
       setCategories([
         ...categories,
-        {
+        recommendedCategory ?? {
           id: Date.now().toString(),
-          name: newCategory.trim(),
-          color: colors[Math.floor(Math.random() * colors.length)],
+          name: categoryName,
+          domain: businessType || "사용자 정의",
+          color: categoryColorPalette[Math.floor(Math.random() * categoryColorPalette.length)],
         },
       ]);
       setNewCategory("");
+      setCategoryDropdownOpen(false);
     }
+  };
+
+  const handleSelectSuggestedCategory = (category: RecommendedCategoryOption) => {
+    setCategories((current) => [...current, category]);
+    setNewCategory("");
+    setCategoryDropdownOpen(false);
   };
 
   const handleFaqDraftChange = (
@@ -456,16 +500,13 @@ export function FirstTimeSetup() {
                           className="w-full px-4 py-2.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-[14px] text-[#1E2A3A] outline-none focus:ring-2 focus:ring-[#2DD4BF]/30 focus:border-[#2DD4BF]"
                         >
                           <option value="">선택하세요</option>
-                          <option value="saas">SaaS / 소프트웨어</option>
-                          <option value="ecommerce">이커머스</option>
-                          <option value="consulting">컨설팅</option>
-                          <option value="manufacturing">제조업</option>
-                          <option value="finance">금융 / 보험</option>
-                          <option value="healthcare">헬스케어</option>
-                          <option value="education">교육</option>
-                          <option value="other">기타</option>
-                        </select>
-                      </div>
+                                {businessTypeOptions.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
 
                       <div>
                         <label className="block text-[13px] text-[#1E2A3A] mb-2">
@@ -723,62 +764,116 @@ export function FirstTimeSetup() {
                           </span>
                         </div>
                         <p className="text-[14px] text-[#94A3B8]">
-                          AI가 분석한 추천 카테고리입니다. 추가하거나 삭제할 수
-                          있습니다.
+                          선택한 업종 / 비즈니스 유형에 해당하는 카테고리는 기본 등록되며, 다른 업종의 카테고리도 추가할 수 있습니다.
                         </p>
                       </div>
 
-                      <div className="flex flex-wrap gap-2">
-                        {categories.map((cat) => (
-                          <span
-                            key={cat.id}
-                            className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-[#E2E8F0] rounded-lg group hover:border-[#CBD5E1] transition-colors"
-                          >
-                            <span
-                              className="w-2.5 h-2.5 rounded-full"
-                              style={{ backgroundColor: cat.color }}
-                            />
-                            <span className="text-[13px] text-[#1E2A3A]">
-                              {cat.name}
-                            </span>
-                            <button
-                              onClick={() => handleRemoveCategory(cat.id)}
-                              className="text-[#CBD5E1] hover:text-[#EF4444] transition-colors"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </span>
-                        ))}
+                      <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3 text-[13px] text-[#64748B]">
+                        선택한 업종 / 비즈니스 유형:{" "}
+                        <span className="font-medium text-[#1E2A3A]">
+                          {businessType ? getBusinessTypeLabel(businessType) : "아직 선택되지 않음"}
+                        </span>
                       </div>
 
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={newCategory}
-                          onChange={(e) => setNewCategory(e.target.value)}
-                          onKeyDown={(e) =>
-                            e.key === "Enter" && handleAddCategory()
-                          }
-                          placeholder="새 카테고리 추가..."
-                          className="flex-1 px-4 py-2.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-[14px] text-[#1E2A3A] placeholder:text-[#94A3B8] outline-none focus:ring-2 focus:ring-[#2DD4BF]/30 focus:border-[#2DD4BF]"
-                        />
-                        <button
-                          onClick={handleAddCategory}
-                          className="px-4 py-2.5 bg-[#1E2A3A] text-white rounded-xl hover:bg-[#2A3A4E] transition-colors flex items-center gap-2"
-                        >
-                          <Plus className="w-4 h-4" />
-                          <span className="text-[13px] hidden sm:inline">
-                            추가
-                          </span>
-                        </button>
+                      {categories.length ? (
+                        <div className="flex flex-wrap gap-2">
+                          {categories.map((cat) => (
+                            <span
+                              key={cat.id}
+                              className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-[#E2E8F0] rounded-lg group hover:border-[#CBD5E1] transition-colors"
+                            >
+                              <span
+                                className="w-2.5 h-2.5 rounded-full"
+                                style={{ backgroundColor: cat.color }}
+                              />
+                              <span className="rounded-full bg-[#F8FAFC] px-2 py-0.5 text-[10px] font-medium text-[#64748B]">
+                                {getBusinessTypeLabel(cat.domain)}
+                              </span>
+                              <span className="text-[13px] text-[#1E2A3A]">{cat.name}</span>
+                              <button
+                                onClick={() => handleRemoveCategory(cat.id)}
+                                className="text-[#CBD5E1] hover:text-[#EF4444] transition-colors"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="rounded-xl border border-dashed border-[#D7E0EB] bg-[#F8FAFC] px-4 py-6 text-center text-[13px] text-[#94A3B8]">
+                          먼저 비즈니스 설정에서 업종 / 비즈니스 유형을 선택하면 해당 업종의 추천 카테고리가 표시됩니다.
+                        </div>
+                      )}
+
+                      <div ref={categoryComposerRef} className="relative space-y-2">
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={newCategory}
+                            onChange={(e) => setNewCategory(e.target.value)}
+                            onKeyDown={(e) =>
+                              e.key === "Enter" && handleAddCategory()
+                            }
+                            onFocus={() => setCategoryDropdownOpen(true)}
+                            onClick={() => setCategoryDropdownOpen(true)}
+                            placeholder="새 카테고리 추가..."
+                            className="flex-1 px-4 py-2.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-[14px] text-[#1E2A3A] placeholder:text-[#94A3B8] outline-none focus:ring-2 focus:ring-[#2DD4BF]/30 focus:border-[#2DD4BF]"
+                          />
+                          <button
+                            onClick={handleAddCategory}
+                            className="px-4 py-2.5 bg-[#1E2A3A] text-white rounded-xl hover:bg-[#2A3A4E] transition-colors flex items-center gap-2"
+                          >
+                            <Plus className="w-4 h-4" />
+                            <span className="text-[13px] hidden sm:inline">
+                              추가
+                            </span>
+                          </button>
+                        </div>
+                        {categoryDropdownOpen ? (
+                          <div className="scrollbar-soft absolute left-0 right-0 top-full z-20 mt-2 max-h-[320px] overflow-y-auto rounded-xl border border-[#E2E8F0] bg-white p-3 shadow-xl">
+                            <p className="mb-3 text-[12px] font-medium text-[#64748B]">
+                              추천 카테고리
+                            </p>
+                            {groupedCategorySuggestions.length ? (
+                              <div className="space-y-3">
+                                {groupedCategorySuggestions.map((group) => (
+                                  <div key={group.businessType.value}>
+                                    <p className="mb-2 text-[11px] font-semibold text-[#94A3B8]">
+                                      {group.businessType.label}
+                                    </p>
+                                    <div className="flex flex-wrap gap-2">
+                                      {group.items.map((option) => (
+                                        <button
+                                          key={option.id}
+                                          type="button"
+                                          className="rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-1.5 text-[12px] text-[#1E2A3A] transition hover:border-[#2DD4BF] hover:bg-[#F0FDFA]"
+                                          onClick={() => handleSelectSuggestedCategory(option)}
+                                        >
+                                          {option.name}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-[12px] text-[#94A3B8]">
+                                추천할 카테고리가 더 없습니다. 직접 입력해서 추가할 수 있습니다.
+                              </p>
+                            )}
+                          </div>
+                        ) : null}
+                        <p className="text-[12px] text-[#94A3B8]">
+                          입력창을 클릭하면 아직 추가하지 않은 다른 업종의 추천 카테고리도 함께 표시됩니다. 직접 입력해서 임의 카테고리를 추가할 수도 있습니다.
+                        </p>
                       </div>
 
                       <div className="bg-[#F8FAFC] rounded-xl p-5 border border-[#E2E8F0]">
                         <p className="text-[13px] text-[#64748B] mb-3">
                           카테고리 미리보기
                         </p>
-                        <div className="space-y-2">
-                          {categories.slice(0, 4).map((cat) => (
+                        <div className="scrollbar-soft max-h-[320px] space-y-2 overflow-y-auto pr-1">
+                          {categories.map((cat) => (
                             <div
                               key={cat.id}
                               className="flex items-center gap-3 p-3 bg-white rounded-lg border border-[#E2E8F0]"
@@ -792,7 +887,7 @@ export function FirstTimeSetup() {
                                   {cat.name}
                                 </p>
                                 <p className="text-[11px] text-[#94A3B8]">
-                                  자동 매칭 키워드가 설정됩니다
+                                  {getBusinessTypeLabel(cat.domain)} 기준 추천 카테고리
                                 </p>
                               </div>
                               <span className="text-[11px] text-[#94A3B8]">
@@ -800,6 +895,11 @@ export function FirstTimeSetup() {
                               </span>
                             </div>
                           ))}
+                          {!categories.length ? (
+                            <div className="rounded-lg border border-dashed border-[#D7E0EB] bg-white px-4 py-5 text-center text-[12px] text-[#94A3B8]">
+                              선택된 업종 / 비즈니스 유형이 없어서 미리보기를 표시할 수 없습니다.
+                            </div>
+                          ) : null}
                         </div>
                       </div>
                     </div>

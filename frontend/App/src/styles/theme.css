@@ -39,6 +39,9 @@
   --sidebar-accent-foreground: #F8FAFC;
   --sidebar-border: #334155;
   --sidebar-ring: #2DD4BF;
+  --scrollbar-track: #EEF4F8;
+  --scrollbar-thumb: #CBD5E1;
+  --scrollbar-thumb-hover: #94A3B8;
 }
 
 .dark {
@@ -78,6 +81,9 @@
   --sidebar-accent-foreground: #F8FAFC;
   --sidebar-border: #334155;
   --sidebar-ring: #2DD4BF;
+  --scrollbar-track: #162033;
+  --scrollbar-thumb: #475569;
+  --scrollbar-thumb-hover: #64748B;
 }
 
 @theme inline {
@@ -286,5 +292,30 @@
     display: none;
     width: 0;
     height: 0;
+  }
+
+  .scrollbar-soft {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  }
+
+  .scrollbar-soft::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  .scrollbar-soft::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+    border-radius: 999px;
+  }
+
+  .scrollbar-soft::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-thumb);
+    border: 2px solid var(--scrollbar-track);
+    border-radius: 999px;
+  }
+
+  .scrollbar-soft::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scrollbar-thumb-hover);
   }
 }

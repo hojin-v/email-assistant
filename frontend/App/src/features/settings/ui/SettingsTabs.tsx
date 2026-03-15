@@ -5,6 +5,7 @@ const tabs = [
   { id: "notifications", label: "알림" },
   { id: "display", label: "화면" },
   { id: "email", label: "이메일 연동" },
+  { id: "support", label: "관리자 문의" },
 ] as const satisfies ReadonlyArray<{ id: SettingsTabId; label: string }>;
 
 interface SettingsTabsProps {
