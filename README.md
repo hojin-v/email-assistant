@@ -1,51 +1,54 @@
 # EmailAssist
 
-이 저장소는 `email_assistant` 원격을 기준으로 관리하는 통합 저장소입니다.
+EmailAssist는 반복적인 업무용 이메일 처리를 줄이기 위한 AI 기반 이메일 자동화 서비스입니다.  
+수신 메일을 분류하고, 상황에 맞는 답변 초안을 제안하며, 일정 관련 메일은 캘린더 등록까지 이어질 수 있도록 설계되어 있습니다.
 
-## 폴더 구조
+## 서비스 소개
+
+이 서비스는 메일함을 단순히 보여주는 도구가 아니라, 실제 업무 흐름을 줄이는 보조 운영 도구를 목표로 합니다.
+
+- 메일 카테고리 분류
+- 답변 템플릿 추천 및 생성
+- 비즈니스 정보 기반 맞춤 응답
+- 일정 감지 및 캘린더 반영
+- 자동화 규칙과 템플릿 승인 운영
+
+## 사용자용 앱
+
+`frontend/App`은 실사용자를 위한 이메일 업무 화면입니다.
+
+- `Inbox`: 수신 메일 확인, 초안 검토, 발송/건너뛰기
+- `Template Library`: 카테고리별 템플릿 조회, 생성, 수정
+- `Calendar`: 일정 감지 결과 확인 및 일정 관리
+- `Automation`: 자동 분류/자동화 규칙 설정
+- `Business Profile`: 회사 정보, FAQ, 자료 업로드 기반 응답 품질 개선
+- `Settings`: 계정, 알림, 이메일 연동 설정
+
+초기 설정 화면에서는 이메일 연동, 비즈니스 정보 입력, 카테고리 설정, 템플릿 생성까지 한 흐름으로 진행할 수 있습니다.
+
+## 관리자용 앱
+
+`frontend/Admin-Web`은 관리자 콘솔의 임시 프로토타입입니다.
+
+- 운영 대시보드: 도메인별 메일 비율, 하루 처리량, 자동 분류 정확도, 부서별 사용량
+- 회원 관리: 사용자 조회, 부서 관리, 템플릿 접근 권한 구조
+- 템플릿 관리: 도메인별 템플릿 현황, 정확도 통계, 승인 대기 확인
+- 사용자 문의 대응: 관리자 답변 기록과 문의 이력 관리
+
+현재 `Admin-Web`의 상세 요구사항은 아직 확정되지 않았으며, 정보구조와 화면 흐름 참고용으로 본다.
+
+## 저장소 구성
 
 - `frontend/App`: 사용자용 프론트엔드
 - `frontend/Admin-Web`: 관리자용 프론트엔드
-- `backend`: 백엔드 코드용 폴더
-- `ai`: AI 관련 코드용 폴더
-- `design`: 로컬 디자인 참고 자산
-- `EmailAssistFigma`: 로컬 Figma 작업 자산
+- `backend`: 백엔드 코드
+- `ai`: AI 관련 코드
+- `docs`: 제품 및 운영 문서
 
-## 원격 저장소 역할
+## 참고
 
-- `email_assistant`: 전체 프로젝트 저장소
-- `web_front`: 프론트엔드 전용 저장소
-
-## 운영 원칙
-
-- 평소 개발은 이 저장소에서 진행합니다.
-- 프론트 변경도 먼저 이 저장소에 커밋합니다.
-- `web_front`에는 `frontend` subtree만 반영합니다.
-- `web_front`에서 직접 작업하기보다, 이 저장소를 원본으로 유지하는 것을 권장합니다.
-
-## 자주 쓰는 명령어
-
-### 전체 저장소 push
-
-```bash
-git push
-```
-
-현재 로컬 `main`은 `email_assistant/main`을 추적합니다.
-
-### 프론트만 web_front로 반영
-
-```bash
-git subtree push --prefix=frontend web_front main
-```
-
-필요하면 먼저 split 결과만 확인할 수 있습니다.
-
-```bash
-git subtree split --prefix=frontend
-```
-
-## 비고
-
-- `frontend/.gitignore`는 프론트 전용 규칙만 관리합니다.
-- 루트 `.gitignore`는 전체 저장소 기준으로 관리합니다.
+- 아키텍처 설계: [docs/architect.md](docs/architect.md)
+- 구현 핸드오프 문서: [docs/agents.md](docs/agents.md)
+- 충돌 및 후속 정보 요청 문서: [docs/concept-conflicts.md](docs/concept-conflicts.md)
+- 문서 인덱스: [docs/README.md](docs/README.md)
+- 개발 규칙과 운영 매뉴얼: [AGENTS.md](AGENTS.md)

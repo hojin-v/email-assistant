@@ -8,6 +8,6 @@ Thumbs.db
 *.tmp
 *.cache
 
-docs/
+AGENTS.md
 
-README.md
+docs/
