@@ -11,6 +11,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";
+import { businessTypeOptions } from "../../shared/config/onboarding-options";
 import {
   Dialog,
   DialogContent,
@@ -68,7 +69,7 @@ const emptyFaqDraft: FAQDraft = {
 export function BusinessProfile() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [businessType, setBusinessType] = useState("saas");
+  const [businessType, setBusinessType] = useState("Sales");
   const [tone, setTone] = useState("neutral");
   const [description, setDescription] = useState(
     "비즈니스 이메일 자동화 SaaS 플랫폼으로, AI 기반 이메일 응답 및 템플릿 생성 기능을 제공합니다."
@@ -237,14 +238,11 @@ export function BusinessProfile() {
                 }}
                 className="w-full rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-2.5 text-[14px] text-[#1E2A3A] outline-none focus:border-[#2DD4BF] focus:ring-2 focus:ring-[#2DD4BF]/30"
               >
-                <option value="saas">SaaS / 소프트웨어</option>
-                <option value="ecommerce">이커머스</option>
-                <option value="consulting">컨설팅</option>
-                <option value="manufacturing">제조업</option>
-                <option value="finance">금융 / 보험</option>
-                <option value="healthcare">헬스케어</option>
-                <option value="education">교육</option>
-                <option value="other">기타</option>
+                {businessTypeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
               </select>
             </div>
 

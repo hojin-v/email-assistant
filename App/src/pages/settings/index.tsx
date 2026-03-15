@@ -6,6 +6,7 @@ import { AccountSettingsPanel } from "../../features/settings/ui/AccountSettings
 import { NotificationSettingsPanel } from "../../features/settings/ui/NotificationSettingsPanel";
 import { DisplaySettingsPanel } from "../../features/settings/ui/DisplaySettingsPanel";
 import { EmailIntegrationSettingsPanel } from "../../features/settings/ui/EmailIntegrationSettingsPanel";
+import { AdminInquirySettingsPanel } from "../../features/settings/ui/AdminInquirySettingsPanel";
 import type {
   DisplaySettings,
   SettingsTabId,
@@ -31,6 +32,7 @@ export function SettingsPage() {
       {activeTab === "email" ? (
         <EmailIntegrationSettingsPanel accounts={defaultSettingsState.emailAccounts} />
       ) : null}
+      {activeTab === "support" ? <AdminInquirySettingsPanel /> : null}
     </div>
   );
 }
