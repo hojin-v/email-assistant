@@ -9,7 +9,12 @@ export type StatusBadgeTone =
 
 export type SearchSectionKey = "inbox" | "calendar" | "templates";
 
-export type SettingsTabId = "account" | "notifications" | "display" | "email";
+export type SettingsTabId =
+  | "account"
+  | "notifications"
+  | "display"
+  | "email"
+  | "support";
 
 export interface SearchIndexItem {
   id: string;
