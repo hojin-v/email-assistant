@@ -1,13 +1,11 @@
 ﻿import { NavLink, Outlet } from "react-router";
-import { LayoutGrid, Users, Inbox, FileText, Settings, History } from "lucide-react";
+import { LayoutGrid, Users, FileText, MessageSquare } from "lucide-react";
 
 const navItems = [
   { to: "/", label: "운영 대시보드", icon: LayoutGrid },
-  { to: "/users", label: "사용자 관리", icon: Users },
-  { to: "/inbox-monitor", label: "수신함 모니터링", icon: Inbox },
-  { to: "/templates", label: "템플릿 운영", icon: FileText },
-  { to: "/settings", label: "운영 설정", icon: Settings },
-  { to: "/audit-log", label: "감사 로그", icon: History },
+  { to: "/members", label: "회원 관리", icon: Users },
+  { to: "/templates", label: "템플릿 관리", icon: FileText },
+  { to: "/inquiries", label: "사용자 문의 대응", icon: MessageSquare },
 ];
 
 export function AdminShell() {
@@ -18,7 +16,7 @@ export function AdminShell() {
           <div className="admin-logo-mark">EA</div>
           <div>
             <p className="admin-logo-title">EmailAssist Admin</p>
-            <p className="admin-logo-sub">임시 운영화면 v1</p>
+            <p className="admin-logo-sub">문서 기준 운영 구조</p>
           </div>
         </div>
 

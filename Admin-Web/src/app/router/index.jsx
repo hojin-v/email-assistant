@@ -1,11 +1,9 @@
-﻿import { createBrowserRouter } from "react-router";
+﻿import { createBrowserRouter, Navigate } from "react-router";
 import { AdminShell } from "../../shared/ui/AdminShell";
 import { DashboardPage } from "../../pages/dashboard";
-import { UsersPage } from "../../pages/users";
-import { InboxMonitorPage } from "../../pages/inbox-monitor";
+import { MembersPage } from "../../pages/members";
 import { TemplatesPage } from "../../pages/templates";
-import { SettingsPage } from "../../pages/settings";
-import { AuditLogPage } from "../../pages/audit-log";
+import { InquiriesPage } from "../../pages/inquiries";
 
 export const router = createBrowserRouter([
   {
@@ -13,11 +11,10 @@ export const router = createBrowserRouter([
     element: <AdminShell />,
     children: [
       { index: true, element: <DashboardPage /> },
-      { path: "users", element: <UsersPage /> },
-      { path: "inbox-monitor", element: <InboxMonitorPage /> },
+      { path: "members", element: <MembersPage /> },
       { path: "templates", element: <TemplatesPage /> },
-      { path: "settings", element: <SettingsPage /> },
-      { path: "audit-log", element: <AuditLogPage /> },
+      { path: "inquiries", element: <InquiriesPage /> },
+      { path: "*", element: <Navigate to="/" replace /> },
     ],
   },
 ]);
