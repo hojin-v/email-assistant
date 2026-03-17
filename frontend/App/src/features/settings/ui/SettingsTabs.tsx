@@ -23,8 +23,8 @@ export function SettingsTabs({ activeTab, onChange }: SettingsTabsProps) {
             type="button"
             className={`border-b-2 pb-3 text-sm transition ${
               activeTab === tab.id
-                ? "border-[#2DD4BF] text-[#0F766E]"
-                : "border-transparent text-slate-400"
+                ? "border-[#2DD4BF] text-[#0F766E] dark:border-[#115E59] dark:text-[#5EEAD4]"
+                : "border-transparent text-slate-400 dark:text-muted-foreground"
             }`}
             onClick={() => onChange(tab.id)}
           >

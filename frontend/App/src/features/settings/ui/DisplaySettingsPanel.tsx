@@ -15,7 +15,7 @@ function WidgetToggle({ checked, onToggle }: WidgetToggleProps) {
       type="button"
       aria-pressed={checked}
       className={`relative inline-flex h-7 w-12 items-center rounded-full p-1 transition ${
-        checked ? "bg-[#2DD4BF]" : "bg-[#CBD5E1]"
+        checked ? "bg-[#2DD4BF] dark:bg-[#0F766E]" : "bg-[#CBD5E1] dark:bg-[#334155]"
       }`}
       onClick={onToggle}
     >
@@ -54,16 +54,16 @@ export function DisplaySettingsPanel({ display }: DisplaySettingsPanelProps) {
                 aria-pressed={isActive}
                 className={`rounded-[18px] border p-4 transition ${
                   isActive
-                    ? "border-[#2DD4BF] shadow-[0_0_0_1px_rgba(45,212,191,0.15)]"
-                    : "border-border hover:border-[#CBD5E1]"
+                    ? "border-[#2DD4BF] shadow-[0_0_0_1px_rgba(45,212,191,0.15)] dark:border-[#115E59] dark:shadow-[0_0_0_1px_rgba(15,118,110,0.3)]"
+                    : "border-border hover:border-[#CBD5E1] dark:hover:border-[#475569]"
                 }`}
                 onClick={() => setTheme(themeOption)}
               >
                 <div
                   className={`flex h-[112px] items-center justify-center rounded-[14px] border ${
                     isLight
-                      ? "border-[#E2E8F0] bg-white"
-                      : "border-[#223147] bg-[#1E2A3A]"
+                      ? "border-[#E2E8F0] bg-white dark:border-[#334155] dark:bg-[#131D2F]"
+                      : "border-[#223147] bg-[#1E2A3A] dark:border-[#314158] dark:bg-[#08111F]"
                   }`}
                 >
                   {isLight ? (
@@ -73,7 +73,7 @@ export function DisplaySettingsPanel({ display }: DisplaySettingsPanelProps) {
                   )}
                 </div>
 
-                <p className="mt-3 text-center text-sm font-semibold text-[#475569]">
+                <p className="mt-3 text-center text-sm font-semibold text-[#475569] dark:text-foreground">
                   {isLight ? "라이트" : "다크"}
                 </p>
               </button>
@@ -92,11 +92,11 @@ export function DisplaySettingsPanel({ display }: DisplaySettingsPanelProps) {
           {widgets.map((widget: DisplayWidget) => (
             <div
               key={widget.id}
-              className="flex items-center justify-between rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3"
+              className="flex items-center justify-between rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3 dark:border-border dark:bg-[#131D2F]"
             >
               <div className="flex items-center gap-3">
-                <GripVertical className="h-4 w-4 text-[#94A3B8]" />
-                <span className="text-sm font-medium text-[#334155]">{widget.label}</span>
+                <GripVertical className="h-4 w-4 text-[#94A3B8] dark:text-muted-foreground" />
+                <span className="text-sm font-medium text-[#334155] dark:text-foreground">{widget.label}</span>
               </div>
 
               <WidgetToggle
@@ -117,7 +117,7 @@ export function DisplaySettingsPanel({ display }: DisplaySettingsPanelProps) {
       <div className="flex justify-end">
         <button
           type="button"
-          className="rounded-xl bg-[#1E2A3A] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#2A3A4E]"
+          className="app-cta-primary rounded-xl px-5 py-2.5 text-sm font-medium"
           onClick={() => toast.success("화면 설정을 저장했습니다.")}
         >
           저장

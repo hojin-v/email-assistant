@@ -80,8 +80,8 @@ function renderDraftText(text: string, highlight: boolean) {
     const type = variableTypeByToken[part] || "auto";
     const className =
       type === "required"
-        ? "rounded-md bg-[#FEF3C7] px-1.5 py-0.5 text-[#D97706]"
-        : "rounded-md bg-[#E6FAF8] px-1.5 py-0.5 text-[#0F766E]";
+        ? "rounded-md bg-[#FEF3C7] px-1.5 py-0.5 text-[#D97706] dark:bg-[#2A1D10] dark:text-[#F4C98A]"
+        : "rounded-md bg-[#E6FAF8] px-1.5 py-0.5 text-[#0F766E] dark:bg-[#0B2728] dark:text-[#5EEAD4]";
 
     return (
       <span key={`${part}-${index}`} className={className}>
@@ -103,7 +103,7 @@ function StatusBanner({ status, sentTime }: StatusBannerProps) {
 
   if (status === "completed") {
     return (
-      <div className="inline-flex items-center gap-2 rounded-full bg-[#DCFCE7] px-3 py-1 text-xs font-medium text-[#15803D]">
+      <div className="app-success-pill inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium">
         <CheckCircle2 className="h-3.5 w-3.5" />
         처리 완료 · {sentTime} 발송됨
       </div>
@@ -112,7 +112,7 @@ function StatusBanner({ status, sentTime }: StatusBannerProps) {
 
   if (status === "auto-sent") {
     return (
-      <div className="inline-flex items-center gap-2 rounded-full bg-[#DCFCE7] px-3 py-1 text-xs font-medium text-[#15803D]">
+      <div className="app-success-pill inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium">
         <Send className="h-3.5 w-3.5" />
         자동 발송됨 · {sentTime}
       </div>
@@ -158,27 +158,27 @@ export function DraftPanel({
   return (
     <div className="flex h-full flex-col">
       <div className="mb-4 flex items-start gap-3">
-        <span className="mt-1 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#CCFBF1] text-[#0F766E]">
+        <span className="mt-1 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#CCFBF1] text-[#0F766E] dark:bg-[#0B2728] dark:text-[#5EEAD4]">
           <FileText className="h-4 w-4" />
         </span>
 
         <div className="min-w-0">
-          <p className="text-base font-semibold text-[#1E2A3A]">{getPanelTitle(email.status)}</p>
+          <p className="text-base font-semibold text-[#1E2A3A] dark:text-foreground">{getPanelTitle(email.status)}</p>
           {getPanelDescription(email.status) ? (
-            <p className="mt-1 text-xs text-[#94A3B8]">{getPanelDescription(email.status)}</p>
+            <p className="mt-1 text-xs text-[#94A3B8] dark:text-muted-foreground">{getPanelDescription(email.status)}</p>
           ) : null}
         </div>
       </div>
 
-      <div className="rounded-xl bg-[#F3F4F6] px-3 py-2">
+      <div className="app-soft-panel rounded-xl px-3 py-2">
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2">
-            <FileText className="h-3.5 w-3.5 shrink-0 text-[#94A3B8]" />
-            <span className="truncate text-xs text-[#64748B]">{templateName}</span>
+            <FileText className="h-3.5 w-3.5 shrink-0 text-[#94A3B8] dark:text-muted-foreground" />
+            <span className="truncate text-xs text-[#64748B] dark:text-muted-foreground">{templateName}</span>
           </div>
           <button
             type="button"
-            className="shrink-0 text-xs font-medium text-[#14B8A6]"
+            className="shrink-0 text-xs font-medium text-[#14B8A6] dark:text-[#5EEAD4]"
             onClick={handleOpenTemplate}
           >
             템플릿 보기 →
@@ -192,34 +192,34 @@ export function DraftPanel({
         </div>
       ) : (
         <div className="mt-4 flex flex-wrap items-center gap-4 border-y border-border py-3 text-xs">
-          <span className="inline-flex items-center gap-1.5 text-[#14B8A6]">
+          <span className="inline-flex items-center gap-1.5 text-[#14B8A6] dark:text-[#5EEAD4]">
             <CheckCircle2 className="h-3.5 w-3.5" />
             자동 완성 {counts.auto}개
           </span>
-          <span className="inline-flex items-center gap-1.5 text-[#F59E0B]">
+          <span className="inline-flex items-center gap-1.5 text-[#F59E0B] dark:text-[#F4C98A]">
             <AlertTriangle className="h-3.5 w-3.5" />
             입력 필요 {counts.required}개
           </span>
         </div>
       )}
 
-      <div className={`mt-4 rounded-2xl border border-border bg-white ${readonly ? "opacity-85" : ""}`}>
+      <div className={`mt-4 rounded-2xl border border-border bg-card ${readonly ? "opacity-85" : ""}`}>
         <div className="space-y-4 border-b border-border px-4 py-4">
           <div>
-            <p className="text-[11px] font-medium text-[#94A3B8]">받는 사람</p>
-            <p className="mt-1 text-sm text-[#1E2A3A]">
+            <p className="text-[11px] font-medium text-[#94A3B8] dark:text-muted-foreground">받는 사람</p>
+            <p className="mt-1 text-sm text-[#1E2A3A] dark:text-foreground">
               {email.sender} &lt;{email.senderEmail}&gt;
             </p>
           </div>
 
           <div>
-            <p className="text-[11px] font-medium text-[#94A3B8]">제목</p>
-            <p className="mt-1 text-sm text-[#1E2A3A]">Re: {email.subject}</p>
+            <p className="text-[11px] font-medium text-[#94A3B8] dark:text-muted-foreground">제목</p>
+            <p className="mt-1 text-sm text-[#1E2A3A] dark:text-foreground">Re: {email.subject}</p>
           </div>
         </div>
 
         <div className="px-4 py-4">
-          <div className="whitespace-pre-wrap text-sm leading-8 text-[#475569]">
+          <div className="whitespace-pre-wrap text-sm leading-8 text-[#475569] dark:text-muted-foreground">
             {renderDraftText(email.draft, !readonly)}
           </div>
         </div>
@@ -230,7 +230,7 @@ export function DraftPanel({
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              className="inline-flex min-w-[126px] items-center justify-center gap-2 rounded-xl bg-[#2DD4BF] px-4 py-2.5 text-sm font-medium text-[#1E2A3A] transition hover:bg-[#14B8A6]"
+              className="app-cta-accent inline-flex min-w-[126px] items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium"
               onClick={() => {
                 if (onSend) {
                   onSend();
@@ -245,7 +245,7 @@ export function DraftPanel({
 
             <button
               type="button"
-              className="inline-flex min-w-[126px] items-center justify-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-[#64748B] transition hover:border-[#CBD5E1] hover:text-[#1E2A3A]"
+              className="app-secondary-button inline-flex min-w-[126px] items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium"
               onClick={() => {
                 if (onEditSend) {
                   onEditSend();
@@ -261,7 +261,7 @@ export function DraftPanel({
 
           <button
             type="button"
-            className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-[#94A3B8] transition hover:text-[#64748B]"
+            className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-[#94A3B8] transition hover:text-[#64748B] dark:text-muted-foreground dark:hover:text-foreground"
             onClick={() => {
               if (onSkip) {
                 onSkip();
@@ -276,7 +276,7 @@ export function DraftPanel({
         </div>
       )}
 
-      <p className="mt-3 text-xs text-[#94A3B8]">{meta.banner}</p>
+      <p className="mt-3 text-xs text-[#94A3B8] dark:text-muted-foreground">{meta.banner}</p>
     </div>
   );
 }

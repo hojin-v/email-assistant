@@ -43,16 +43,18 @@ export function ScheduleDetectionCard({
   };
 
   return (
-    <div className="rounded-2xl border border-[#E9D5FF] bg-[#FAF5FF] p-5">
-      <p className="flex items-center gap-2 text-sm font-semibold text-[#8B5CF6]">
+    <div className="app-violet-card rounded-2xl border p-5">
+      <p className="app-violet-text flex items-center gap-2 text-sm font-semibold">
         <Sparkles className="h-4 w-4" />
         AI가 일정 정보를 감지했습니다
       </p>
 
       <div className="mt-4">
-        <h3 className="text-base font-semibold text-[#1E2A3A]">{detectedSchedule.title}</h3>
+        <h3 className="text-base font-semibold text-[#1E2A3A] dark:text-foreground">
+          {detectedSchedule.title}
+        </h3>
 
-        <div className="mt-4 space-y-2 text-sm text-[#64748B]">
+        <div className="mt-4 space-y-2 text-sm text-[#64748B] dark:text-muted-foreground">
           <p className="flex items-center gap-2">
             <Clock3 className="h-4 w-4" />
             {detectedSchedule.suggestedDate} {detectedSchedule.suggestedTime} ({detectedSchedule.duration})
@@ -75,7 +77,7 @@ export function ScheduleDetectionCard({
       <div className="mt-5 flex flex-wrap gap-2">
         <button
           type="button"
-          className="rounded-xl bg-[#8B5CF6] px-4 py-2 text-xs font-medium text-white transition hover:bg-[#7C3AED]"
+          className="rounded-xl bg-[#8B5CF6] px-4 py-2 text-xs font-medium text-white transition hover:bg-[#7C3AED] dark:bg-[#46306B] dark:text-[#F5F3FF] dark:hover:bg-[#523A7C]"
           onClick={() => {
             navigate("/app/calendar", {
               state: {
@@ -89,7 +91,7 @@ export function ScheduleDetectionCard({
         </button>
         <button
           type="button"
-          className="rounded-xl border border-[#D8B4FE] bg-white px-4 py-2 text-xs font-medium text-[#8B5CF6] transition hover:bg-[#F5F3FF]"
+          className="app-secondary-button app-violet-text rounded-xl border px-4 py-2 text-xs font-medium hover:bg-[#F5F3FF]"
           onClick={() => {
             navigate("/app/calendar", {
               state: {
@@ -103,7 +105,7 @@ export function ScheduleDetectionCard({
         </button>
         <button
           type="button"
-          className="rounded-xl px-1 py-2 text-xs font-medium text-[#94A3B8] transition hover:text-[#64748B]"
+          className="rounded-xl px-1 py-2 text-xs font-medium text-[#94A3B8] transition hover:text-[#64748B] dark:text-muted-foreground dark:hover:text-foreground"
           onClick={() => {
             setDismissed(true);
             toast("이 이메일의 일정 감지를 무시했습니다.");

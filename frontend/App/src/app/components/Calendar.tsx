@@ -487,15 +487,15 @@ export function Calendar() {
         <div className="scrollbar-none min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-4 lg:px-6 lg:py-5">
           <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             {pendingEvents.length > 0 ? (
-              <div className="flex items-start gap-3 rounded-xl border border-[#FFEDD5] bg-[#FFF7ED] p-4 lg:max-w-[640px]">
-                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#F59E0B]/15">
+              <div className="app-warning-card flex items-start gap-3 rounded-xl border p-4 lg:max-w-[640px]">
+                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#F59E0B]/15 dark:bg-[#2F220F]">
                   <Sparkles className="h-4 w-4 text-[#F59E0B]" />
                 </div>
                 <div className="flex-1">
-                  <p className="mb-0.5 text-[13px] text-[#92400E]">
+                  <p className="mb-0.5 text-[13px]">
                     확인 대기 중인 일정이 {pendingEvents.length}건 있습니다
                   </p>
-                  <p className="text-[11px] text-[#B45309]">
+                  <p className="app-warning-subtle text-[11px]">
                     이메일에서 AI가 감지한 일정입니다. 확인하고 캘린더에 확정하세요.
                   </p>
                 </div>
@@ -504,7 +504,7 @@ export function Calendar() {
 
             <button
               onClick={openCreateDialog}
-              className={`flex items-center gap-2 rounded-lg bg-[#2DD4BF] px-4 py-2.5 text-[#1E2A3A] shadow-sm transition-colors hover:bg-[#14B8A6] ${
+              className={`app-cta-accent flex items-center gap-2 rounded-lg px-4 py-2.5 shadow-sm ${
                 pendingEvents.length > 0 ? "self-start lg:self-auto" : "self-end"
               }`}
             >
@@ -513,26 +513,26 @@ export function Calendar() {
             </button>
           </div>
 
-          <div className="w-full overflow-hidden rounded-xl border border-[#E2E8F0] bg-white shadow-sm">
-            <div className="flex items-center justify-between border-b border-[#E2E8F0] p-4">
+          <div className="w-full overflow-hidden rounded-xl border border-[#E2E8F0] bg-card shadow-sm dark:border-border">
+            <div className="flex items-center justify-between border-b border-[#E2E8F0] p-4 dark:border-border">
               <button
                 onClick={() => changeMonth(-1)}
-                className="rounded-lg p-2 text-[#64748B] transition-colors hover:bg-[#F1F5F9]"
+                className="rounded-lg p-2 text-[#64748B] transition-colors hover:bg-[#F1F5F9] dark:text-muted-foreground dark:hover:bg-[#1E293B]"
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
-              <h3 className="text-[#1E2A3A]">
+              <h3 className="text-[#1E2A3A] dark:text-foreground">
                 {currentYear}년 {MONTHS_KR[currentMonth]}
               </h3>
               <button
                 onClick={() => changeMonth(1)}
-                className="rounded-lg p-2 text-[#64748B] transition-colors hover:bg-[#F1F5F9]"
+                className="rounded-lg p-2 text-[#64748B] transition-colors hover:bg-[#F1F5F9] dark:text-muted-foreground dark:hover:bg-[#1E293B]"
               >
                 <ChevronRight className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="grid w-full grid-cols-7 bg-[#F8FAFC]">
+            <div className="grid w-full grid-cols-7 bg-[#F8FAFC] dark:bg-[#111A28]">
               {DAYS_KR.map((day) => (
                 <div
                   key={day}
@@ -553,7 +553,7 @@ export function Calendar() {
               {Array.from({ length: firstDay }).map((_, index) => (
                 <div
                   key={`empty-${index}`}
-                  className="h-[92px] border-r border-t border-[#F1F5F9] bg-[#FAFBFC] lg:h-[112px]"
+                  className="h-[92px] border-r border-t border-[#F1F5F9] bg-[#FAFBFC] dark:border-border dark:bg-[#101826] lg:h-[112px]"
                 />
               ))}
 
@@ -573,21 +573,21 @@ export function Calendar() {
                       setSelectedDate(dateStr);
                       setSelectedEventId(null);
                     }}
-                    className={`relative h-[92px] border-r border-t border-[#F1F5F9] p-1.5 text-left transition-colors lg:h-[112px] ${
+                    className={`relative h-[92px] border-r border-t border-[#F1F5F9] p-1.5 text-left transition-colors dark:border-border lg:h-[112px] ${
                       isSelected
-                        ? "bg-[#2DD4BF]/5 ring-2 ring-inset ring-[#2DD4BF]/30"
-                        : "hover:bg-[#F8FAFC]"
+                        ? "bg-[#2DD4BF]/5 ring-2 ring-inset ring-[#2DD4BF]/30 dark:bg-[#0B2728] dark:ring-[#115E59]"
+                        : "hover:bg-[#F8FAFC] dark:hover:bg-[#131D2F]"
                     }`}
                   >
                     <span
                       className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-[13px] ${
                         isToday
-                          ? "bg-[#1E2A3A] text-white"
+                          ? "bg-[#1E2A3A] text-white dark:bg-[#18263A]"
                           : dayOfWeek === 0
                           ? "text-[#EF4444]"
                           : dayOfWeek === 6
                           ? "text-[#3B82F6]"
-                          : "text-[#1E2A3A]"
+                          : "text-[#1E2A3A] dark:text-foreground"
                       }`}
                     >
                       {day}
@@ -626,7 +626,7 @@ export function Calendar() {
                         </div>
                       ))}
                       {dayEvents.length > 2 ? (
-                        <span className="px-1.5 text-[10px] text-[#94A3B8]">
+                        <span className="px-1.5 text-[10px] text-[#94A3B8] dark:text-muted-foreground">
                           +{dayEvents.length - 2}개 더
                         </span>
                       ) : null}
@@ -638,21 +638,21 @@ export function Calendar() {
               {Array.from({ length: trailingDays }).map((_, index) => (
                 <div
                   key={`trailing-${index}`}
-                  className="h-[92px] border-r border-t border-[#F1F5F9] bg-[#FAFBFC] lg:h-[112px]"
+                  className="h-[92px] border-r border-t border-[#F1F5F9] bg-[#FAFBFC] dark:border-border dark:bg-[#101826] lg:h-[112px]"
                 />
               ))}
             </div>
           </div>
         </div>
 
-        <div className="scrollbar-none min-h-0 shrink-0 overflow-y-auto border-l border-[#E2E8F0] bg-white lg:w-[360px] xl:w-[400px]">
+        <div className="scrollbar-none min-h-0 shrink-0 overflow-y-auto border-l border-[#E2E8F0] bg-card dark:border-border lg:w-[360px] xl:w-[400px]">
           {selectedEvent ? (
             <div>
-              <div className="flex items-center justify-between border-b border-[#E2E8F0] p-4">
-                <h3 className="text-[14px] text-[#1E2A3A]">일정 상세</h3>
+              <div className="flex items-center justify-between border-b border-[#E2E8F0] p-4 dark:border-border">
+                <h3 className="text-[14px] text-[#1E2A3A] dark:text-foreground">일정 상세</h3>
                 <button
                   onClick={() => setSelectedEventId(null)}
-                  className="rounded-lg p-1.5 text-[#94A3B8] hover:bg-[#F1F5F9]"
+                  className="rounded-lg p-1.5 text-[#94A3B8] hover:bg-[#F1F5F9] dark:text-muted-foreground dark:hover:bg-[#1E293B]"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -666,28 +666,28 @@ export function Calendar() {
                       style={{ backgroundColor: selectedEvent.color }}
                     />
                     {!selectedEvent.confirmed ? (
-                      <span className="rounded-full bg-[#FFF7ED] px-2 py-0.5 text-[10px] text-[#D97706]">
+                      <span className="app-warning-pill rounded-full px-2 py-0.5 text-[10px]">
                         확인 대기
                       </span>
                     ) : (
-                      <span className="rounded-full bg-[#F0FDF4] px-2 py-0.5 text-[10px] text-[#16A34A]">
+                      <span className="app-success-pill rounded-full px-2 py-0.5 text-[10px]">
                         확정됨
                       </span>
                     )}
                   </div>
-                  <h2 className="mb-1 text-[#1E2A3A]">{selectedEvent.title}</h2>
+                  <h2 className="mb-1 text-[#1E2A3A] dark:text-foreground">{selectedEvent.title}</h2>
                 </div>
 
-                <div className="flex items-center gap-3 rounded-lg bg-[#F8FAFC] p-3">
+                <div className="app-soft-surface flex items-center gap-3 rounded-lg p-3">
                   {(() => {
                     const TypeIcon = typeIcons[selectedEvent.type];
-                    return <TypeIcon className="h-4 w-4 text-[#64748B]" />;
+                    return <TypeIcon className="h-4 w-4 text-[#64748B] dark:text-muted-foreground" />;
                   })()}
                   <div>
-                    <p className="text-[13px] text-[#1E2A3A]">
+                    <p className="text-[13px] text-[#1E2A3A] dark:text-foreground">
                       {selectedEvent.date.replace(/-/g, ".")} {selectedEvent.startTime} - {selectedEvent.endTime}
                     </p>
-                    <p className="text-[11px] text-[#94A3B8]">
+                    <p className="text-[11px] text-[#94A3B8] dark:text-muted-foreground">
                       {typeLabels[selectedEvent.type]}
                     </p>
                   </div>
@@ -695,15 +695,15 @@ export function Calendar() {
 
                 {selectedEvent.location ? (
                   <div className="flex items-start gap-3">
-                    <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#94A3B8]" />
+                    <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#94A3B8] dark:text-muted-foreground" />
                     <div>
-                      <p className="text-[13px] text-[#1E2A3A]">
+                      <p className="text-[13px] text-[#1E2A3A] dark:text-foreground">
                         {selectedEvent.location}
                       </p>
                       {selectedEvent.type === "video" ? (
                         <button
                           onClick={openMeetingLink}
-                          className="mt-1 flex items-center gap-1 text-[11px] text-[#2DD4BF] hover:text-[#14B8A6]"
+                          className="app-accent-text mt-1 flex items-center gap-1 text-[11px] hover:text-[#14B8A6] dark:hover:text-[#7CEBDB]"
                         >
                           <ExternalLink className="h-3 w-3" />
                           회의 링크 열기
@@ -715,21 +715,21 @@ export function Calendar() {
 
                 {selectedEvent.attendees.length > 0 ? (
                   <div>
-                    <p className="mb-2 text-[11px] uppercase tracking-wider text-[#94A3B8]">
+                    <p className="mb-2 text-[11px] uppercase tracking-wider text-[#94A3B8] dark:text-muted-foreground">
                       참석자
                     </p>
                     <div className="space-y-2">
                       {selectedEvent.attendees.map((attendee) => (
                         <div key={attendee.email} className="flex items-center gap-3">
-                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1E2A3A] text-[10px] text-white">
+                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1E2A3A] text-[10px] text-white dark:bg-[#18263A]">
                             {attendee.name[0]}
                           </div>
                           <div>
-                            <p className="text-[12px] text-[#1E2A3A]">
+                            <p className="text-[12px] text-[#1E2A3A] dark:text-foreground">
                               {attendee.name}
-                              <span className="text-[#94A3B8]"> · {attendee.company}</span>
+                              <span className="text-[#94A3B8] dark:text-muted-foreground"> · {attendee.company}</span>
                             </p>
-                            <p className="text-[10px] text-[#CBD5E1]">{attendee.email}</p>
+                            <p className="text-[10px] text-[#CBD5E1] dark:text-[#64748B]">{attendee.email}</p>
                           </div>
                         </div>
                       ))}
@@ -738,23 +738,23 @@ export function Calendar() {
                 ) : null}
 
                 {selectedEvent.fromEmail ? (
-                  <div className="rounded-lg border border-[#2DD4BF]/20 bg-[#2DD4BF]/5 p-3">
+                  <div className="app-selected-surface rounded-lg border p-3">
                     <div className="mb-2 flex items-center gap-2">
-                      <Mail className="h-3.5 w-3.5 text-[#0D9488]" />
-                      <span className="text-[11px] text-[#0D9488]">
+                      <Mail className="app-accent-text h-3.5 w-3.5" />
+                      <span className="app-accent-text text-[11px]">
                         이메일에서 감지된 일정
                       </span>
                     </div>
-                    <p className="text-[12px] text-[#1E2A3A]">
+                    <p className="text-[12px] text-[#1E2A3A] dark:text-foreground">
                       {selectedEvent.fromEmail.sender}님의 이메일
                     </p>
-                    <p className="truncate text-[11px] text-[#64748B]">
+                    <p className="truncate text-[11px] text-[#64748B] dark:text-muted-foreground">
                       "{selectedEvent.fromEmail.subject}"
                     </p>
                     <button
                       type="button"
                       onClick={() => navigate("/app/inbox")}
-                      className="mt-2 text-[11px] text-[#0D9488] underline-offset-4 hover:underline"
+                      className="app-accent-text mt-2 text-[11px] underline-offset-4 hover:underline"
                     >
                       원본 이메일 보기
                     </button>
@@ -763,28 +763,28 @@ export function Calendar() {
 
                 {selectedEvent.notes ? (
                   <div>
-                    <p className="mb-2 text-[11px] uppercase tracking-wider text-[#94A3B8]">
+                    <p className="mb-2 text-[11px] uppercase tracking-wider text-[#94A3B8] dark:text-muted-foreground">
                       메모
                     </p>
-                    <p className="text-[12px] leading-relaxed text-[#64748B]">
+                    <p className="text-[12px] leading-relaxed text-[#64748B] dark:text-muted-foreground">
                       {selectedEvent.notes}
                     </p>
                   </div>
                 ) : null}
 
-                <div className="flex gap-2 border-t border-[#F1F5F9] pt-3">
+                <div className="flex gap-2 border-t border-[#F1F5F9] pt-3 dark:border-border">
                   {!selectedEvent.confirmed ? (
                     <>
                       <button
                         onClick={handleConfirmEvent}
-                        className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#2DD4BF] px-4 py-2.5 text-[13px] text-[#1E2A3A] transition-colors hover:bg-[#14B8A6]"
+                        className="app-cta-accent flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-[13px]"
                       >
                         <CalendarCheck className="h-4 w-4" />
                         일정 확정
                       </button>
                       <button
                         onClick={() => openEditDialog(selectedEvent)}
-                        className="rounded-lg border border-[#E2E8F0] px-4 py-2.5 text-[13px] text-[#64748B] transition-colors hover:bg-[#F8FAFC]"
+                        className="app-secondary-button rounded-lg px-4 py-2.5 text-[13px]"
                       >
                         수정
                       </button>
@@ -793,14 +793,14 @@ export function Calendar() {
                     <>
                       <button
                         onClick={() => openEditDialog(selectedEvent)}
-                        className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] text-[#1E2A3A] transition-colors hover:bg-[#F8FAFC]"
+                        className="app-secondary-button flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-[13px]"
                       >
                         <Pencil className="h-4 w-4" />
                         수정
                       </button>
                       <button
                         onClick={() => setDeleteTarget(selectedEvent)}
-                        className="rounded-lg border border-[#E2E8F0] px-4 py-2.5 text-[13px] text-[#EF4444] transition-colors hover:bg-[#FEF2F2]"
+                        className="app-danger-button rounded-lg px-4 py-2.5 text-[13px]"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -811,11 +811,11 @@ export function Calendar() {
             </div>
           ) : (
             <div>
-              <div className="border-b border-[#E2E8F0] p-4">
-                <h3 className="text-[14px] text-[#1E2A3A]">
+              <div className="border-b border-[#E2E8F0] p-4 dark:border-border">
+                <h3 className="text-[14px] text-[#1E2A3A] dark:text-foreground">
                   {selectedDate ? `${selectedDate.replace(/-/g, ".")} 일정` : "날짜를 선택하세요"}
                 </h3>
-                <p className="mt-0.5 text-[11px] text-[#94A3B8]">
+                <p className="mt-0.5 text-[11px] text-[#94A3B8] dark:text-muted-foreground">
                   {selectedDateEvents.length > 0
                     ? `${selectedDateEvents.length}개 일정`
                     : "등록된 일정이 없습니다"}
@@ -824,19 +824,19 @@ export function Calendar() {
 
               {selectedDateEvents.length === 0 ? (
                 <div className="px-4 py-4">
-                  <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-5">
-                    <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-white">
-                      <CalendarCheck className="h-5 w-5 text-[#CBD5E1]" />
+                  <div className="app-soft-surface rounded-xl px-4 py-5">
+                    <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-white dark:bg-[#182235]">
+                      <CalendarCheck className="h-5 w-5 text-[#CBD5E1] dark:text-muted-foreground" />
                     </div>
-                    <p className="mb-1 text-[13px] text-[#94A3B8]">
+                    <p className="mb-1 text-[13px] text-[#94A3B8] dark:text-muted-foreground">
                       이 날에는 일정이 없습니다
                     </p>
-                    <p className="text-[11px] text-[#CBD5E1]">
+                    <p className="text-[11px] text-[#CBD5E1] dark:text-[#64748B]">
                       직접 추가하거나 이메일에서 감지된 일정을 등록할 수 있습니다
                     </p>
                     <button
                       onClick={openCreateDialog}
-                      className="mt-4 rounded-lg bg-[#1E2A3A] px-4 py-2 text-[12px] text-white"
+                      className="app-cta-primary mt-4 rounded-lg px-4 py-2 text-[12px]"
                     >
                       일정 추가
                     </button>
@@ -844,14 +844,14 @@ export function Calendar() {
                 </div>
               ) : null}
 
-              <div className="divide-y divide-[#F1F5F9]">
+              <div className="divide-y divide-[#F1F5F9] dark:divide-border">
                 {selectedDateEvents.map((event) => {
                   const TypeIcon = typeIcons[event.type];
                   return (
                     <button
                       key={event.id}
                       onClick={() => setSelectedEventId(event.id)}
-                      className="w-full p-4 text-left transition-colors hover:bg-[#F8FAFC]"
+                      className="w-full p-4 text-left transition-colors hover:bg-[#F8FAFC] dark:hover:bg-[#131D2F]"
                     >
                       <div className="flex items-start gap-3">
                         <div
@@ -863,11 +863,11 @@ export function Calendar() {
                             {!event.confirmed ? (
                               <span className="h-1.5 w-1.5 rounded-full bg-[#F59E0B]" />
                             ) : null}
-                            <span className="truncate text-[13px] text-[#1E2A3A]">
+                            <span className="truncate text-[13px] text-[#1E2A3A] dark:text-foreground">
                               {event.title}
                             </span>
                           </div>
-                          <div className="flex items-center gap-3 text-[11px] text-[#94A3B8]">
+                          <div className="flex items-center gap-3 text-[11px] text-[#94A3B8] dark:text-muted-foreground">
                             <span className="flex items-center gap-1">
                               <Clock className="h-3 w-3" />
                               {event.startTime} - {event.endTime}
@@ -878,22 +878,22 @@ export function Calendar() {
                             </span>
                           </div>
                           {event.fromEmail ? (
-                            <span className="mt-1.5 inline-flex items-center gap-1 rounded bg-[#2DD4BF]/10 px-2 py-0.5 text-[10px] text-[#0D9488]">
+                            <span className="mt-1.5 inline-flex items-center gap-1 rounded bg-[#2DD4BF]/10 px-2 py-0.5 text-[10px] text-[#0D9488] dark:bg-[#0B2728] dark:text-[#5EEAD4]">
                               <Mail className="h-2.5 w-2.5" />
                               {event.fromEmail.sender}님 이메일
                             </span>
                           ) : null}
                         </div>
-                        <MoreHorizontal className="h-4 w-4 shrink-0 text-[#CBD5E1]" />
+                        <MoreHorizontal className="h-4 w-4 shrink-0 text-[#CBD5E1] dark:text-[#64748B]" />
                       </div>
                     </button>
                   );
                 })}
               </div>
 
-              <div className="border-t border-[#E2E8F0]">
+              <div className="border-t border-[#E2E8F0] dark:border-border">
                 <div className="px-4 pb-2 pt-4">
-                  <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-[#94A3B8]">
+                  <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-[#94A3B8] dark:text-muted-foreground">
                     <Sparkles className="h-3 w-3" />
                     이메일에서 감지된 일정
                   </p>
@@ -906,23 +906,23 @@ export function Calendar() {
                         setSelectedDate(event.date);
                         setSelectedEventId(event.id);
                       }}
-                      className="w-full rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-3 text-left transition-colors hover:border-[#CBD5E1]"
+                      className="w-full rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-3 text-left transition-colors hover:border-[#CBD5E1] dark:border-border dark:bg-[#131D2F] dark:hover:border-[#475569]"
                     >
                       <div className="mb-1 flex items-center gap-2">
                         <span
                           className="h-2 w-2 rounded-full"
                           style={{ backgroundColor: event.color }}
                         />
-                        <span className="flex-1 truncate text-[12px] text-[#1E2A3A]">
+                        <span className="flex-1 truncate text-[12px] text-[#1E2A3A] dark:text-foreground">
                           {event.title}
                         </span>
                         {!event.confirmed ? (
-                          <span className="rounded-full bg-[#FFF7ED] px-1.5 py-0.5 text-[9px] text-[#D97706]">
+                          <span className="app-warning-pill rounded-full px-1.5 py-0.5 text-[9px]">
                             대기
                           </span>
                         ) : null}
                       </div>
-                      <p className="text-[10px] text-[#94A3B8]">
+                      <p className="text-[10px] text-[#94A3B8] dark:text-muted-foreground">
                         {event.date.replace(/-/g, ".")} {event.startTime}
                       </p>
                     </button>
@@ -1068,7 +1068,7 @@ export function Calendar() {
             </button>
             <button
               type="button"
-              className="rounded-xl bg-[#1E2A3A] px-4 py-2 text-sm text-white"
+              className="app-cta-primary rounded-xl px-4 py-2 text-sm"
               onClick={handleSaveEvent}
             >
               저장
