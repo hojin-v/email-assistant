@@ -1,3 +1,299 @@
 @import './fonts.css';
 @import './tailwind.css';
 @import './theme.css';
+
+.ai-flow-path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-width: 1.35;
+  stroke-dasharray: 8 18;
+  opacity: 0.18;
+  animation: ai-flow-path-drift 26s linear infinite;
+}
+
+.ai-flow-path--inbound {
+  stroke: rgba(94, 234, 212, 0.24);
+}
+
+.ai-flow-path--outbound {
+  stroke: rgba(96, 165, 250, 0.2);
+  animation-direction: reverse;
+  animation-duration: 30s;
+}
+
+.ai-core {
+  position: relative;
+  filter: drop-shadow(0 0 24px rgba(56, 189, 248, 0.12));
+}
+
+.ai-core__glow {
+  position: absolute;
+  inset: 20px;
+  border-radius: 9999px;
+  background: radial-gradient(
+    circle,
+    rgba(94, 234, 212, 0.34) 0%,
+    rgba(56, 189, 248, 0.18) 42%,
+    rgba(56, 189, 248, 0) 72%
+  );
+  animation: ai-core-glow 8s ease-in-out infinite;
+}
+
+.ai-core__ring {
+  position: absolute;
+  border-radius: 9999px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  animation: ai-core-ring 9s ease-in-out infinite;
+}
+
+.ai-core__ring--outer {
+  inset: 0;
+}
+
+.ai-core__ring--mid {
+  inset: 12px;
+  border-color: rgba(103, 232, 249, 0.22);
+  animation-delay: -2s;
+}
+
+.ai-core__ring--inner {
+  inset: 24px;
+  border-color: rgba(94, 234, 212, 0.22);
+  animation-delay: -4s;
+}
+
+.ai-core__dot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  height: 10px;
+  width: 10px;
+  border-radius: 9999px;
+  transform: translate(-50%, -50%);
+  background: linear-gradient(135deg, rgba(103, 232, 249, 0.85), rgba(45, 212, 191, 0.8));
+  box-shadow: 0 0 18px rgba(56, 189, 248, 0.22);
+  animation: ai-core-dot 7s ease-in-out infinite;
+}
+
+.ai-core__burst {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border-radius: 9999px;
+  border: 1px solid rgba(94, 234, 212, 0.24);
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.18);
+  animation: ai-core-burst 18s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+.ai-core__burst--one {
+  height: 48px;
+  width: 48px;
+}
+
+.ai-core__burst--two {
+  height: 70px;
+  width: 70px;
+  border-color: rgba(103, 232, 249, 0.18);
+  animation-delay: -0.24s;
+}
+
+.ai-flow-anchor {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 0;
+  width: 0;
+  offset-rotate: 0deg;
+  will-change: offset-distance, opacity, transform;
+  backface-visibility: hidden;
+}
+
+.ai-flow-anchor--inbound {
+  offset-distance: 0%;
+  animation: ai-flow-inbound 18s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+.ai-flow-anchor--outbound {
+  offset-distance: 0%;
+  opacity: 0;
+  animation: ai-flow-outbound 18s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+.ai-flow-token {
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+}
+
+.ai-flow-token--outbound-primary {
+  border-color: rgba(167, 243, 208, 0.32);
+  background: radial-gradient(
+    circle at 35% 35%,
+    rgba(20, 184, 166, 0.24),
+    rgba(18, 34, 51, 0.92) 78%
+  );
+  box-shadow:
+    0 0 0 1px rgba(94, 234, 212, 0.08),
+    0 20px 44px rgba(2, 8, 23, 0.2),
+    0 0 26px rgba(45, 212, 191, 0.12);
+}
+
+.ai-flow-token--outbound-secondary {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(18, 34, 51, 0.78);
+  box-shadow: 0 18px 42px rgba(2, 8, 23, 0.14);
+}
+
+@keyframes ai-flow-path-drift {
+  0% {
+    opacity: 0.1;
+    stroke-dashoffset: 0;
+  }
+
+  50% {
+    opacity: 0.24;
+  }
+
+  100% {
+    opacity: 0.1;
+    stroke-dashoffset: -120;
+  }
+}
+
+@keyframes ai-core-glow {
+  0%,
+  100% {
+    opacity: 0.16;
+    transform: scale(0.92);
+  }
+
+  50% {
+    opacity: 0.32;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes ai-core-ring {
+  0%,
+  100% {
+    opacity: 0.12;
+    transform: scale(0.96);
+  }
+
+  50% {
+    opacity: 0.28;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes ai-core-dot {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(0.92);
+  }
+
+  50% {
+    transform: translate(-50%, -50%) scale(1.08);
+  }
+}
+
+@keyframes ai-core-burst {
+  0%,
+  62% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.18);
+  }
+
+  70% {
+    opacity: 0.34;
+    transform: translate(-50%, -50%) scale(0.68);
+  }
+
+  82% {
+    opacity: 0.18;
+    transform: translate(-50%, -50%) scale(1.18);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.34);
+  }
+}
+
+@keyframes ai-flow-inbound {
+  0% {
+    opacity: 0;
+    offset-distance: 0%;
+    transform: scale(0.72);
+  }
+
+  14% {
+    opacity: 0.12;
+  }
+
+  42% {
+    opacity: 0.28;
+    offset-distance: 42%;
+    transform: scale(0.86);
+  }
+
+  68% {
+    opacity: 0.42;
+    offset-distance: 100%;
+    transform: scale(0.94);
+  }
+
+  76%,
+  100% {
+    opacity: 0;
+    offset-distance: 100%;
+    transform: scale(0.22);
+  }
+}
+
+@keyframes ai-flow-outbound {
+  0%,
+  58% {
+    opacity: 0;
+    offset-distance: 0%;
+    transform: scale(0.22);
+  }
+
+  66% {
+    opacity: 0.2;
+  }
+
+  80% {
+    opacity: 0.56;
+    offset-distance: 58%;
+    transform: scale(0.84);
+  }
+
+  92% {
+    opacity: 0.72;
+    offset-distance: 100%;
+    transform: scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    offset-distance: 100%;
+    transform: scale(0.92);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-flow-path,
+  .ai-core__glow,
+  .ai-core__ring,
+  .ai-core__dot {
+    animation: none !important;
+  }
+
+  .ai-flow-anchor,
+  .ai-flow-token {
+    animation: none !important;
+    opacity: 0 !important;
+    transform: none !important;
+  }
+}
