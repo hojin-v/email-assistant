@@ -26,7 +26,7 @@ export function AccountSettingsPanel({ account }: AccountSettingsPanelProps) {
               onChange={(event) =>
                 setProfile((current) => ({ ...current, name: event.target.value }))
               }
-              className="mt-2 h-11 w-full rounded-xl border border-border bg-background px-4 text-sm text-foreground outline-none transition focus:border-[#2DD4BF]"
+              className="app-form-input mt-2 h-11 w-full rounded-xl px-4 text-sm"
             />
           </label>
           <label className="block text-sm text-foreground">
@@ -36,7 +36,7 @@ export function AccountSettingsPanel({ account }: AccountSettingsPanelProps) {
               onChange={(event) =>
                 setProfile((current) => ({ ...current, email: event.target.value }))
               }
-              className="mt-2 h-11 w-full rounded-xl border border-border bg-background px-4 text-sm text-foreground outline-none transition focus:border-[#2DD4BF]"
+              className="app-form-input mt-2 h-11 w-full rounded-xl px-4 text-sm"
             />
           </label>
         </div>
@@ -75,7 +75,7 @@ export function AccountSettingsPanel({ account }: AccountSettingsPanelProps) {
                       : "confirm"]: event.target.value,
                   }))
                 }
-                className="mt-2 h-11 w-full rounded-xl border border-border bg-background px-4 text-sm text-foreground outline-none transition focus:border-[#2DD4BF]"
+                className="app-form-input mt-2 h-11 w-full rounded-xl px-4 text-sm"
               />
             </label>
           ))}

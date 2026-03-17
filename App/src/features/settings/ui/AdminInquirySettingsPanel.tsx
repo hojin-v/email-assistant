@@ -241,7 +241,7 @@ export function AdminInquirySettingsPanel() {
                 value={draftTitle}
                 onChange={(event) => setDraftTitle(event.target.value)}
                 placeholder="문의 제목을 입력하세요"
-                className="mt-2 h-11 w-full rounded-xl border border-border bg-background px-4 text-sm text-foreground outline-none transition focus:border-[#2DD4BF]"
+                className="app-form-input mt-2 h-11 w-full rounded-xl px-4 text-sm"
               />
             </label>
 
@@ -252,7 +252,7 @@ export function AdminInquirySettingsPanel() {
                 onChange={(event) => setDraftContent(event.target.value)}
                 rows={6}
                 placeholder="관리자에게 전달할 문의 내용을 자세히 입력하세요"
-                className="mt-2 w-full resize-none rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-[#2DD4BF]"
+                className="app-form-input mt-2 w-full resize-none rounded-xl px-4 py-3 text-sm"
               />
             </label>
           </div>

@@ -118,7 +118,7 @@ export function EmailIntegrationSettingsPanel({
             value={draftEmail}
             onChange={(event) => setDraftEmail(event.target.value)}
             placeholder="name@company.com"
-            className="h-11 w-full rounded-xl border border-border bg-background px-4"
+            className="app-form-input h-11 w-full rounded-xl px-4 text-sm"
           />
 
           <DialogFooter>

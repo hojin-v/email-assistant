@@ -58,10 +58,10 @@ export function GlobalSearchPanel({
     <div className="relative min-w-0">
       <button
         type="button"
-        className="flex h-11 min-w-[180px] items-center gap-2 rounded-xl bg-[#F1F5F9] px-4 text-sm text-[#94A3B8] transition hover:bg-[#E2E8F0] sm:min-w-[320px]"
+        className="flex h-11 min-w-[180px] items-center gap-2 rounded-xl bg-[#F1F5F9] px-4 text-sm text-[#94A3B8] transition hover:bg-[#E2E8F0] dark:bg-[#1E293B] dark:text-muted-foreground dark:hover:bg-[#182235] sm:min-w-[320px]"
         onClick={onToggle}
       >
-        <Search className="h-4 w-4 text-[#94A3B8]" />
+        <Search className="h-4 w-4 text-[#94A3B8] dark:text-muted-foreground" />
         <span className="truncate">검색...</span>
       </button>
 
@@ -75,7 +75,7 @@ export function GlobalSearchPanel({
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="검색어를 입력하세요"
-              className="h-11 w-full rounded-xl border border-border bg-background pl-10 pr-3 text-sm text-foreground outline-none transition focus:border-[#2DD4BF]"
+              className="app-form-input h-11 w-full rounded-xl pl-10 pr-3 text-sm"
             />
           </div>
 

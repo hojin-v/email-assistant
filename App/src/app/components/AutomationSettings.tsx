@@ -390,13 +390,13 @@ export function AutomationSettings() {
           </div>
         </div>
 
-        <div className="mt-6 rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-sm">
+        <div className="mt-6 rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-sm dark:border-border dark:bg-card">
           <div className="mb-5 flex items-center justify-between">
-            <h3 className="text-[#1E2A3A]">캘린더 연동</h3>
+            <h3 className="text-[#1E2A3A] dark:text-foreground">캘린더 연동</h3>
             {!googleCalendarConnected ? (
               <button
                 onClick={handleConnectCalendar}
-                className="flex items-center gap-2 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-2 text-[13px] text-[#64748B] transition-colors hover:bg-[#F1F5F9]"
+                className="app-secondary-button flex items-center gap-2 rounded-lg px-4 py-2 text-[13px]"
               >
                 <Plus className="h-4 w-4" />
                 Google 캘린더 연결
@@ -406,20 +406,20 @@ export function AutomationSettings() {
 
           <div className="space-y-3">
             {googleCalendarConnected ? (
-              <div className="flex items-center gap-4 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
+              <div className="app-soft-surface flex items-center gap-4 rounded-xl p-4">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#4285F4] text-white text-[14px]">
                   <Calendar className="h-5 w-5" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-[14px] text-[#1E2A3A]">
+                    <span className="text-[14px] text-[#1E2A3A] dark:text-foreground">
                       Google Calendar
                     </span>
-                    <span className="rounded-full bg-[#10B981]/10 px-2 py-0.5 text-[10px] text-[#10B981]">
+                    <span className="app-success-pill rounded-full px-2 py-0.5 text-[10px]">
                       연결됨
                     </span>
                   </div>
-                  <p className="truncate text-[12px] text-[#94A3B8]">
+                  <p className="truncate text-[12px] text-[#94A3B8] dark:text-muted-foreground">
                     calendar@mycompany.co.kr
                   </p>
                 </div>
@@ -432,28 +432,28 @@ export function AutomationSettings() {
                         "noopener,noreferrer"
                       )
                     }
-                    className="p-2 text-[#94A3B8] transition-colors hover:text-[#64748B]"
+                    className="rounded-md p-2 text-[#94A3B8] transition-colors hover:bg-[#F1F5F9] hover:text-[#64748B] dark:text-muted-foreground dark:hover:bg-[#1E293B] dark:hover:text-foreground"
                   >
                     <ExternalLink className="h-4 w-4" />
                   </button>
                   <button
                     onClick={handleDisconnectCalendar}
-                    className="rounded-lg border border-[#E2E8F0] px-3 py-1.5 text-[12px] text-[#64748B]"
+                    className="app-secondary-button rounded-lg px-3 py-1.5 text-[12px]"
                   >
                     해제
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="flex items-center gap-4 rounded-xl border border-dashed border-[#E2E8F0] bg-[#F8FAFC] p-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#E2E8F0] text-[#94A3B8]">
+              <div className="flex items-center gap-4 rounded-xl border border-dashed border-[#E2E8F0] bg-[#F8FAFC] p-4 dark:border-border dark:bg-[#131D2F]">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#E2E8F0] text-[#94A3B8] dark:bg-[#1E293B] dark:text-muted-foreground">
                   <Calendar className="h-5 w-5" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-[13px] text-[#94A3B8]">
+                  <p className="text-[13px] text-[#94A3B8] dark:text-muted-foreground">
                     Google 캘린더를 연결하세요
                   </p>
-                  <p className="text-[11px] text-[#CBD5E1]">
+                  <p className="text-[11px] text-[#CBD5E1] dark:text-[#64748B]">
                     일정 자동 등록 기능을 사용하려면 캘린더 연동이 필요합니다
                   </p>
                 </div>
@@ -461,20 +461,20 @@ export function AutomationSettings() {
             )}
 
             {googleCalendarConnected ? (
-              <div className="border-t border-[#E2E8F0] pt-3">
+              <div className="border-t border-[#E2E8F0] pt-3 dark:border-border">
                 <div className="mb-4 flex items-center justify-between">
                   <div>
-                    <h4 className="mb-1 text-[13px] text-[#1E2A3A]">
+                    <h4 className="mb-1 text-[13px] text-[#1E2A3A] dark:text-foreground">
                       일정 자동 등록
                     </h4>
-                    <p className="text-[11px] text-[#94A3B8]">
+                    <p className="text-[11px] text-[#94A3B8] dark:text-muted-foreground">
                       미팅 요청 및 일정 관련 이메일을 자동으로 Google 캘린더에 등록합니다
                     </p>
                   </div>
                   <button
                     onClick={() => setAutoCalendar((current) => !current)}
                     className={`relative h-5.5 w-10 rounded-full transition-colors ${
-                      autoCalendar ? "bg-[#2DD4BF]" : "bg-[#CBD5E1]"
+                      autoCalendar ? "bg-[#2DD4BF] dark:bg-[#0F766E]" : "bg-[#CBD5E1] dark:bg-[#334155]"
                     }`}
                   >
                     <span
@@ -486,15 +486,15 @@ export function AutomationSettings() {
                 </div>
 
                 {autoCalendar ? (
-                  <div className="mt-3 rounded-lg border border-[#E2E8F0] bg-white p-3">
-                    <p className="mb-2 text-[11px] uppercase tracking-wide text-[#64748B]">
+                  <div className="mt-3 rounded-lg border border-[#E2E8F0] bg-white p-3 dark:border-border dark:bg-[#131D2F]">
+                    <p className="mb-2 text-[11px] uppercase tracking-wide text-[#64748B] dark:text-muted-foreground">
                       자동 등록 카테고리
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {autoCalendarCategories.map((category) => (
                         <span
                           key={category}
-                          className="flex items-center gap-1.5 rounded-md bg-[#8B5CF6]/10 px-2.5 py-1 text-[11px] text-[#8B5CF6]"
+                          className="flex items-center gap-1.5 rounded-md bg-[#8B5CF6]/10 px-2.5 py-1 text-[11px] text-[#8B5CF6] dark:bg-[#1B1430] dark:text-[#C4B5FD]"
                         >
                           <Check className="h-3 w-3" />
                           {category}
@@ -502,7 +502,7 @@ export function AutomationSettings() {
                       ))}
                       <button
                         onClick={() => setCategoryDialogOpen(true)}
-                        className="rounded-md bg-[#F1F5F9] px-2.5 py-1 text-[11px] text-[#64748B] transition-colors hover:bg-[#E2E8F0]"
+                        className="app-secondary-button rounded-md px-2.5 py-1 text-[11px]"
                       >
                         + 카테고리 추가
                       </button>
@@ -537,7 +537,7 @@ export function AutomationSettings() {
                     name: event.target.value,
                   }))
                 }
-                className="h-11 w-full rounded-xl border border-border bg-background px-4"
+                className="app-form-input h-11 w-full rounded-xl px-4 text-sm"
               />
             </label>
 
@@ -552,7 +552,7 @@ export function AutomationSettings() {
                   }))
                 }
                 placeholder="쉼표로 구분하세요"
-                className="h-11 w-full rounded-xl border border-border bg-background px-4"
+                className="app-form-input h-11 w-full rounded-xl px-4 text-sm"
               />
             </label>
 
@@ -566,7 +566,7 @@ export function AutomationSettings() {
                     template: event.target.value,
                   }))
                 }
-                className="h-11 w-full rounded-xl border border-border bg-background px-4"
+                className="app-form-input h-11 w-full rounded-xl px-4 text-sm"
               />
             </label>
 
