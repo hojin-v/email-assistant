@@ -82,7 +82,7 @@ export function NotificationSettingsPanel({
                     draftThreshold: Number(event.target.value) || 0,
                   }))
                 }
-                className="h-10 w-20 rounded-xl border border-border bg-background px-3 text-sm text-foreground"
+                className="app-form-input h-10 w-20 rounded-xl px-3 text-sm"
               />
               <span className="text-sm text-muted-foreground">개 이상일 때</span>
             </div>

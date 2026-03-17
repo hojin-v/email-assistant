@@ -24,30 +24,30 @@ export function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-[1400px]">
-      {pendingCount ? (
-        <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-[#99F6E4] bg-[#ECFEFF] px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
-          <p className="text-sm font-semibold text-[#1E2A3A]">검토 대기 중인 초안 {pendingCount}개가 있습니다</p>
-          <Link to="/app/inbox" className="inline-flex items-center gap-2 text-sm font-medium text-[#0F766E]">
-            바로 확인
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-        </div>
-      ) : null}
-
       <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {statCards.map((card) => (
           <div
             key={card.label}
-            className={`rounded-2xl border bg-white p-5 shadow-sm ${
-              card.tone === "amber" && pendingCount ? "border-[#F59E0B]" : "border-[#E2E8F0]"
+            className={`rounded-2xl border bg-white p-5 shadow-sm dark:bg-card ${
+              card.tone === "amber" && pendingCount
+                ? "border-[#FDE68A] dark:border-[#4A3417] dark:bg-[#17120D]"
+                : "border-[#E2E8F0] dark:border-border"
             }`}
           >
-            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-[#F8FAFC]">
-              <card.icon className="h-5 w-5 text-[#1E2A3A]" />
+            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-[#F8FAFC] dark:bg-[#1E293B]">
+              <card.icon className="h-5 w-5 text-[#1E2A3A] dark:text-foreground" />
             </div>
-            <p className="text-2xl font-semibold text-[#1E2A3A]">{card.value}</p>
-            <p className="mt-1 text-sm text-[#64748B]">{card.label}</p>
-            <p className={`mt-2 text-xs ${card.tone === "amber" && pendingCount ? "text-[#D97706]" : "text-[#94A3B8]"}`}>{card.note}</p>
+            <p className="text-2xl font-semibold text-[#1E2A3A] dark:text-foreground">{card.value}</p>
+            <p className="mt-1 text-sm text-[#64748B] dark:text-muted-foreground">{card.label}</p>
+            <p
+              className={`mt-2 text-xs ${
+                card.tone === "amber" && pendingCount
+                  ? "text-[#D97706] dark:text-[#F4C98A]"
+                  : "text-[#94A3B8] dark:text-muted-foreground"
+              }`}
+            >
+              {card.note}
+            </p>
           </div>
         ))}
       </div>
