@@ -24,7 +24,7 @@ function ToggleRow({
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-sm font-medium text-foreground">{label}</p>
-          <p className="mt-1 text-xs text-slate-400">{description}</p>
+          <p className="mt-1 text-xs text-slate-400 dark:text-muted-foreground">{description}</p>
         </div>
         <button
           type="button"
@@ -116,7 +116,7 @@ export function NotificationSettingsPanel({
       <div className="mt-5 flex justify-end">
         <button
           type="button"
-          className="rounded-xl bg-[#1E2A3A] px-5 py-2.5 text-sm font-medium text-white"
+          className="app-cta-primary rounded-xl px-5 py-2.5 text-sm font-medium"
           onClick={() => toast.success("알림 설정을 저장했습니다.")}
         >
           저장
