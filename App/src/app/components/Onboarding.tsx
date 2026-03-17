@@ -28,6 +28,7 @@ import {
   type RecommendedCategoryOption,
 } from "../../shared/config/onboarding-options";
 import {
+  deriveGoogleIntegrationEmail,
   getAppSession,
   markOnboardingComplete,
   setConnectedEmail as persistConnectedEmail,
@@ -122,8 +123,10 @@ export function Onboarding() {
   const [currentSubStep, setCurrentSubStep] = useState(0);
 
   // Email connection state
-  const [emailConnected, setEmailConnected] = useState(Boolean(session.connectedEmail));
-  const [connectedEmail, setConnectedEmail] = useState(session.connectedEmail);
+  const initialConnectedEmail =
+    session.connectedEmails[session.connectedEmails.length - 1] ?? session.connectedEmail;
+  const [emailConnected, setEmailConnected] = useState(Boolean(initialConnectedEmail));
+  const [connectedEmail, setConnectedEmail] = useState(initialConnectedEmail);
 
   // Onboarding states
   const [tone, setTone] = useState("neutral");
@@ -187,7 +190,7 @@ export function Onboarding() {
   );
 
   const handleEmailConnect = () => {
-    const nextConnectedEmail = session.userEmail || "user@gmail.com";
+    const nextConnectedEmail = deriveGoogleIntegrationEmail(session.userEmail);
 
     setConnectedEmail(nextConnectedEmail);
     setEmailConnected(true);
