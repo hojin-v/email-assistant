@@ -4,6 +4,7 @@ export type AppSession = {
   userName: string;
   userEmail: string;
   connectedEmail: string;
+  connectedEmails: string[];
 };
 
 const STORAGE_KEY = "emailassist-app-session";
@@ -14,6 +15,7 @@ const defaultSession: AppSession = {
   userName: "",
   userEmail: "",
   connectedEmail: "",
+  connectedEmails: [],
 };
 
 function canUseStorage() {
@@ -41,6 +43,15 @@ export function getAppSession(): AppSession {
 
   try {
     const parsed = JSON.parse(raw) as Partial<AppSession>;
+    const connectedEmails = Array.isArray(parsed.connectedEmails)
+      ? parsed.connectedEmails.filter(
+          (email): email is string => typeof email === "string" && email.trim().length > 0,
+        )
+      : parsed.connectedEmail
+      ? [parsed.connectedEmail]
+      : [];
+    const primaryConnectedEmail =
+      parsed.connectedEmail ?? connectedEmails[connectedEmails.length - 1] ?? "";
 
     return {
       ...defaultSession,
@@ -49,7 +60,8 @@ export function getAppSession(): AppSession {
       onboardingCompleted: parsed.onboardingCompleted === true,
       userName: parsed.userName ?? "",
       userEmail: parsed.userEmail ?? "",
-      connectedEmail: parsed.connectedEmail ?? "",
+      connectedEmail: primaryConnectedEmail,
+      connectedEmails,
     };
   } catch {
     return defaultSession;
@@ -90,7 +102,45 @@ export function markOnboardingComplete() {
 }
 
 export function setConnectedEmail(connectedEmail: string) {
-  return updateAppSession({ connectedEmail });
+  const current = getAppSession();
+  const connectedEmails = connectedEmail
+    ? Array.from(new Set([...current.connectedEmails.filter(Boolean), connectedEmail]))
+    : [];
+
+  return updateAppSession({
+    connectedEmail,
+    connectedEmails,
+  });
+}
+
+export function setConnectedEmails(connectedEmails: string[]) {
+  const normalized = Array.from(
+    new Set(
+      connectedEmails.filter(
+        (email): email is string => typeof email === "string" && email.trim().length > 0,
+      ),
+    ),
+  );
+
+  return updateAppSession({
+    connectedEmail: normalized[normalized.length - 1] ?? "",
+    connectedEmails: normalized,
+  });
+}
+
+export function deriveGoogleIntegrationEmail(userEmail: string) {
+  const normalizedEmail = userEmail.trim().toLowerCase();
+
+  if (!normalizedEmail) {
+    return "user@gmail.com";
+  }
+
+  if (normalizedEmail.endsWith("@gmail.com")) {
+    return normalizedEmail;
+  }
+
+  const localPart = normalizedEmail.split("@")[0] ?? "user";
+  return `${localPart || "user"}@gmail.com`;
 }
 
 export function clearAppSession() {
