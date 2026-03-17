@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Plus } from "lucide-react";
 import type { EmailAccount } from "../../../shared/types";
 import { toast } from "sonner";
+import { SectionCard } from "../../../shared/ui/primitives/SectionCard";
 import {
   Dialog,
   DialogContent,
@@ -15,11 +16,25 @@ interface AccountProviderIconProps {
   provider: string;
 }
 
+function GmailIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
+      <path
+        d="M3.75 6.5v10.75a1.25 1.25 0 0 0 1.25 1.25h2.1V10.2L12 13.7l4.9-3.5v8.3H19a1.25 1.25 0 0 0 1.25-1.25V6.5l-1.88 1.33L12 12.2 5.63 7.83 3.75 6.5Z"
+        fill="#EA4335"
+      />
+      <path d="M3.75 6.5 5.63 7.83V18.5H5A1.25 1.25 0 0 1 3.75 17.25V6.5Z" fill="#4285F4" />
+      <path d="M20.25 6.5v10.75A1.25 1.25 0 0 1 19 18.5h-.63V7.83l1.88-1.33Z" fill="#34A853" />
+      <path d="M20.25 6.5v.24L18.37 8.1 12 12.45 5.63 8.1 3.75 6.74V6.5a1.25 1.25 0 0 1 2-.98L12 9.92l6.25-4.4a1.25 1.25 0 0 1 2 .98Z" fill="#FBBC04" />
+    </svg>
+  );
+}
+
 function AccountProviderIcon({ provider }: AccountProviderIconProps) {
   if (provider === "Gmail") {
     return (
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#EA4335] text-sm font-semibold text-white">
-        G
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#F1F5F9] bg-white shadow-sm">
+        <GmailIcon />
       </div>
     );
   }
@@ -44,20 +59,18 @@ export function EmailIntegrationSettingsPanel({
 
   return (
     <>
-      <section className="rounded-[24px] border border-border bg-card px-5 py-6 shadow-sm lg:px-6">
-        <h2 className="text-xl font-semibold text-foreground">연결된 이메일 계정</h2>
-
+      <SectionCard title="연결된 이메일 계정">
         <div className="mt-6 space-y-3">
           {items.map((account: EmailAccount) => (
             <div
               key={account.id}
-              className="flex flex-wrap items-center justify-between gap-4 rounded-[18px] border border-[#E2E8F0] px-4 py-5"
+              className="flex flex-wrap items-center justify-between gap-4 rounded-[18px] border border-[#E2E8F0] px-4 py-4"
             >
               <div className="flex items-center gap-4">
                 <AccountProviderIcon provider={account.provider} />
 
                 <div>
-                  <p className="text-xl font-medium text-[#0F172A]">{account.email}</p>
+                  <p className="text-base font-medium text-[#0F172A]">{account.email}</p>
                   <span className="mt-2 inline-flex rounded-full bg-[#ECFDF5] px-2 py-1 text-[11px] font-medium text-[#10B981]">
                     {account.status}
                   </span>
@@ -81,14 +94,14 @@ export function EmailIntegrationSettingsPanel({
 
           <button
             type="button"
-            className="flex w-full items-center justify-center gap-2 rounded-[18px] border border-dashed border-[#D7E0EB] px-4 py-6 text-base font-medium text-[#64748B] transition hover:bg-[#F8FAFC]"
+            className="flex w-full items-center justify-center gap-2 rounded-[18px] border border-dashed border-[#D7E0EB] px-4 py-5 text-sm font-medium text-[#64748B] transition hover:bg-[#F8FAFC]"
             onClick={() => setDialogOpen(true)}
           >
             <Plus className="h-4 w-4" />
             <span>계정 추가</span>
           </button>
         </div>
-      </section>
+      </SectionCard>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-[460px]">
