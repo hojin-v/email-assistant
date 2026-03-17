@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
+import { format } from "date-fns";
+import { ko } from "date-fns/locale";
 import {
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Plus,
   Clock,
   MapPin,
   Users,
   Mail,
+  CalendarDays,
   CalendarCheck,
   Video,
   MoreHorizontal,
@@ -16,6 +20,7 @@ import {
   Sparkles,
   Pencil,
   Trash2,
+  Check,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -36,6 +41,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "./ui/alert-dialog";
+import { Calendar as DatePickerCalendar } from "./ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 
 export interface CalendarEvent {
   id: string;
@@ -250,6 +264,148 @@ const colorByType: Record<CalendarEvent["type"], string> = {
   video: "#3B82F6",
   deadline: "#EF4444",
 };
+
+const timeOptions = Array.from({ length: 48 }, (_, index) => {
+  const hour = String(Math.floor(index / 2)).padStart(2, "0");
+  const minute = index % 2 === 0 ? "00" : "30";
+  return `${hour}:${minute}`;
+});
+
+const eventTypeOptions: Array<{
+  value: CalendarEvent["type"];
+  label: string;
+  icon: typeof Users;
+}> = [
+  { value: "meeting", label: "대면 미팅", icon: Users },
+  { value: "video", label: "화상회의", icon: Video },
+  { value: "call", label: "전화", icon: Clock },
+  { value: "deadline", label: "마감", icon: CalendarCheck },
+];
+
+function parseDateValue(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function toDateValue(date: Date) {
+  return format(date, "yyyy-MM-dd");
+}
+
+function formatDateDisplay(value: string) {
+  return format(parseDateValue(value), "yyyy년 M월 d일 (EEE)", { locale: ko });
+}
+
+interface DatePickerFieldProps {
+  value: string;
+  onChange: (value: string) => void;
+}
+
+function DatePickerField({ value, onChange }: DatePickerFieldProps) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <label className="min-w-0 space-y-2 text-sm text-foreground">
+      <span>날짜</span>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="app-picker-trigger flex h-11 w-full items-center justify-between rounded-xl px-4 text-sm"
+          >
+            <span className="flex min-w-0 items-center gap-2">
+              <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <span className="truncate font-medium">{formatDateDisplay(value)}</span>
+            </span>
+            <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="start"
+          className="w-auto rounded-2xl border border-border bg-card p-0 shadow-xl"
+        >
+          <DatePickerCalendar
+            mode="single"
+            selected={parseDateValue(value)}
+            classNames={{
+              day_selected:
+                "bg-[#1E2A3A] text-white hover:bg-[#1E2A3A] hover:text-white focus:bg-[#1E2A3A] focus:text-white dark:bg-[#0F766E] dark:text-[#ECFEFF] dark:hover:bg-[#0F766E] dark:hover:text-[#ECFEFF] dark:focus:bg-[#0F766E] dark:focus:text-[#ECFEFF]",
+              day_today:
+                "bg-[#E2E8F0] text-[#1E2A3A] dark:bg-[#182235] dark:text-foreground",
+            }}
+            onSelect={(date) => {
+              if (!date) {
+                return;
+              }
+              onChange(toDateValue(date));
+              setOpen(false);
+            }}
+            initialFocus
+          />
+        </PopoverContent>
+      </Popover>
+    </label>
+  );
+}
+
+interface TimePickerFieldProps {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}
+
+function TimePickerField({ label, value, onChange }: TimePickerFieldProps) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <label className="min-w-0 space-y-2 text-sm text-foreground">
+      <span>{label}</span>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="app-picker-trigger flex h-11 w-full items-center justify-between rounded-xl px-4 text-sm"
+          >
+            <span className="flex min-w-0 items-center gap-2">
+              <Clock className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <span className="truncate font-medium tabular-nums">{value}</span>
+            </span>
+            <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="start"
+          className="w-[260px] rounded-2xl border border-border bg-card p-3 shadow-xl"
+        >
+          <p className="mb-3 text-xs font-medium text-muted-foreground">{label} 시간 선택</p>
+          <div className="scrollbar-soft max-h-60 overflow-y-auto overscroll-contain pr-1">
+            <div className="grid grid-cols-3 gap-2">
+              {timeOptions.map((time) => (
+                <button
+                  key={time}
+                  type="button"
+                  onClick={() => {
+                    onChange(time);
+                    setOpen(false);
+                  }}
+                  className={`rounded-xl border px-3 py-2 text-sm font-medium tabular-nums transition ${
+                    value === time
+                      ? "app-selected-surface text-foreground"
+                      : "app-picker-option border-transparent"
+                  }`}
+                >
+                  <span className="flex items-center justify-center gap-1.5">
+                    {value === time ? <Check className="h-3.5 w-3.5" /> : null}
+                    {time}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
+    </label>
+  );
+}
 
 export function Calendar() {
   const location = useLocation();
@@ -935,7 +1091,7 @@ export function Calendar() {
       </div>
 
       <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[640px]">
           <DialogHeader>
             <DialogTitle>
               {editorMode === "edit" ? "일정 수정" : "일정 추가"}
@@ -953,70 +1109,74 @@ export function Calendar() {
                 onChange={(event) =>
                   setDraft((current) => ({ ...current, title: event.target.value }))
                 }
-                className="h-11 w-full rounded-xl border border-border bg-background px-4"
+                className="app-form-input h-11 w-full rounded-xl px-4 text-sm"
               />
             </label>
 
             <label className="space-y-2 text-sm text-foreground">
               <span>유형</span>
-              <select
+              <Select
                 value={draft.type}
-                onChange={(event) =>
+                onValueChange={(value) =>
                   setDraft((current) => ({
                     ...current,
-                    type: event.target.value as CalendarEvent["type"],
+                    type: value as CalendarEvent["type"],
                   }))
                 }
-                className="h-11 w-full rounded-xl border border-border bg-background px-4"
               >
-                <option value="meeting">대면 미팅</option>
-                <option value="video">화상회의</option>
-                <option value="call">전화</option>
-                <option value="deadline">마감</option>
-              </select>
+                <SelectTrigger className="app-form-input h-11 w-full rounded-xl px-4 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="rounded-2xl border border-border bg-card p-1 shadow-xl">
+                  {eventTypeOptions.map((option) => {
+                    const Icon = option.icon;
+                    return (
+                      <SelectItem
+                        key={option.value}
+                        value={option.value}
+                        className="rounded-xl py-2.5 focus:bg-[#F8FAFC] focus:text-[#1E2A3A] dark:focus:bg-[#1E293B] dark:focus:text-foreground"
+                      >
+                        <span className="flex items-center gap-2">
+                          <Icon className="h-4 w-4 text-muted-foreground" />
+                          {option.label}
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
             </label>
 
-            <label className="space-y-2 text-sm text-foreground">
-              <span>날짜</span>
-              <input
-                type="date"
+            <div className="grid gap-3 md:col-span-2 md:grid-cols-[1.1fr_1fr_1fr]">
+              <DatePickerField
                 value={draft.date}
-                onChange={(event) =>
-                  setDraft((current) => ({ ...current, date: event.target.value }))
+                onChange={(value) =>
+                  setDraft((current) => ({
+                    ...current,
+                    date: value,
+                  }))
                 }
-                className="h-11 w-full rounded-xl border border-border bg-background px-4"
               />
-            </label>
-
-            <div className="grid grid-cols-2 gap-3">
-              <label className="space-y-2 text-sm text-foreground">
-                <span>시작</span>
-                <input
-                  type="time"
-                  value={draft.startTime}
-                  onChange={(event) =>
-                    setDraft((current) => ({
-                      ...current,
-                      startTime: event.target.value,
-                    }))
-                  }
-                  className="h-11 w-full rounded-xl border border-border bg-background px-4"
-                />
-              </label>
-              <label className="space-y-2 text-sm text-foreground">
-                <span>종료</span>
-                <input
-                  type="time"
-                  value={draft.endTime}
-                  onChange={(event) =>
-                    setDraft((current) => ({
-                      ...current,
-                      endTime: event.target.value,
-                    }))
-                  }
-                  className="h-11 w-full rounded-xl border border-border bg-background px-4"
-                />
-              </label>
+              <TimePickerField
+                label="시작"
+                value={draft.startTime}
+                onChange={(value) =>
+                  setDraft((current) => ({
+                    ...current,
+                    startTime: value,
+                  }))
+                }
+              />
+              <TimePickerField
+                label="종료"
+                value={draft.endTime}
+                onChange={(value) =>
+                  setDraft((current) => ({
+                    ...current,
+                    endTime: value,
+                  }))
+                }
+              />
             </div>
 
             <label className="space-y-2 text-sm text-foreground md:col-span-2">
@@ -1026,7 +1186,7 @@ export function Calendar() {
                 onChange={(event) =>
                   setDraft((current) => ({ ...current, location: event.target.value }))
                 }
-                className="h-11 w-full rounded-xl border border-border bg-background px-4"
+                className="app-form-input h-11 w-full rounded-xl px-4 text-sm"
               />
             </label>
 
@@ -1041,7 +1201,7 @@ export function Calendar() {
                   }))
                 }
                 placeholder="이름을 쉼표로 구분하세요"
-                className="h-11 w-full rounded-xl border border-border bg-background px-4"
+                className="app-form-input h-11 w-full rounded-xl px-4 text-sm"
               />
             </label>
 
@@ -1053,7 +1213,7 @@ export function Calendar() {
                 onChange={(event) =>
                   setDraft((current) => ({ ...current, notes: event.target.value }))
                 }
-                className="w-full rounded-xl border border-border bg-background px-4 py-3"
+                className="app-form-input w-full rounded-xl px-4 py-3 text-sm"
               />
             </label>
           </div>

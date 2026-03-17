@@ -30,6 +30,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "./ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 
 const toneOptions = [
   { id: "formal", label: "격식체" },
@@ -230,20 +237,28 @@ export function BusinessProfile() {
               <label className="mb-2 block text-[13px] text-[#1E2A3A]">
                 업종 / 비즈니스 유형
               </label>
-              <select
+              <Select
                 value={businessType}
-                onChange={(event) => {
-                  setBusinessType(event.target.value);
+                onValueChange={(value) => {
+                  setBusinessType(value);
                   markChanged();
                 }}
-                className="w-full rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-2.5 text-[14px] text-[#1E2A3A] outline-none focus:border-[#2DD4BF] focus:ring-2 focus:ring-[#2DD4BF]/30"
               >
-                {businessTypeOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="app-form-input h-11 w-full rounded-lg px-4 text-[14px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="app-select-content rounded-2xl p-1">
+                  {businessTypeOptions.map((option) => (
+                    <SelectItem
+                      key={option.value}
+                      value={option.value}
+                      className="app-select-item rounded-xl px-3 py-2.5 text-sm"
+                    >
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div>
@@ -281,7 +296,7 @@ export function BusinessProfile() {
                   markChanged();
                 }}
                 rows={4}
-                className="w-full resize-none rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3 text-[14px] text-[#1E2A3A] outline-none focus:border-[#2DD4BF] focus:ring-2 focus:ring-[#2DD4BF]/30"
+                className="app-form-input w-full resize-none rounded-lg px-4 py-3 text-[14px]"
               />
             </div>
 
@@ -460,7 +475,7 @@ export function BusinessProfile() {
                     question: event.target.value,
                   }))
                 }
-                className="h-11 w-full rounded-xl border border-border bg-background px-4"
+                className="app-form-input h-11 w-full rounded-xl px-4 text-sm"
               />
             </label>
             <label className="block space-y-2 text-sm text-foreground">
@@ -474,7 +489,7 @@ export function BusinessProfile() {
                     answer: event.target.value,
                   }))
                 }
-                className="w-full rounded-xl border border-border bg-background px-4 py-3"
+                className="app-form-input w-full rounded-xl px-4 py-3 text-sm"
               />
             </label>
           </div>

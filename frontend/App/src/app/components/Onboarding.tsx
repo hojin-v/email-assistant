@@ -33,6 +33,13 @@ import {
   setConnectedEmail as persistConnectedEmail,
 } from "../../shared/lib/app-session";
 import { AuthOnboardingLayout } from "../../shared/ui/AuthOnboardingLayout";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 
 const mainSteps = [
   { id: 1, label: "이메일 연동" },
@@ -469,19 +476,23 @@ export function Onboarding() {
                         <label className="block text-[13px] text-[#1E2A3A] mb-2">
                           업종 / 비즈니스 유형
                         </label>
-                        <select
-                          value={businessType}
-                          onChange={(e) => setBusinessType(e.target.value)}
-                          className="w-full px-4 py-2.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-[14px] text-[#1E2A3A] outline-none focus:ring-2 focus:ring-[#2DD4BF]/30 focus:border-[#2DD4BF]"
-                        >
-                          <option value="">선택하세요</option>
-                                {businessTypeOptions.map((option) => (
-                                  <option key={option.value} value={option.value}>
-                                    {option.label}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
+                        <Select value={businessType} onValueChange={setBusinessType}>
+                          <SelectTrigger className="app-form-input h-11 w-full rounded-xl px-4 text-[14px]">
+                            <SelectValue placeholder="선택하세요" />
+                          </SelectTrigger>
+                          <SelectContent className="app-select-content rounded-2xl p-1">
+                            {businessTypeOptions.map((option) => (
+                              <SelectItem
+                                key={option.value}
+                                value={option.value}
+                                className="app-select-item rounded-xl px-3 py-2.5 text-sm"
+                              >
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
 
                       <div>
                         <label className="block text-[13px] text-[#1E2A3A] mb-2">
@@ -492,7 +503,7 @@ export function Onboarding() {
                           onChange={(e) => setDescription(e.target.value)}
                           placeholder="고객에게 제공하는 주요 제품이나 서비스를 설명해 주세요. 이 정보를 바탕으로 AI가 적절한 이메일 응답을 생성합니다."
                           rows={5}
-                          className="w-full px-4 py-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-[14px] text-[#1E2A3A] placeholder:text-[#94A3B8] outline-none focus:ring-2 focus:ring-[#2DD4BF]/30 focus:border-[#2DD4BF] resize-none"
+                          className="app-form-input w-full resize-none rounded-xl px-4 py-3 text-[14px] placeholder:text-[#94A3B8]"
                         />
                       </div>
 
@@ -673,7 +684,7 @@ export function Onboarding() {
                                   handleFaqDraftChange("question", e.target.value)
                                 }
                                 placeholder="예: 환불 정책은 어떻게 되나요?"
-                                className="w-full px-4 py-2.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-[14px] text-[#1E2A3A] placeholder:text-[#94A3B8] outline-none focus:ring-2 focus:ring-[#2DD4BF]/30 focus:border-[#2DD4BF]"
+                                className="app-form-input h-11 w-full rounded-xl px-4 text-[14px] placeholder:text-[#94A3B8]"
                               />
                             </div>
 
@@ -688,7 +699,7 @@ export function Onboarding() {
                                 }
                                 placeholder="예: 구매 후 14일 이내에 환불 요청이 가능하며, 사용 이력이 없는 경우 전액 환불됩니다."
                                 rows={4}
-                                className="w-full px-4 py-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-[14px] text-[#1E2A3A] placeholder:text-[#94A3B8] outline-none focus:ring-2 focus:ring-[#2DD4BF]/30 focus:border-[#2DD4BF] resize-none"
+                                className="app-form-input w-full resize-none rounded-xl px-4 py-3 text-[14px] placeholder:text-[#94A3B8]"
                               />
                             </div>
 
@@ -792,7 +803,7 @@ export function Onboarding() {
                             onFocus={() => setCategoryDropdownOpen(true)}
                             onClick={() => setCategoryDropdownOpen(true)}
                             placeholder="새 카테고리 추가..."
-                            className="flex-1 px-4 py-2.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-[14px] text-[#1E2A3A] placeholder:text-[#94A3B8] outline-none focus:ring-2 focus:ring-[#2DD4BF]/30 focus:border-[#2DD4BF]"
+                            className="app-form-input h-11 flex-1 rounded-xl px-4 text-[14px] placeholder:text-[#94A3B8]"
                           />
                           <button
                             onClick={handleAddCategory}

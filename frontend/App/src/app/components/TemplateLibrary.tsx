@@ -35,6 +35,13 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 
 interface Template {
   id: string;
@@ -371,21 +378,26 @@ export function TemplateLibrary() {
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="템플릿 검색..."
-                className="app-input-shell w-full rounded-lg py-2.5 pl-10 pr-4 text-[14px] text-[#1E2A3A] outline-none focus:border-[#2DD4BF] focus:ring-2 focus:ring-[#2DD4BF]/30 dark:text-foreground"
+                className="app-form-input h-11 w-full rounded-lg py-2.5 pl-10 pr-4 text-[14px]"
               />
             </div>
 
-            <select
-              value={activeCategory}
-              onChange={(event) => setActiveCategory(event.target.value)}
-              className="app-input-shell rounded-lg px-3 py-2.5 text-[13px] text-[#1E2A3A] dark:text-foreground lg:hidden"
-            >
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
+            <Select value={activeCategory} onValueChange={setActiveCategory}>
+              <SelectTrigger className="app-form-input h-11 rounded-lg px-3 text-[13px] lg:hidden">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="app-select-content rounded-2xl p-1">
+                {categories.map((category) => (
+                  <SelectItem
+                    key={category.id}
+                    value={category.id}
+                    className="app-select-item rounded-xl px-3 py-2 text-[13px]"
+                  >
+                    {category.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
             <Popover>
               <PopoverTrigger asChild>
@@ -607,22 +619,30 @@ export function TemplateLibrary() {
           <div className="space-y-4">
             <label className="block space-y-2 text-sm text-foreground">
               <span>카테고리</span>
-              <select
+              <Select
                 value={draft.category}
-                onChange={(event) =>
+                onValueChange={(value) =>
                   setDraft((current) => ({
                     ...current,
-                    category: event.target.value,
+                    category: value,
                   }))
                 }
-                className="h-11 w-full rounded-xl border border-border bg-background px-4"
               >
-                {categoryOptions.map((category) => (
-                  <option key={category.id} value={category.name}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="app-form-input h-11 w-full rounded-xl px-4 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="app-select-content rounded-2xl p-1">
+                  {categoryOptions.map((category) => (
+                    <SelectItem
+                      key={category.id}
+                      value={category.name}
+                      className="app-select-item rounded-xl px-3 py-2.5 text-sm"
+                    >
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </label>
 
             <label className="block space-y-2 text-sm text-foreground">
@@ -635,7 +655,7 @@ export function TemplateLibrary() {
                     subject: event.target.value,
                   }))
                 }
-                className="h-11 w-full rounded-xl border border-border bg-background px-4"
+                className="app-form-input h-11 w-full rounded-xl px-4 text-sm"
               />
             </label>
 
@@ -650,7 +670,7 @@ export function TemplateLibrary() {
                     body: event.target.value,
                   }))
                 }
-                className="w-full rounded-xl border border-border bg-background px-4 py-3"
+                className="app-form-input w-full rounded-xl px-4 py-3 text-sm"
               />
             </label>
           </div>

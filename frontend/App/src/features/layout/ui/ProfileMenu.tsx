@@ -23,10 +23,10 @@ export function ProfileMenu({
     <div className="relative">
       <button
         type="button"
-        className="flex items-center gap-2 rounded-xl px-1 py-1 transition hover:bg-[#F8FAFC]"
+        className="flex items-center gap-2 rounded-xl px-1 py-1 transition hover:bg-[#F8FAFC] dark:hover:bg-[#131D2F]"
         onClick={onToggle}
       >
-        <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[#1E2A3A] text-xs font-semibold text-white">
+        <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[#1E2A3A] text-xs font-semibold text-white dark:bg-[#18263A]">
           김
         </span>
         <span className="hidden text-left sm:block">
