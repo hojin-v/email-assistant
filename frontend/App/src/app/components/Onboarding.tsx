@@ -32,6 +32,7 @@ import {
   markOnboardingComplete,
   setConnectedEmail as persistConnectedEmail,
 } from "../../shared/lib/app-session";
+import { AuthOnboardingLayout } from "../../shared/ui/AuthOnboardingLayout";
 
 const mainSteps = [
   { id: 1, label: "이메일 연동" },
@@ -88,6 +89,21 @@ const leftPanelContent: Record<
     subtitle: "이제 이메일 자동화를\n시작할 수 있습니다",
   },
 };
+
+const footerItems = [
+  {
+    icon: Shield,
+    text: "이메일 원문은 외부 서버에 저장하지 않고 연동 상태만 관리합니다",
+  },
+  {
+    icon: Zap,
+    text: "평균 설정 시간은 3분 내외로 빠르게 완료할 수 있습니다",
+  },
+  {
+    icon: Settings,
+    text: "완료 후에는 템플릿, 프로필, 자동화 화면에서 개별 조정할 수 있습니다",
+  },
+];
 
 export function Onboarding() {
   const session = getAppSession();
@@ -303,61 +319,12 @@ export function Onboarding() {
     faqDraft.question.trim().length > 0 && faqDraft.answer.trim().length > 0;
 
   return (
-    <div className="flex min-h-screen">
-      {/* Left Panel - Brand */}
-      <div className="hidden lg:flex w-[40%] bg-gradient-to-b from-[#1E2A3A] to-[#263548] flex-col justify-between p-12 relative overflow-hidden">
-        {/* Subtle background decoration */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-[#2DD4BF]/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-[#2DD4BF]/3 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
-
-        {/* Logo */}
-        <div className="flex items-center gap-3 relative z-10">
-          <div className="w-10 h-10 rounded-xl bg-[#2DD4BF]/20 flex items-center justify-center">
-            <Mail className="w-5 h-5 text-[#2DD4BF]" />
-          </div>
-          <span className="text-white/90 text-[15px] tracking-tight">
-            업무용 이메일 자동화
-          </span>
-        </div>
-
-        {/* Main Copy */}
-        <div className="relative z-10 -mt-8">
-          <h1 className="text-white text-[34px] leading-[1.3] tracking-tight whitespace-pre-line mb-5">
-            {panelText.title}
-          </h1>
-          <p className="text-white/50 text-[15px] leading-relaxed whitespace-pre-line">
-            {panelText.subtitle}
-          </p>
-        </div>
-
-        {/* Trust elements */}
-        <div className="space-y-4 relative z-10">
-          <div className="flex items-center gap-3">
-            <Shield className="w-4 h-4 text-[#2DD4BF]/60 shrink-0" />
-            <span className="text-white/40 text-[13px]">
-              이메일 원문은 외부 서버에 저장되지 않습니다
-            </span>
-          </div>
-          <div className="flex items-center gap-3">
-            <Zap className="w-4 h-4 text-[#2DD4BF]/60 shrink-0" />
-            <span className="text-white/40 text-[13px]">
-              평균 설정 시간 3분
-            </span>
-          </div>
-          <div className="flex items-center gap-3">
-            <Settings className="w-4 h-4 text-[#2DD4BF]/60 shrink-0" />
-            <span className="text-white/40 text-[13px]">
-              언제든 설정 변경 가능
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Right Panel - Content */}
-      <div className="flex-1 bg-[#F8FAFC] flex flex-col min-h-screen">
-        {/* Step Bar */}
-        <div className="px-6 sm:px-10 pt-8 pb-2">
-          <div className="flex items-center gap-2 max-w-[600px]">
+    <AuthOnboardingLayout
+      title={panelText.title}
+      subtitle={panelText.subtitle}
+      footerItems={footerItems}
+      stepBar={
+        <div className="flex items-center gap-2 max-w-[600px]">
             {mainSteps.map((step, i) => (
               <div key={step.id} className="flex items-center gap-2 flex-1">
                 <div
@@ -399,12 +366,9 @@ export function Onboarding() {
                 )}
               </div>
             ))}
-          </div>
         </div>
-
-        {/* Content Area */}
-        <div className="flex-1 flex items-center justify-center px-6 sm:px-10 py-8">
-          <div className="w-full max-w-[560px]">
+      }
+    >
             {/* Step 1: Email Connection */}
             {currentMainStep === 1 && (
               <div className="bg-white rounded-2xl shadow-sm border border-[#E2E8F0]/60 p-8 sm:p-10">
@@ -1149,9 +1113,6 @@ export function Onboarding() {
                 </button>
               </div>
             )}
-          </div>
-        </div>
-      </div>
-    </div>
+    </AuthOnboardingLayout>
   );
 }
