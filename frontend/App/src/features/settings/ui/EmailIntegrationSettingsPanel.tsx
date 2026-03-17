@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { Plus } from "lucide-react";
+import { useEffect, useState } from "react";
+import { CheckCircle2, Plus } from "lucide-react";
+import { useSearchParams } from "react-router";
 import type { EmailAccount } from "../../../shared/types";
 import { toast } from "sonner";
 import { SectionCard } from "../../../shared/ui/primitives/SectionCard";
@@ -11,6 +12,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../../../app/components/ui/dialog";
+import {
+  deriveGoogleIntegrationEmail,
+  getAppSession,
+  setConnectedEmails,
+} from "../../../shared/lib/app-session";
 
 interface AccountProviderIconProps {
   provider: string;
@@ -50,12 +56,135 @@ interface EmailIntegrationSettingsPanelProps {
   accounts: EmailAccount[];
 }
 
+function buildGmailAccount(email: string): EmailAccount {
+  return {
+    id: `gmail-${email}`,
+    provider: "Gmail",
+    email,
+    status: "정상 연결",
+  };
+}
+
+const GOOGLE_OAUTH_PENDING_KEY = "emailassist-google-oauth-pending";
+
+function deriveAdditionalGmailEmail(baseEmail: string, existingEmails: string[]) {
+  const normalizedBaseEmail = deriveGoogleIntegrationEmail(baseEmail);
+
+  if (!existingEmails.includes(normalizedBaseEmail)) {
+    return normalizedBaseEmail;
+  }
+
+  const [localPart, domain = "gmail.com"] = normalizedBaseEmail.split("@");
+  let suffix = 2;
+
+  while (existingEmails.includes(`${localPart}+${suffix}@${domain}`)) {
+    suffix += 1;
+  }
+
+  return `${localPart}+${suffix}@${domain}`;
+}
+
 export function EmailIntegrationSettingsPanel({
   accounts,
 }: EmailIntegrationSettingsPanelProps) {
-  const [items, setItems] = useState<EmailAccount[]>(accounts);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [draftEmail, setDraftEmail] = useState("");
+  const session = getAppSession();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [items, setItems] = useState<EmailAccount[]>(() => {
+    if (session.connectedEmails.length) {
+      return session.connectedEmails.map(buildGmailAccount);
+    }
+
+    if (session.connectedEmail) {
+      return [buildGmailAccount(session.connectedEmail)];
+    }
+
+    const initialGmailAccounts = accounts.filter(
+      (account) => account.provider === "Gmail",
+    );
+
+    if (initialGmailAccounts.length) {
+      return initialGmailAccounts.map((account) => ({
+        ...account,
+        id: account.id || `gmail-${account.email}`,
+      }));
+    }
+
+    return [];
+  });
+  const [verificationDialogOpen, setVerificationDialogOpen] = useState(false);
+  const [verificationReady, setVerificationReady] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState("");
+
+  const syncConnectedAccounts = (updater: (current: EmailAccount[]) => EmailAccount[]) => {
+    setItems((current) => {
+      const nextItems = updater(current);
+      setConnectedEmails(nextItems.map((item) => item.email));
+      return nextItems;
+    });
+  };
+
+  const clearOauthReturnState = () => {
+    if (typeof window !== "undefined") {
+      window.sessionStorage.removeItem(GOOGLE_OAUTH_PENDING_KEY);
+    }
+
+    const nextSearchParams = new URLSearchParams(searchParams);
+    nextSearchParams.delete("google_oauth");
+    setSearchParams(nextSearchParams, { replace: true });
+    setVerificationDialogOpen(false);
+    setVerificationReady(false);
+    setVerificationEmail("");
+  };
+
+  const handleConfirmOAuth = () => {
+    syncConnectedAccounts((current) => {
+      if (current.some((item) => item.email === verificationEmail)) {
+        return current;
+      }
+
+      return [...current, buildGmailAccount(verificationEmail)];
+    });
+
+    toast.success("Google OAuth 인증이 확인되어 Gmail 계정을 추가했습니다.");
+    clearOauthReturnState();
+  };
+
+  const handleAddAccount = () => {
+    const nextEmail = deriveAdditionalGmailEmail(
+      session.userEmail,
+      items.map((item) => item.email),
+    );
+
+    if (typeof window !== "undefined") {
+      window.sessionStorage.setItem(GOOGLE_OAUTH_PENDING_KEY, nextEmail);
+    }
+
+    const nextSearchParams = new URLSearchParams(searchParams);
+    nextSearchParams.set("tab", "email");
+    nextSearchParams.set("google_oauth", "returned");
+    setSearchParams(nextSearchParams);
+  };
+
+  useEffect(() => {
+    if (searchParams.get("google_oauth") !== "returned" || verificationReady) {
+      return;
+    }
+
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const pendingEmail = window.sessionStorage.getItem(GOOGLE_OAUTH_PENDING_KEY);
+
+    if (!pendingEmail) {
+      clearOauthReturnState();
+      return;
+    }
+
+    setVerificationDialogOpen(true);
+    setVerificationReady(true);
+    setVerificationEmail(pendingEmail);
+  }, [searchParams, verificationReady]);
 
   return (
     <>
@@ -83,10 +212,10 @@ export function EmailIntegrationSettingsPanel({
                 type="button"
                 className="app-danger-button rounded-xl px-4 py-2 text-sm font-medium"
                 onClick={() => {
-                  setItems((current) =>
+                  syncConnectedAccounts((current) =>
                     current.filter((item) => item.id !== account.id)
                   );
-                  toast.success("이메일 계정 연결을 해제했습니다.");
+                  toast.success("Gmail 계정 연결을 해제했습니다.");
                 }}
               >
                 연결 해제
@@ -97,7 +226,7 @@ export function EmailIntegrationSettingsPanel({
           <button
             type="button"
             className="flex w-full items-center justify-center gap-2 rounded-[18px] border border-dashed border-[#D7E0EB] px-4 py-5 text-sm font-medium text-[#64748B] transition hover:bg-[#F8FAFC] dark:border-border dark:text-muted-foreground dark:hover:bg-[#131D2F]"
-            onClick={() => setDialogOpen(true)}
+            onClick={handleAddAccount}
           >
             <Plus className="h-4 w-4" />
             <span>계정 추가</span>
@@ -105,53 +234,44 @@ export function EmailIntegrationSettingsPanel({
         </div>
       </SectionCard>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-[460px]">
-          <DialogHeader>
-            <DialogTitle>이메일 계정 추가</DialogTitle>
-            <DialogDescription>
-              새로 연결할 Gmail 또는 Outlook 주소를 입력하세요.
-            </DialogDescription>
-          </DialogHeader>
+      <Dialog
+        open={verificationDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            clearOauthReturnState();
+            return;
+          }
 
-          <input
-            value={draftEmail}
-            onChange={(event) => setDraftEmail(event.target.value)}
-            placeholder="name@company.com"
-            className="app-form-input h-11 w-full rounded-xl px-4 text-sm"
-          />
+          setVerificationDialogOpen(open);
+        }}
+      >
+          <DialogContent className="sm:max-w-[460px]">
+            <DialogHeader className="text-center sm:text-center">
+              <DialogTitle>Google 인증 확인</DialogTitle>
+              <DialogDescription className="mx-auto max-w-[320px] break-keep text-center">
+                Google OAuth 인증을 마쳤다면 아래에서 계정 연결을 완료해 주세요.
+              </DialogDescription>
+            </DialogHeader>
 
-          <DialogFooter>
-            <button
-              type="button"
-              className="rounded-xl border border-border px-4 py-2 text-sm text-muted-foreground"
-              onClick={() => setDialogOpen(false)}
-            >
-              취소
-            </button>
+          <div className="flex flex-col items-center gap-4 py-3 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#2DD4BF]/10 dark:bg-[#0F766E]/20">
+              <CheckCircle2 className="h-8 w-8 text-[#0F766E] dark:text-[#5EEAD4]" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-foreground">{verificationEmail}</p>
+              <p className="text-sm text-muted-foreground">
+                인증이 완료되면 이 Gmail 계정이 이메일 연동 목록에 추가됩니다.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="justify-center sm:justify-center">
             <button
               type="button"
               className="app-cta-primary rounded-xl px-4 py-2 text-sm"
-              onClick={() => {
-                if (!draftEmail.trim()) {
-                  toast.error("이메일 주소를 입력하세요.");
-                  return;
-                }
-                setItems((current) => [
-                  ...current,
-                  {
-                    id: String(Date.now()),
-                    provider: draftEmail.includes("outlook") ? "Outlook" : "Gmail",
-                    email: draftEmail.trim(),
-                    status: "정상 연결",
-                  },
-                ]);
-                setDraftEmail("");
-                setDialogOpen(false);
-                toast.success("이메일 계정을 추가했습니다.");
-              }}
+              onClick={handleConfirmOAuth}
             >
-              추가
+              인증 확인
             </button>
           </DialogFooter>
         </DialogContent>
