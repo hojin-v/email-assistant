@@ -38,23 +38,29 @@ export function EmailListPanel({
             type="button"
             className={`w-full rounded-2xl border px-4 py-4 text-left transition ${
               selected
-                ? "border-[#99F6E4] bg-[#F8FFFE]"
-                : "border-transparent bg-transparent hover:bg-[#F8FAFC]"
+                ? "app-selected-surface"
+                : "border-transparent bg-transparent hover:bg-[#F8FAFC] dark:hover:bg-[#131D2F]"
             }`}
             onClick={() => onSelect(email.id)}
           >
             <div className="flex items-start gap-3">
-              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1E2A3A] text-xs font-semibold text-white">
+              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1E2A3A] text-xs font-semibold text-white dark:bg-[#18263A]">
                 {email.sender.slice(0, 1)}
               </span>
 
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-3">
-                  <p className="truncate text-sm font-semibold text-[#1E2A3A]">{email.sender}</p>
-                  <span className="shrink-0 text-[11px] text-[#94A3B8]">{email.time}</span>
+                  <p className="truncate text-sm font-semibold text-[#1E2A3A] dark:text-foreground">
+                    {email.sender}
+                  </p>
+                  <span className="shrink-0 text-[11px] text-[#94A3B8] dark:text-muted-foreground">
+                    {email.time}
+                  </span>
                 </div>
 
-                <p className="mt-1 truncate text-sm text-[#64748B]">{email.subject}</p>
+                <p className="mt-1 truncate text-sm text-[#64748B] dark:text-muted-foreground">
+                  {email.subject}
+                </p>
 
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <StatusBadge label={email.category} tone="teal" />

@@ -225,18 +225,18 @@ export function AutomationSettings() {
     <>
       <div className="mx-auto max-w-[1200px] p-4 lg:p-8">
         <div className="mb-8">
-          <h1 className="mb-1 text-[#1E2A3A]">자동화 설정</h1>
-          <p className="text-[14px] text-[#64748B]">
+          <h1 className="mb-1 text-[#1E2A3A] dark:text-foreground">자동화 설정</h1>
+          <p className="text-[14px] text-[#64748B] dark:text-muted-foreground">
             이메일 자동화의 동작 방식과 연결 계정을 관리합니다
           </p>
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-[#E2E8F0] bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-[#E2E8F0] p-6">
-            <h3 className="text-[#1E2A3A]">카테고리 규칙</h3>
+        <div className="overflow-hidden rounded-xl border border-[#E2E8F0] bg-white shadow-sm dark:border-border dark:bg-card">
+          <div className="flex items-center justify-between border-b border-[#E2E8F0] p-6 dark:border-border">
+            <h3 className="text-[#1E2A3A] dark:text-foreground">카테고리 규칙</h3>
             <button
               onClick={() => openRuleDialog()}
-              className="flex items-center gap-2 rounded-lg bg-[#1E2A3A] px-4 py-2 text-[13px] text-white transition-colors hover:bg-[#2A3A4E]"
+              className="app-cta-primary flex items-center gap-2 rounded-lg px-4 py-2 text-[13px]"
             >
               <Plus className="h-4 w-4" />
               규칙 추가
@@ -246,34 +246,37 @@ export function AutomationSettings() {
           <div className="hidden overflow-x-auto md:block">
             <table className="w-full">
               <thead>
-                <tr className="bg-[#F8FAFC]">
-                  <th className="px-6 py-3 text-left text-[11px] uppercase tracking-wider text-[#94A3B8]">
+                <tr className="bg-[#F8FAFC] dark:bg-[#111A28]">
+                  <th className="px-6 py-3 text-left text-[11px] uppercase tracking-wider text-[#94A3B8] dark:text-muted-foreground">
                     카테고리
                   </th>
-                  <th className="px-6 py-3 text-left text-[11px] uppercase tracking-wider text-[#94A3B8]">
+                  <th className="px-6 py-3 text-left text-[11px] uppercase tracking-wider text-[#94A3B8] dark:text-muted-foreground">
                     매칭 키워드
                   </th>
-                  <th className="px-6 py-3 text-left text-[11px] uppercase tracking-wider text-[#94A3B8]">
+                  <th className="px-6 py-3 text-left text-[11px] uppercase tracking-wider text-[#94A3B8] dark:text-muted-foreground">
                     지정 템플릿
                   </th>
-                  <th className="px-6 py-3 text-center text-[11px] uppercase tracking-wider text-[#94A3B8]">
+                  <th className="px-6 py-3 text-center text-[11px] uppercase tracking-wider text-[#94A3B8] dark:text-muted-foreground">
                     자동 발송
                   </th>
-                  <th className="px-6 py-3 text-right text-[11px] uppercase tracking-wider text-[#94A3B8]">
+                  <th className="px-6 py-3 text-right text-[11px] uppercase tracking-wider text-[#94A3B8] dark:text-muted-foreground">
                     작업
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#F1F5F9]">
+              <tbody className="divide-y divide-[#F1F5F9] dark:divide-border">
                 {rules.map((rule) => (
-                  <tr key={rule.id} className="transition-colors hover:bg-[#FAFBFC]">
+                  <tr
+                    key={rule.id}
+                    className="transition-colors hover:bg-[#FAFBFC] dark:hover:bg-[#131D2F]"
+                  >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         <span
                           className="h-2.5 w-2.5 rounded-full"
                           style={{ backgroundColor: rule.color }}
                         />
-                        <span className="text-[13px] text-[#1E2A3A]">
+                        <span className="text-[13px] text-[#1E2A3A] dark:text-foreground">
                           {rule.name}
                         </span>
                       </div>
@@ -283,7 +286,7 @@ export function AutomationSettings() {
                         {rule.keywords.map((keyword) => (
                           <span
                             key={keyword}
-                            className="rounded bg-[#F1F5F9] px-2 py-0.5 text-[11px] text-[#64748B]"
+                            className="rounded bg-[#F1F5F9] px-2 py-0.5 text-[11px] text-[#64748B] dark:bg-[#1E293B] dark:text-muted-foreground"
                           >
                             {keyword}
                           </span>
@@ -291,7 +294,7 @@ export function AutomationSettings() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="text-[13px] text-[#64748B]">
+                      <span className="text-[13px] text-[#64748B] dark:text-muted-foreground">
                         {rule.template}
                       </span>
                     </td>
@@ -299,7 +302,7 @@ export function AutomationSettings() {
                       <button
                         onClick={() => toggleAutoSend(rule.id)}
                         className={`relative h-5.5 w-10 rounded-full transition-colors ${
-                          rule.autoSend ? "bg-[#2DD4BF]" : "bg-[#CBD5E1]"
+                          rule.autoSend ? "bg-[#2DD4BF] dark:bg-[#0F766E]" : "bg-[#CBD5E1] dark:bg-[#334155]"
                         }`}
                       >
                         <span
@@ -313,13 +316,13 @@ export function AutomationSettings() {
                       <div className="flex items-center justify-end gap-1">
                         <button
                           onClick={() => openRuleDialog(rule)}
-                          className="rounded-md p-1.5 text-[#94A3B8] transition-colors hover:bg-[#F1F5F9] hover:text-[#1E2A3A]"
+                          className="rounded-md p-1.5 text-[#94A3B8] transition-colors hover:bg-[#F1F5F9] hover:text-[#1E2A3A] dark:text-muted-foreground dark:hover:bg-[#1E293B] dark:hover:text-foreground"
                         >
                           <Pencil className="h-3.5 w-3.5" />
                         </button>
                         <button
                           onClick={() => setDeleteTarget(rule)}
-                          className="rounded-md p-1.5 text-[#94A3B8] transition-colors hover:bg-[#FEF2F2] hover:text-[#EF4444]"
+                          className="rounded-md p-1.5 text-[#94A3B8] transition-colors hover:bg-[#FEF2F2] hover:text-[#EF4444] dark:text-muted-foreground dark:hover:bg-[#3F1D24] dark:hover:text-[#FCA5A5]"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -331,7 +334,7 @@ export function AutomationSettings() {
             </table>
           </div>
 
-          <div className="divide-y divide-[#F1F5F9] md:hidden">
+          <div className="divide-y divide-[#F1F5F9] dark:divide-border md:hidden">
             {rules.map((rule) => (
               <div key={rule.id} className="space-y-3 p-4">
                 <div className="flex items-center justify-between">
@@ -340,12 +343,12 @@ export function AutomationSettings() {
                       className="h-2.5 w-2.5 rounded-full"
                       style={{ backgroundColor: rule.color }}
                     />
-                    <span className="text-[14px] text-[#1E2A3A]">{rule.name}</span>
+                    <span className="text-[14px] text-[#1E2A3A] dark:text-foreground">{rule.name}</span>
                   </div>
                   <button
                     onClick={() => toggleAutoSend(rule.id)}
                     className={`relative h-5.5 w-10 rounded-full transition-colors ${
-                      rule.autoSend ? "bg-[#2DD4BF]" : "bg-[#CBD5E1]"
+                      rule.autoSend ? "bg-[#2DD4BF] dark:bg-[#0F766E]" : "bg-[#CBD5E1] dark:bg-[#334155]"
                     }`}
                   >
                     <span
@@ -359,24 +362,24 @@ export function AutomationSettings() {
                   {rule.keywords.map((keyword) => (
                     <span
                       key={keyword}
-                      className="rounded bg-[#F1F5F9] px-2 py-0.5 text-[11px] text-[#64748B]"
+                      className="rounded bg-[#F1F5F9] px-2 py-0.5 text-[11px] text-[#64748B] dark:bg-[#1E293B] dark:text-muted-foreground"
                     >
                       {keyword}
                     </span>
                   ))}
                 </div>
-                <p className="text-[12px] text-[#94A3B8]">{rule.template}</p>
+                <p className="text-[12px] text-[#94A3B8] dark:text-muted-foreground">{rule.template}</p>
                 <div className="flex gap-2">
                   <button
                     onClick={() => openRuleDialog(rule)}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-[#E2E8F0] px-4 py-2 text-[12px] text-[#64748B]"
+                    className="app-secondary-button flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-[12px]"
                   >
                     <Pencil className="h-3.5 w-3.5" />
                     편집
                   </button>
                   <button
                     onClick={() => setDeleteTarget(rule)}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-[#FECACA] px-4 py-2 text-[12px] text-[#EF4444]"
+                    className="app-danger-button flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-[12px]"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                     삭제

@@ -135,15 +135,15 @@ const emptyDraft: TemplateDraft = {
 };
 
 const SkeletonCard = () => (
-  <div className="animate-pulse rounded-xl border border-[#E2E8F0] bg-white p-5">
-    <div className="mb-3 h-4 w-3/4 rounded bg-[#F1F5F9]" />
-    <div className="mb-2 h-3 w-full rounded bg-[#F1F5F9]" />
-    <div className="mb-4 h-3 w-2/3 rounded bg-[#F1F5F9]" />
+  <div className="animate-pulse rounded-xl border border-[#E2E8F0] bg-card p-5 dark:border-border">
+    <div className="mb-3 h-4 w-3/4 rounded bg-[#F1F5F9] dark:bg-[#1E293B]" />
+    <div className="mb-2 h-3 w-full rounded bg-[#F1F5F9] dark:bg-[#1E293B]" />
+    <div className="mb-4 h-3 w-2/3 rounded bg-[#F1F5F9] dark:bg-[#1E293B]" />
     <div className="flex items-center justify-between">
-      <div className="h-5 w-16 rounded bg-[#F1F5F9]" />
+      <div className="h-5 w-16 rounded bg-[#F1F5F9] dark:bg-[#1E293B]" />
       <div className="flex gap-2">
-        <div className="h-7 w-7 rounded bg-[#F1F5F9]" />
-        <div className="h-7 w-7 rounded bg-[#F1F5F9]" />
+        <div className="h-7 w-7 rounded bg-[#F1F5F9] dark:bg-[#1E293B]" />
+        <div className="h-7 w-7 rounded bg-[#F1F5F9] dark:bg-[#1E293B]" />
       </div>
     </div>
   </div>
@@ -241,10 +241,16 @@ export function TemplateLibrary() {
   const showEmpty = !isLoading && filteredTemplates.length === 0;
 
   const getConfidenceColor = (score: number) => {
-    if (score >= 95) return "bg-[#10B981]/10 text-[#10B981]";
-    if (score >= 90) return "bg-[#2DD4BF]/10 text-[#0D9488]";
-    if (score >= 85) return "bg-[#F59E0B]/10 text-[#D97706]";
-    return "bg-[#94A3B8]/10 text-[#64748B]";
+    if (score >= 95) {
+      return "bg-[#10B981]/10 text-[#10B981] dark:bg-[#102317] dark:text-[#86EFAC]";
+    }
+    if (score >= 90) {
+      return "bg-[#2DD4BF]/10 text-[#0D9488] dark:bg-[#0B2728] dark:text-[#5EEAD4]";
+    }
+    if (score >= 85) {
+      return "bg-[#F59E0B]/10 text-[#D97706] dark:bg-[#24190F] dark:text-[#F4C98A]";
+    }
+    return "bg-[#94A3B8]/10 text-[#64748B] dark:bg-[#1E293B] dark:text-[#CBD5E1]";
   };
 
   const openCreateDialog = (template?: Template) => {
@@ -326,8 +332,8 @@ export function TemplateLibrary() {
   return (
     <>
       <div className="flex h-full w-full min-h-0 min-w-0 overflow-hidden bg-background">
-        <div className="scrollbar-none hidden w-[240px] shrink-0 overflow-y-auto border-r border-[#E2E8F0] bg-white p-4 lg:block">
-          <p className="mb-3 px-3 text-[11px] uppercase tracking-wider text-[#94A3B8]">
+        <div className="scrollbar-none hidden w-[240px] shrink-0 overflow-y-auto border-r border-[#E2E8F0] bg-card p-4 dark:border-border lg:block">
+          <p className="mb-3 px-3 text-[11px] uppercase tracking-wider text-[#94A3B8] dark:text-muted-foreground">
             카테고리
           </p>
           <div className="space-y-0.5">
@@ -337,8 +343,8 @@ export function TemplateLibrary() {
                 onClick={() => setActiveCategory(category.id)}
                 className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-[13px] transition-colors ${
                   activeCategory === category.id
-                    ? "bg-[#1E2A3A] text-white"
-                    : "text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#1E2A3A]"
+                    ? "app-cta-primary"
+                    : "text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#1E2A3A] dark:text-muted-foreground dark:hover:bg-[#131D2F] dark:hover:text-foreground"
                 }`}
               >
                 <span>{category.name}</span>
@@ -346,7 +352,7 @@ export function TemplateLibrary() {
                   className={`rounded-full px-1.5 py-0.5 text-[11px] ${
                     activeCategory === category.id
                       ? "bg-white/20 text-white"
-                      : "bg-[#F1F5F9] text-[#94A3B8]"
+                      : "bg-[#F1F5F9] text-[#94A3B8] dark:bg-[#1E293B] dark:text-muted-foreground"
                   }`}
                 >
                   {category.count}
@@ -359,20 +365,20 @@ export function TemplateLibrary() {
         <div className="scrollbar-none min-h-0 flex-1 overflow-y-auto p-4 lg:p-6">
           <div className="mb-6 flex flex-wrap items-center gap-3">
             <div className="relative min-w-[200px] flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8] dark:text-muted-foreground" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="템플릿 검색..."
-                className="w-full rounded-lg border border-[#E2E8F0] bg-white py-2.5 pl-10 pr-4 text-[14px] text-[#1E2A3A] outline-none focus:border-[#2DD4BF] focus:ring-2 focus:ring-[#2DD4BF]/30"
+                className="app-input-shell w-full rounded-lg py-2.5 pl-10 pr-4 text-[14px] text-[#1E2A3A] outline-none focus:border-[#2DD4BF] focus:ring-2 focus:ring-[#2DD4BF]/30 dark:text-foreground"
               />
             </div>
 
             <select
               value={activeCategory}
               onChange={(event) => setActiveCategory(event.target.value)}
-              className="rounded-lg border border-[#E2E8F0] bg-white px-3 py-2.5 text-[13px] text-[#1E2A3A] lg:hidden"
+              className="app-input-shell rounded-lg px-3 py-2.5 text-[13px] text-[#1E2A3A] dark:text-foreground lg:hidden"
             >
               {categories.map((category) => (
                 <option key={category.id} value={category.id}>
@@ -383,7 +389,7 @@ export function TemplateLibrary() {
 
             <Popover>
               <PopoverTrigger asChild>
-                <button className="hidden items-center gap-2 rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] text-[#64748B] transition-colors hover:bg-[#F8FAFC] sm:flex">
+                <button className="app-secondary-button hidden items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] sm:flex">
                   <Filter className="h-4 w-4" />
                   필터
                 </button>
@@ -399,8 +405,8 @@ export function TemplateLibrary() {
                         onClick={() => setMinimumConfidence(score)}
                         className={`rounded-full px-3 py-1 text-xs transition ${
                           minimumConfidence === score
-                            ? "bg-[#1E2A3A] text-white"
-                            : "bg-[#F1F5F9] text-[#64748B]"
+                            ? "app-cta-primary"
+                            : "bg-[#F1F5F9] text-[#64748B] dark:bg-[#1E293B] dark:text-muted-foreground"
                         }`}
                       >
                         {score === 0 ? "전체" : `${score}% 이상`}
@@ -423,7 +429,7 @@ export function TemplateLibrary() {
                 <button
                   type="button"
                   onClick={runRefresh}
-                  className="w-full rounded-xl bg-[#1E2A3A] px-4 py-2 text-sm text-white"
+                  className="app-cta-primary w-full rounded-xl px-4 py-2 text-sm"
                 >
                   적용
                 </button>
@@ -432,7 +438,7 @@ export function TemplateLibrary() {
 
             <button
               onClick={() => openCreateDialog()}
-              className="flex items-center gap-2 rounded-lg bg-[#2DD4BF] px-4 py-2.5 text-[#1E2A3A] shadow-sm transition-colors hover:bg-[#14B8A6]"
+              className="app-cta-accent flex items-center gap-2 rounded-lg px-4 py-2.5 shadow-sm"
             >
               <Plus className="h-4 w-4" />
               <Sparkles className="h-3.5 w-3.5" />
@@ -450,17 +456,17 @@ export function TemplateLibrary() {
 
           {showEmpty ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
-              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#F1F5F9]">
-                <Sparkles className="h-8 w-8 text-[#CBD5E1]" />
+              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#F1F5F9] dark:bg-[#1E293B]">
+                <Sparkles className="h-8 w-8 text-[#CBD5E1] dark:text-muted-foreground" />
               </div>
-              <h3 className="mb-2 text-[#1E2A3A]">템플릿이 없습니다</h3>
-              <p className="mb-6 max-w-[320px] text-[13px] text-[#94A3B8]">
+              <h3 className="mb-2 text-[#1E2A3A] dark:text-foreground">템플릿이 없습니다</h3>
+              <p className="mb-6 max-w-[320px] text-[13px] text-[#94A3B8] dark:text-muted-foreground">
                 현재 필터 조건에 맞는 템플릿이 없습니다. 새 템플릿을 생성하거나
                 필터를 조정해 보세요.
               </p>
               <button
                 onClick={() => openCreateDialog()}
-                className="flex items-center gap-2 rounded-lg bg-[#2DD4BF] px-5 py-2.5 text-[#1E2A3A] transition-colors hover:bg-[#14B8A6]"
+                className="app-cta-accent flex items-center gap-2 rounded-lg px-5 py-2.5"
               >
                 <Plus className="h-4 w-4" />
                 <span className="text-[13px]">첫 번째 템플릿 생성</span>
@@ -475,17 +481,17 @@ export function TemplateLibrary() {
                   key={template.id}
                   type="button"
                   onClick={() => setPreviewTemplate(template)}
-                  className="group rounded-xl border border-[#E2E8F0] bg-white p-5 text-left transition-all hover:border-[#CBD5E1] hover:shadow-md"
+                  className="group rounded-xl border border-[#E2E8F0] bg-card p-5 text-left transition-all hover:border-[#CBD5E1] hover:shadow-md dark:border-border dark:hover:bg-[#131D2F] dark:hover:border-[#475569]"
                 >
                   <div className="mb-3 flex items-start justify-between">
-                    <span className="inline-flex rounded-full bg-[#F1F5F9] px-2 py-0.5 text-[11px] text-[#64748B]">
+                    <span className="inline-flex rounded-full bg-[#F1F5F9] px-2 py-0.5 text-[11px] text-[#64748B] dark:bg-[#1E293B] dark:text-muted-foreground">
                       {template.category}
                     </span>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <button
                           type="button"
-                          className="text-[#94A3B8] opacity-0 transition-opacity hover:text-[#64748B] group-hover:opacity-100"
+                          className="text-[#94A3B8] opacity-0 transition-opacity hover:text-[#64748B] group-hover:opacity-100 dark:text-muted-foreground dark:hover:text-foreground"
                           onClick={(event) => event.stopPropagation()}
                         >
                           <MoreHorizontal className="h-4 w-4" />
@@ -510,14 +516,14 @@ export function TemplateLibrary() {
                     </DropdownMenu>
                   </div>
 
-                  <h4 className="mb-2 line-clamp-1 text-[14px] text-[#1E2A3A]">
+                  <h4 className="mb-2 line-clamp-1 text-[14px] text-[#1E2A3A] dark:text-foreground">
                     {template.subject}
                   </h4>
-                  <p className="mb-4 min-h-[36px] line-clamp-2 text-[12px] text-[#94A3B8]">
+                  <p className="mb-4 min-h-[36px] line-clamp-2 text-[12px] text-[#94A3B8] dark:text-muted-foreground">
                     {template.body}
                   </p>
 
-                  <div className="flex items-center justify-between border-t border-[#F1F5F9] pt-3">
+                  <div className="flex items-center justify-between border-t border-[#F1F5F9] pt-3 dark:border-border">
                     <span
                       className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] ${getConfidenceColor(
                         template.confidence
@@ -532,7 +538,7 @@ export function TemplateLibrary() {
                           event.stopPropagation();
                           openCreateDialog(template);
                         }}
-                        className="rounded-md p-1.5 text-[#94A3B8] transition-colors hover:bg-[#F1F5F9] hover:text-[#1E2A3A]"
+                        className="rounded-md p-1.5 text-[#94A3B8] transition-colors hover:bg-[#F1F5F9] hover:text-[#1E2A3A] dark:text-muted-foreground dark:hover:bg-[#1E293B] dark:hover:text-foreground"
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </button>
@@ -542,14 +548,14 @@ export function TemplateLibrary() {
                           event.stopPropagation();
                           setDeleteTarget(template);
                         }}
-                        className="rounded-md p-1.5 text-[#94A3B8] transition-colors hover:bg-[#FEF2F2] hover:text-[#EF4444]"
+                        className="rounded-md p-1.5 text-[#94A3B8] transition-colors hover:bg-[#FEF2F2] hover:text-[#EF4444] dark:text-muted-foreground dark:hover:bg-[#3F1D24] dark:hover:text-[#FCA5A5]"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
                   </div>
 
-                  <p className="mt-2 text-[10px] text-[#CBD5E1]">
+                  <p className="mt-2 text-[10px] text-[#CBD5E1] dark:text-[#64748B]">
                     {template.updatedAt} 수정됨
                   </p>
                 </button>
@@ -659,7 +665,7 @@ export function TemplateLibrary() {
             </button>
             <button
               type="button"
-              className="rounded-xl bg-[#1E2A3A] px-4 py-2 text-sm text-white"
+              className="app-cta-primary rounded-xl px-4 py-2 text-sm"
               onClick={handleSaveTemplate}
             >
               저장

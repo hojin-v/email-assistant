@@ -188,13 +188,26 @@
     color-scheme: dark;
     --app-surface: #0F172A;
     --app-surface-muted: #1E293B;
+    --app-surface-soft: #131D2F;
+    --app-surface-elevated: #182235;
     --app-surface-accent: #0F2F2D;
+    --app-surface-accent-strong: #0B2728;
     --app-surface-danger: #3F1D24;
+    --app-surface-warning: #24190F;
+    --app-surface-success: #102317;
+    --app-surface-violet: #1B1430;
     --app-border: #334155;
     --app-border-strong: #475569;
+    --app-border-accent: #115E59;
+    --app-border-violet: #46306B;
+    --app-border-warning: #4A3417;
     --app-text: #F8FAFC;
     --app-text-muted: #CBD5E1;
     --app-text-subtle: #94A3B8;
+    --app-text-accent: #5EEAD4;
+    --app-text-warning: #F4C98A;
+    --app-text-success: #86EFAC;
+    --app-text-violet: #C4B5FD;
     --app-shadow: 0 18px 40px rgba(2, 6, 23, 0.45);
   }
 
@@ -205,7 +218,8 @@
 
   .dark [class~="bg-[#F8FAFC]"],
   .dark [class~="bg-[#F8FAFC]/90"],
-  .dark [class~="bg-[#F1F5F9]"] {
+  .dark [class~="bg-[#F1F5F9]"],
+  .dark [class~="bg-[#FAFBFC]"] {
     background-color: var(--app-surface-muted) !important;
   }
 
@@ -216,9 +230,37 @@
     background-color: var(--app-surface-accent) !important;
   }
 
+  .dark [class~="bg-[#2DD4BF]/5"] {
+    background-color: var(--app-surface-accent-strong) !important;
+  }
+
+  .dark [class~="bg-[#2DD4BF]/10"],
+  .dark [class~="bg-[#2DD4BF]/15"] {
+    background-color: var(--app-surface-accent) !important;
+  }
+
+  .dark [class~="bg-[#2DD4BF]"] {
+    background-color: #0F766E !important;
+  }
+
   .dark [class~="bg-[#FEF2F2]"],
   .dark [class~="bg-[#FEE2E2]"] {
     background-color: var(--app-surface-danger) !important;
+  }
+
+  .dark [class~="bg-[#FFF7ED]"],
+  .dark [class~="bg-[#FEF3C7]"] {
+    background-color: var(--app-surface-warning) !important;
+  }
+
+  .dark [class~="bg-[#F0FDF4]"],
+  .dark [class~="bg-[#ECFDF5]"] {
+    background-color: var(--app-surface-success) !important;
+  }
+
+  .dark [class~="bg-[#FAF5FF]"],
+  .dark [class~="bg-[#F5F3FF]"] {
+    background-color: var(--app-surface-violet) !important;
   }
 
   .dark [class~="border-[#E2E8F0]"],
@@ -230,6 +272,20 @@
   .dark [class~="border-[#CBD5E1]"],
   .dark [class~="border-[#FECACA]"] {
     border-color: var(--app-border-strong) !important;
+  }
+
+  .dark [class~="border-[#FFEDD5]"] {
+    border-color: var(--app-border-warning) !important;
+  }
+
+  .dark [class~="border-[#2DD4BF]"],
+  .dark [class~="border-[#2DD4BF]/20"] {
+    border-color: var(--app-border-accent) !important;
+  }
+
+  .dark [class~="border-[#D8B4FE]"],
+  .dark [class~="border-[#E9D5FF]"] {
+    border-color: var(--app-border-violet) !important;
   }
 
   .dark [class~="text-[#1E2A3A]"],
@@ -246,13 +302,40 @@
     color: var(--app-text-subtle) !important;
   }
 
+  .dark [class~="text-[#0D9488]"],
+  .dark [class~="text-[#0F766E]"],
+  .dark [class~="text-[#10B981]"],
+  .dark [class~="text-[#14B8A6]"],
+  .dark [class~="text-[#2DD4BF]"] {
+    color: var(--app-text-accent) !important;
+  }
+
+  .dark [class~="text-[#92400E]"],
+  .dark [class~="text-[#B45309]"],
+  .dark [class~="text-[#D97706]"] {
+    color: var(--app-text-warning) !important;
+  }
+
+  .dark [class~="text-[#16A34A]"] {
+    color: var(--app-text-success) !important;
+  }
+
+  .dark [class~="text-[#8B5CF6]"] {
+    color: var(--app-text-violet) !important;
+  }
+
+  .dark [class~="text-[#083344]"],
+  .dark [class~="text-slate-400"] {
+    color: var(--app-text-subtle) !important;
+  }
+
   .dark [class~="shadow-sm"],
   .dark [class~="shadow-xl"] {
     box-shadow: var(--app-shadow) !important;
   }
 
-  .dark input,
-  .dark textarea,
+  .dark input:not([class*="bg-transparent"]),
+  .dark textarea:not([class*="bg-transparent"]),
   .dark select {
     background-color: var(--input-background) !important;
     color: var(--app-text);
@@ -273,12 +356,211 @@
     background-color: var(--app-surface-accent) !important;
   }
 
+  .dark [class*="hover:bg-[#14B8A6]"]:hover {
+    background-color: #0D5E59 !important;
+  }
+
   .dark [class*="hover:bg-[#FEF2F2]"]:hover {
     background-color: #4C1D1D !important;
   }
 
+  .dark [class*="hover:bg-[#F5F3FF]"]:hover {
+    background-color: #231A39 !important;
+  }
+
   .dark [class*="hover:border-[#CBD5E1]"]:hover {
     border-color: var(--app-border-strong) !important;
+  }
+}
+
+@layer components {
+  .app-input-shell {
+    @apply rounded-xl border border-[#E2E8F0] bg-[#F8FAFC];
+  }
+
+  .dark .app-input-shell {
+    border-color: var(--app-border);
+    background-color: var(--app-surface-soft);
+  }
+
+  .app-soft-surface {
+    @apply rounded-xl border border-[#E2E8F0] bg-[#F8FAFC];
+  }
+
+  .dark .app-soft-surface {
+    border-color: var(--app-border);
+    background-color: var(--app-surface-soft);
+  }
+
+  .app-soft-panel {
+    background-color: #F3F4F6;
+  }
+
+  .dark .app-soft-panel {
+    background-color: var(--app-surface-soft);
+  }
+
+  .app-selected-surface {
+    border-color: #99F6E4;
+    background-color: #F8FFFE;
+  }
+
+  .dark .app-selected-surface {
+    border-color: var(--app-border-accent);
+    background-color: var(--app-surface-accent-strong);
+  }
+
+  .app-warning-card {
+    border-color: #FFEDD5;
+    background-color: #FFF7ED;
+    color: #92400E;
+  }
+
+  .dark .app-warning-card {
+    border-color: var(--app-border-warning);
+    background-color: var(--app-surface-warning);
+    color: var(--app-text-warning);
+  }
+
+  .app-warning-subtle {
+    color: #B45309;
+  }
+
+  .dark .app-warning-subtle {
+    color: #D9B07A;
+  }
+
+  .app-warning-pill {
+    background-color: #FFF7ED;
+    color: #D97706;
+  }
+
+  .dark .app-warning-pill {
+    background-color: var(--app-surface-warning);
+    color: var(--app-text-warning);
+  }
+
+  .app-success-pill {
+    background-color: #F0FDF4;
+    color: #16A34A;
+  }
+
+  .dark .app-success-pill {
+    background-color: var(--app-surface-success);
+    color: var(--app-text-success);
+  }
+
+  .app-violet-card {
+    border-color: #E9D5FF;
+    background-color: #FAF5FF;
+  }
+
+  .dark .app-violet-card {
+    border-color: var(--app-border-violet);
+    background-color: var(--app-surface-violet);
+  }
+
+  .app-violet-text {
+    color: #8B5CF6;
+  }
+
+  .dark .app-violet-text {
+    color: var(--app-text-violet);
+  }
+
+  .app-accent-text {
+    color: #0D9488;
+  }
+
+  .dark .app-accent-text {
+    color: var(--app-text-accent);
+  }
+
+  .app-cta-accent {
+    background-color: #2DD4BF;
+    color: #1E2A3A;
+    transition: background-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
+  }
+
+  .app-cta-accent:hover {
+    background-color: #14B8A6;
+  }
+
+  .dark .app-cta-accent {
+    background-color: #0F766E;
+    color: #ECFEFF;
+  }
+
+  .dark .app-cta-accent:hover {
+    background-color: #0D5E59;
+  }
+
+  .app-cta-primary {
+    background-color: #1E2A3A;
+    color: #FFFFFF;
+    transition: background-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
+  }
+
+  .app-cta-primary:hover {
+    background-color: #2A3A4E;
+  }
+
+  .dark .app-cta-primary {
+    background-color: #18263A;
+    color: #F8FAFC;
+  }
+
+  .dark .app-cta-primary:hover {
+    background-color: #22324A;
+  }
+
+  .app-secondary-button {
+    border: 1px solid #E2E8F0;
+    background-color: #FFFFFF;
+    color: #64748B;
+    transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+  }
+
+  .app-secondary-button:hover {
+    border-color: #CBD5E1;
+    background-color: #F8FAFC;
+    color: #1E2A3A;
+  }
+
+  .dark .app-secondary-button {
+    border-color: var(--app-border);
+    background-color: var(--app-surface);
+    color: var(--app-text-muted);
+  }
+
+  .dark .app-secondary-button:hover {
+    border-color: var(--app-border-strong);
+    background-color: var(--app-surface-elevated);
+    color: var(--app-text);
+  }
+
+  .app-danger-button {
+    border: 1px solid #FECACA;
+    background-color: transparent;
+    color: #DC2626;
+    transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+  }
+
+  .app-danger-button:hover {
+    background-color: #FEF2F2;
+    border-color: #FCA5A5;
+    color: #B91C1C;
+  }
+
+  .dark .app-danger-button {
+    border-color: #7F1D1D;
+    color: #FCA5A5;
+  }
+
+  .dark .app-danger-button:hover {
+    background-color: var(--app-surface-danger);
+    border-color: #991B1B;
+    color: #FECACA;
   }
 }
 

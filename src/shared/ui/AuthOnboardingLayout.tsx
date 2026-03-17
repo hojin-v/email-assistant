@@ -249,7 +249,7 @@ export function AuthOnboardingLayout({
         </div>
       </div>
 
-      <div className="flex min-h-screen flex-1 flex-col bg-[#F8FAFC]">
+      <div className="flex min-h-screen flex-1 flex-col bg-background">
         {stepBar ? (
           <div className="px-6 pb-2 pt-8 sm:px-10">{stepBar}</div>
         ) : null}
