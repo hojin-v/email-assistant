@@ -1,17 +1,80 @@
-import { createBrowserRouter } from "react-router";
+import type { ReactNode } from "react";
+import { Navigate, createBrowserRouter } from "react-router";
 import { AppShell } from "../../shared/ui/AppShell";
+import { getAppSession } from "../../shared/lib/app-session";
+
+function AuthEntryGate({ children }: { children: ReactNode }) {
+  const session = getAppSession();
+
+  if (session.authenticated && session.onboardingCompleted) {
+    return <Navigate replace to="/app" />;
+  }
+
+  if (session.authenticated) {
+    return <Navigate replace to="/onboarding" />;
+  }
+
+  return <>{children}</>;
+}
+
+function OnboardingGate({ children }: { children: ReactNode }) {
+  const session = getAppSession();
+
+  if (!session.authenticated) {
+    return <Navigate replace to="/" />;
+  }
+
+  if (session.onboardingCompleted) {
+    return <Navigate replace to="/app" />;
+  }
+
+  return <>{children}</>;
+}
+
+function AppGate() {
+  const session = getAppSession();
+
+  if (!session.authenticated) {
+    return <Navigate replace to="/" />;
+  }
+
+  if (!session.onboardingCompleted) {
+    return <Navigate replace to="/onboarding" />;
+  }
+
+  return <AppShell />;
+}
 
 export const router = createBrowserRouter([
   {
     path: "/",
     lazy: async () => {
-      const module = await import("../../pages/first-time-setup");
-      return { Component: module.FirstTimeSetupPage };
+      const module = await import("../../pages/auth");
+      return {
+        Component: () => (
+          <AuthEntryGate>
+            <module.AuthRoutePage />
+          </AuthEntryGate>
+        ),
+      };
+    },
+  },
+  {
+    path: "/onboarding",
+    lazy: async () => {
+      const module = await import("../../pages/onboarding");
+      return {
+        Component: () => (
+          <OnboardingGate>
+            <module.OnboardingPage />
+          </OnboardingGate>
+        ),
+      };
     },
   },
   {
     path: "/app",
-    element: <AppShell />,
+    element: <AppGate />,
     children: [
       {
         index: true,
@@ -60,13 +123,6 @@ export const router = createBrowserRouter([
         lazy: async () => {
           const module = await import("../../pages/settings");
           return { Component: module.SettingsPage };
-        },
-      },
-      {
-        path: "onboarding",
-        lazy: async () => {
-          const module = await import("../../pages/onboarding-wizard");
-          return { Component: module.OnboardingWizardPage };
         },
       },
     ],

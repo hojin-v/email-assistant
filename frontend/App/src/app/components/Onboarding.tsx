@@ -27,6 +27,11 @@ import {
   recommendedCategoryOptions,
   type RecommendedCategoryOption,
 } from "../../shared/config/onboarding-options";
+import {
+  getAppSession,
+  markOnboardingComplete,
+  setConnectedEmail as persistConnectedEmail,
+} from "../../shared/lib/app-session";
 
 const mainSteps = [
   { id: 1, label: "이메일 연동" },
@@ -84,7 +89,8 @@ const leftPanelContent: Record<
   },
 };
 
-export function FirstTimeSetup() {
+export function Onboarding() {
+  const session = getAppSession();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const generationTimeoutsRef = useRef<number[]>([]);
@@ -93,8 +99,8 @@ export function FirstTimeSetup() {
   const [currentSubStep, setCurrentSubStep] = useState(0);
 
   // Email connection state
-  const [emailConnected, setEmailConnected] = useState(false);
-  const [connectedEmail, setConnectedEmail] = useState("");
+  const [emailConnected, setEmailConnected] = useState(Boolean(session.connectedEmail));
+  const [connectedEmail, setConnectedEmail] = useState(session.connectedEmail);
 
   // Onboarding states
   const [tone, setTone] = useState("neutral");
@@ -158,8 +164,11 @@ export function FirstTimeSetup() {
   );
 
   const handleEmailConnect = () => {
-    setConnectedEmail("user@gmail.com");
+    const nextConnectedEmail = session.userEmail || "user@gmail.com";
+
+    setConnectedEmail(nextConnectedEmail);
     setEmailConnected(true);
+    persistConnectedEmail(nextConnectedEmail);
     toast.success("이메일 계정 연결을 완료했습니다.");
   };
 
@@ -191,6 +200,7 @@ export function FirstTimeSetup() {
       window.setTimeout(() => setTemplateProgress(5), 3600),
       window.setTimeout(() => setGenerationStep(3), 4000),
       window.setTimeout(() => {
+        markOnboardingComplete();
         setIsGenerating(false);
         setCurrentMainStep(4);
       }, 5000),
@@ -202,6 +212,7 @@ export function FirstTimeSetup() {
     setIsGenerating(false);
     setGenerationStep(0);
     setTemplateProgress(0);
+    markOnboardingComplete();
     toast.message("설정은 저장되지 않았지만 나중에 다시 진행할 수 있습니다.");
     navigate("/app");
   };
@@ -1127,7 +1138,10 @@ export function FirstTimeSetup() {
 
                 {/* Action Button */}
                 <button
-                  onClick={() => navigate("/app")}
+                  onClick={() => {
+                    markOnboardingComplete();
+                    navigate("/app");
+                  }}
                   className="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-[#2DD4BF] text-[#1E2A3A] rounded-xl hover:bg-[#14B8A6] transition-colors"
                 >
                   대시보드로 이동
