@@ -428,16 +428,6 @@ export function BusinessProfile() {
           </div>
         ) : null}
 
-        <div className="mt-8 text-center">
-          <button
-            onClick={() => navigate("/")}
-            className="inline-flex items-center gap-1 text-[12px] text-[#94A3B8] transition-colors hover:text-[#64748B]"
-          >
-            초기 온보딩 설정 다시 보기
-            <ArrowRight className="h-3 w-3" />
-          </button>
-        </div>
-
         <input
           ref={fileInputRef}
           type="file"
