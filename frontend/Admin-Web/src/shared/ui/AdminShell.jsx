@@ -4,7 +4,7 @@ import { LayoutGrid, Users, FileText, MessageSquare } from "lucide-react";
 const navItems = [
   { to: "/", label: "운영 대시보드", icon: LayoutGrid },
   { to: "/members", label: "회원 관리", icon: Users },
-  { to: "/templates", label: "템플릿 관리", icon: FileText },
+  { to: "/templates", label: "업종 / 카테고리 관리", icon: FileText },
   { to: "/inquiries", label: "사용자 문의 대응", icon: MessageSquare },
 ];
 

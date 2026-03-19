@@ -1,0 +1,101 @@
+[
+  {
+    "scenarioId": "admin-dashboard-load-error",
+    "route": "/?scenario=admin-dashboard-load-error",
+    "screenTitle": "관리자 대시보드 로드 실패",
+    "stateType": "load-error",
+    "outputFile": "screenshots/admin/admin-dashboard-load-error.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "관리자 대시보드 전체 로드 실패 상태"
+  },
+  {
+    "scenarioId": "admin-dashboard-queue-error",
+    "route": "/?scenario=admin-dashboard-queue-error",
+    "screenTitle": "메시지 큐 패널 오류",
+    "stateType": "load-error",
+    "outputFile": "screenshots/admin/admin-dashboard-queue-error.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "큐 현황 패널만 실패한 상태"
+  },
+  {
+    "scenarioId": "admin-members-load-error",
+    "route": "/members?scenario=admin-members-load-error",
+    "screenTitle": "회원 목록 로드 실패",
+    "stateType": "load-error",
+    "outputFile": "screenshots/admin/admin-members-load-error.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "회원 관리 전체 로드 실패 상태"
+  },
+  {
+    "scenarioId": "admin-members-empty",
+    "route": "/members?scenario=admin-members-empty",
+    "screenTitle": "회원 목록 빈 상태",
+    "stateType": "empty",
+    "outputFile": "screenshots/admin/admin-members-empty.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "검색/필터 결과가 없는 상태"
+  },
+  {
+    "scenarioId": "admin-templates-load-error",
+    "route": "/templates?scenario=admin-templates-load-error",
+    "screenTitle": "업종 / 카테고리 관리 로드 실패",
+    "stateType": "load-error",
+    "outputFile": "screenshots/admin/admin-templates-load-error.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "업종 기준과 카테고리 카탈로그를 불러오지 못한 상태"
+  },
+  {
+    "scenarioId": "admin-templates-approval-error",
+    "route": "/templates?scenario=admin-templates-approval-error",
+    "screenTitle": "LLM 생성 기준 패널 오류",
+    "stateType": "load-error",
+    "outputFile": "screenshots/admin/admin-templates-approval-error.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "카테고리 운영 원칙 패널만 실패한 상태"
+  },
+  {
+    "scenarioId": "admin-inquiries-load-error",
+    "route": "/inquiries?scenario=admin-inquiries-load-error",
+    "screenTitle": "문의 대응 로드 실패",
+    "stateType": "load-error",
+    "outputFile": "screenshots/admin/admin-inquiries-load-error.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "문의 대응 전체 로드 실패 상태"
+  },
+  {
+    "scenarioId": "admin-inquiries-empty",
+    "route": "/inquiries?scenario=admin-inquiries-empty",
+    "screenTitle": "문의 대응 빈 상태",
+    "stateType": "empty",
+    "outputFile": "screenshots/admin/admin-inquiries-empty.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "문의가 없는 상태"
+  },
+  {
+    "scenarioId": "admin-permission-denied",
+    "route": "/?scenario=admin-permission-denied",
+    "screenTitle": "관리자 권한 없음",
+    "stateType": "permission",
+    "outputFile": "screenshots/admin/admin-permission-denied.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "관리자 권한 부족 전면 상태"
+  },
+  {
+    "scenarioId": "admin-unexpected-error",
+    "route": "/?scenario=admin-unexpected-error",
+    "screenTitle": "관리자 예기치 않은 오류",
+    "stateType": "unexpected",
+    "outputFile": "screenshots/admin/admin-unexpected-error.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "관리자 앱 전면 오류 상태"
+  },
+  {
+    "scenarioId": "admin-not-found",
+    "route": "/unknown-admin-page",
+    "screenTitle": "관리자 앱 404",
+    "stateType": "not-found",
+    "outputFile": "screenshots/admin/admin-not-found.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "관리자 앱 잘못된 경로 상태"
+  }
+]
