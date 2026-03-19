@@ -1,9 +1,10 @@
-﻿import { createBrowserRouter, Navigate } from "react-router";
+﻿import { createBrowserRouter } from "react-router";
 import { AdminShell } from "../../shared/ui/AdminShell";
 import { DashboardPage } from "../../pages/dashboard";
 import { MembersPage } from "../../pages/members";
 import { TemplatesPage } from "../../pages/templates";
 import { InquiriesPage } from "../../pages/inquiries";
+import { NotFoundPage } from "../../pages/not-found";
 
 export const router = createBrowserRouter([
   {
@@ -14,7 +15,7 @@ export const router = createBrowserRouter([
       { path: "members", element: <MembersPage /> },
       { path: "templates", element: <TemplatesPage /> },
       { path: "inquiries", element: <InquiriesPage /> },
-      { path: "*", element: <Navigate to="/" replace /> },
+      { path: "*", element: <NotFoundPage /> },
     ],
   },
 ]);
