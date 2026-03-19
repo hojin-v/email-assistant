@@ -533,6 +533,90 @@ select {
   font-weight: 600;
 }
 
+.admin-page--centered {
+  min-height: calc(100vh - 56px);
+  justify-content: center;
+}
+
+.admin-state-page {
+  max-width: 680px;
+  margin: 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, #ffffff 100%);
+  box-shadow: var(--shadow);
+  padding: 42px 36px;
+  text-align: center;
+}
+
+.admin-state-page-icon,
+.admin-state-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(32, 50, 70, 0.08);
+  color: var(--navy);
+}
+
+.admin-state-page-icon {
+  width: 72px;
+  height: 72px;
+  margin-bottom: 18px;
+}
+
+.admin-state-page h1 {
+  margin: 0;
+  font-size: 30px;
+  letter-spacing: -0.03em;
+}
+
+.admin-state-page p {
+  margin: 12px auto 0;
+  max-width: 480px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.admin-state-page-actions {
+  margin-top: 24px;
+  display: flex;
+  justify-content: center;
+}
+
+.admin-state {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #fcfdfc;
+  padding: 18px 20px;
+}
+
+.admin-state--compact {
+  padding: 16px 18px;
+}
+
+.admin-state-icon {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+}
+
+.admin-state-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.admin-state-copy {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
 .status {
   border-radius: 999px;
   padding: 4px 10px;
