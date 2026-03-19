@@ -1,3 +1,10 @@
+import {
+  businessTypeOptions,
+  getBusinessTypeLabel,
+  getRecommendedCategoriesForDomain,
+  recommendedCategoryOptions,
+} from "../config/onboardingOptions";
+
 export const dashboardMetrics = [
   {
     label: "도메인별 메일 비율",
@@ -48,7 +55,7 @@ export const departmentUsage = [
 export const messagePipeline = {
   label: "RabbitMQ 기반 비동기 메시지 처리",
   summary:
-    "메일 수신 이후 분류, 템플릿 추천, 관리자 검수, 발송 대기까지 비동기 큐로 분리해 병목을 줄입니다.",
+    "메일 수신 이후 업종/카테고리 분류, LLM 초안 생성, 운영 정책 반영, 발송 대기까지 비동기 큐로 분리해 병목을 줄입니다.",
   stages: [
     {
       name: "ingest.queue",
@@ -62,7 +69,7 @@ export const messagePipeline = {
     },
     {
       name: "approval.queue",
-      desc: "승인 대기 템플릿/관리자 검토",
+      desc: "업종/카테고리 기준 반영 및 운영 검토",
       status: "주의",
     },
     {
@@ -80,7 +87,7 @@ export const messagePipeline = {
 
 export const memberSummary = [
   { label: "전체 사용자", value: "35명", hint: "활성 31명 / 대기 4명" },
-  { label: "운영 관리자", value: "6명", hint: "템플릿 승인 권한 보유" },
+  { label: "운영 관리자", value: "6명", hint: "업종/카테고리 관리 권한 보유" },
   { label: "소속 부서", value: "6개", hint: "부서별 정책 분리" },
 ];
 
@@ -91,7 +98,7 @@ export const members = [
     department: "운영팀",
     role: "슈퍼 관리자",
     status: "활성",
-    templateScope: "전체 도메인",
+    taxonomyScope: "전 업종 / 전 카테고리",
     lastActive: "오늘 09:32",
   },
   {
@@ -100,7 +107,7 @@ export const members = [
     department: "CS팀",
     role: "운영 관리자",
     status: "활성",
-    templateScope: "고객지원, 인사/총무",
+    taxonomyScope: "고객지원 / 인사 / 공통업무",
     lastActive: "오늘 08:50",
   },
   {
@@ -109,7 +116,7 @@ export const members = [
     department: "영업팀",
     role: "부서 관리자",
     status: "활성",
-    templateScope: "영업",
+    taxonomyScope: "영업 / 마케팅",
     lastActive: "어제 18:14",
   },
   {
@@ -118,7 +125,7 @@ export const members = [
     department: "파트너십팀",
     role: "검토 전용",
     status: "대기",
-    templateScope: "파트너십",
+    taxonomyScope: "마케팅 / 제휴 관련 카테고리 열람",
     lastActive: "초대 발송됨",
   },
   {
@@ -127,100 +134,107 @@ export const members = [
     department: "인사팀",
     role: "운영 담당자",
     status: "활성",
-    templateScope: "인사/총무",
+    taxonomyScope: "인사 / 공통업무",
     lastActive: "오늘 07:48",
   },
 ];
 
 export const departmentPolicies = [
-  { name: "CS팀", owner: "박민수", members: 12, policy: "고객지원 템플릿 전체 접근" },
-  { name: "영업팀", owner: "이진아", members: 8, policy: "영업/파트너십 템플릿 읽기 + 승인 요청" },
-  { name: "운영팀", owner: "김호진", members: 6, policy: "전 도메인 승인 및 권한 관리" },
+  { name: "CS팀", owner: "박민수", members: 12, policy: "고객지원 업종과 카테고리 기준 검토" },
+  { name: "영업팀", owner: "이진아", members: 8, policy: "영업 / 마케팅 카테고리 운영과 품질 피드백" },
+  { name: "운영팀", owner: "김호진", members: 6, policy: "전 업종 분류 기준과 공통 정책 관리" },
 ];
 
 export const accessPolicies = [
   {
-    title: "도메인 기반 접근",
-    desc: "부서별로 승인 가능한 템플릿 도메인을 분리합니다.",
+    title: "업종 기반 운영 범위",
+    desc: "부서별로 관리 가능한 업종 / 비즈니스 유형 범위를 분리합니다.",
   },
   {
-    title: "승인 요청 체계",
-    desc: "AI 자동 생성 초안은 운영 관리자만 승인 가능합니다.",
+    title: "카테고리 기준 검토",
+    desc: "분류 기준은 사용자 앱 온보딩과 동일한 카테고리 체계를 유지합니다.",
   },
   {
     title: "읽기 전용 계정",
-    desc: "문의 열람과 답변 기록 확인만 가능한 계정을 제공합니다.",
+    desc: "문의 열람과 운영 기준 확인만 가능한 계정을 제공합니다.",
   },
 ];
 
-export const templateSummary = [
-  { label: "전체 템플릿", value: "48개", hint: "운영중 33개 / 초안 15개" },
-  { label: "평균 정확도", value: "92.6%", hint: "최근 7일 기준" },
-  { label: "승인 대기", value: "7건", hint: "AI 생성 템플릿 검토 필요" },
-];
+const categoryCounts = businessTypeOptions.map((option) => ({
+  ...option,
+  count: getRecommendedCategoriesForDomain(option.value).length,
+}));
 
-export const templates = [
+const busiestBusinessType = categoryCounts.reduce((current, next) =>
+  next.count > current.count ? next : current
+);
+
+export const taxonomySummary = [
   {
-    name: "가격 문의 기본 응답",
-    domain: "영업",
-    category: "가격문의",
-    accuracy: "96%",
-    status: "운영중",
-    version: "v4",
-    approval: "승인 완료",
+    label: "업종 / 비즈니스 유형",
+    value: `${businessTypeOptions.length}개`,
+    hint: "App 온보딩과 동일한 기준 사용",
   },
   {
-    name: "도입 상담 일정 조율",
-    domain: "영업",
-    category: "미팅요청",
-    accuracy: "91%",
-    status: "운영중",
-    version: "v2",
-    approval: "승인 완료",
+    label: "기본 카테고리",
+    value: `${recommendedCategoryOptions.length}개`,
+    hint: "LLM 분류와 초안 생성 프롬프트에 공통 반영",
   },
   {
-    name: "환불 정책 1차 안내",
-    domain: "고객지원",
-    category: "환불요청",
-    accuracy: "89%",
-    status: "개선 필요",
-    version: "v3",
-    approval: "승인 완료",
-  },
-  {
-    name: "파트너 제안 접수 회신",
-    domain: "파트너십",
-    category: "제휴문의",
-    accuracy: "94%",
-    status: "운영중",
-    version: "v1",
-    approval: "승인 완료",
-  },
-  {
-    name: "복리후생 문의 응답",
-    domain: "인사/총무",
-    category: "사내문의",
-    accuracy: "87%",
-    status: "초안",
-    version: "v1",
-    approval: "승인 대기",
+    label: "최다 카테고리 업종",
+    value: busiestBusinessType.label,
+    hint: `${busiestBusinessType.count}개 카테고리 구성`,
   },
 ];
 
-export const templateApprovalQueue = [
+export const businessTypeRegistry = businessTypeOptions.map((option) => {
+  const categories = getRecommendedCategoriesForDomain(option.value);
+
+  return {
+    value: option.value,
+    label: option.label,
+    categoryCount: categories.length,
+    previewCategories: categories.slice(0, 3).map((category) => category.name),
+    color: categories[0]?.color ?? "#617081",
+    note:
+      option.value === "Sales"
+        ? "견적, 계약, 가격 협상, 미팅 조율처럼 매출 연결 흐름을 우선 분류합니다."
+        : option.value === "Marketing & PR"
+        ? "협찬/제휴, 광고, 인터뷰, 캠페인 등 외부 커뮤니케이션 흐름을 다룹니다."
+        : option.value === "HR"
+        ? "채용, 면접, 증명서, 휴가처럼 구성원 운영 메일을 중심으로 구성합니다."
+        : option.value === "Finance"
+        ? "세금계산서, 비용 처리, 입금 확인, 정산 문의를 기본 분류로 사용합니다."
+        : option.value === "Customer Support"
+        ? "불만 접수, 기술 지원, 환불, 사용법 문의 등 고객 응대 흐름을 다룹니다."
+        : option.value === "IT/Ops"
+        ? "시스템 오류, 계정 생성, 권한 변경 등 운영 지원 메일을 다룹니다."
+        : "공지, 내부 보고, 자료 요청, 협조 요청 등 공통 업무 메일을 묶습니다.",
+  };
+});
+
+export const categoryCatalog = recommendedCategoryOptions.map((category, index) => ({
+  id: category.id,
+  name: category.name,
+  domain: category.domain,
+  domainLabel: getBusinessTypeLabel(category.domain),
+  color: category.color,
+  sortKey: String(index + 1).padStart(2, "0"),
+  usage: "분류 기준 + LLM 템플릿 생성 입력값",
+}));
+
+export const categoryGovernance = [
   {
-    name: "출장 정산 문의 응답",
-    domain: "인사/총무",
-    generatedAt: "오늘 08:10",
-    confidence: "93%",
-    reviewer: "운영팀 대기",
+    title: "업종 / 비즈니스 유형 우선 적용",
+    desc: "관리자 웹의 업종 기준은 사용자 앱 온보딩과 비즈니스 프로필에서 선택하는 값과 완전히 동일해야 합니다.",
   },
   {
-    name: "계약 갱신 리마인드",
-    domain: "영업",
-    generatedAt: "오늘 07:42",
-    confidence: "90%",
-    reviewer: "영업팀 대기",
+    title: "카테고리 기준 단일 소스 유지",
+    desc: "카테고리는 업종별 기본 추천값으로 관리하고, LLM은 이 카테고리와 비즈니스 프로필 정보를 조합해 초안을 생성합니다.",
+  },
+  {
+    title: "사전 배포형 템플릿 운영 제거",
+    desc: "관리자 웹에서는 템플릿을 미리 만들어 배포하지 않고, 분류 기준과 생성 입력값만 관리합니다.",
   },
 ];
 
