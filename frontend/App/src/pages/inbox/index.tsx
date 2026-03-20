@@ -21,11 +21,43 @@ export function InboxPage() {
   const threadErrorScenario = scenarioId === "inbox-thread-error";
   const draftSendErrorScenario = scenarioId === "inbox-draft-send-error";
   const scheduleDetectErrorScenario = scenarioId === "inbox-schedule-detect-error";
+  const scheduleNormalScenario = scenarioId === "inbox-schedule-normal";
+  const completedNormalScenario = scenarioId === "inbox-completed-normal";
+  const autoSentNormalScenario = scenarioId === "inbox-auto-sent-normal";
+
+  const getInitialStatus = (): InboxStatus => {
+    if (completedNormalScenario) {
+      return "completed";
+    }
+    if (autoSentNormalScenario) {
+      return "auto-sent";
+    }
+
+    return "pending";
+  };
+
+  const getInitialSelectedEmailId = () => {
+    if (emptyScenario) {
+      return "";
+    }
+    if (scheduleNormalScenario) {
+      return "3";
+    }
+    if (completedNormalScenario) {
+      return "4";
+    }
+    if (autoSentNormalScenario) {
+      return "2";
+    }
+
+    return "1";
+  };
+
   const [emails, setEmails] = useState<EmailItem[]>(() =>
     emptyScenario ? [] : (emailItems as EmailItem[])
   );
-  const [activeStatus, setActiveStatus] = useState<InboxStatus>("pending");
-  const [selectedEmailId, setSelectedEmailId] = useState(emptyScenario ? "" : "1");
+  const [activeStatus, setActiveStatus] = useState<InboxStatus>(getInitialStatus);
+  const [selectedEmailId, setSelectedEmailId] = useState(getInitialSelectedEmailId);
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
 
   useEffect(() => {
@@ -37,8 +69,9 @@ export function InboxPage() {
     }
 
     setEmails(emailItems as EmailItem[]);
-    setSelectedEmailId("1");
-  }, [emptyScenario]);
+    setActiveStatus(getInitialStatus());
+    setSelectedEmailId(getInitialSelectedEmailId());
+  }, [autoSentNormalScenario, completedNormalScenario, emptyScenario, scheduleNormalScenario]);
 
   const visibleEmails = useMemo<EmailItem[]>(
     () =>

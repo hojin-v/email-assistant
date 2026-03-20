@@ -1,0 +1,16 @@
+{
+  "name": "emailassist-design-capture",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "scaffold": "node scaffold.mjs",
+    "capture": "node capture.mjs",
+    "docker:build": "bash run-in-docker.sh build",
+    "docker:scaffold": "bash run-in-docker.sh scaffold",
+    "docker:capture": "bash run-in-docker.sh capture"
+  },
+  "dependencies": {
+    "playwright": "^1.53.0"
+  }
+}

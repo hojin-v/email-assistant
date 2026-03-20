@@ -1,22 +1,60 @@
+export type UserRole = "USER" | "ADMIN";
+
 export type AppSession = {
   authenticated: boolean;
   onboardingCompleted: boolean;
+  role: UserRole;
   userName: string;
   userEmail: string;
+  clientIp: string;
+  adminVpnApproved: boolean;
   connectedEmail: string;
   connectedEmails: string[];
 };
+
+type MockAuthAccount = {
+  email: string;
+  name: string;
+  role: UserRole;
+  password: string;
+};
+
+export const ADMIN_VPN_CIDR = "192.168.0.0/24";
+export const DEFAULT_MOCK_CLIENT_IP = "192.168.0.42";
+export const ADMIN_IP_DENIED_MOCK_CLIENT_IP = "203.0.113.25";
+
+const mockAuthAccounts: MockAuthAccount[] = [
+  {
+    email: "admin@admin",
+    name: "운영 관리자",
+    role: "ADMIN",
+    password: "admin",
+  },
+  {
+    email: "ops@emailassist.com",
+    name: "운영 담당자",
+    role: "ADMIN",
+    password: "admin",
+  },
+];
 
 const STORAGE_KEY = "emailassist-app-session";
 
 const defaultSession: AppSession = {
   authenticated: false,
   onboardingCompleted: false,
+  role: "USER",
   userName: "",
   userEmail: "",
+  clientIp: "",
+  adminVpnApproved: false,
   connectedEmail: "",
   connectedEmails: [],
 };
+
+function normalizeEmail(email: string) {
+  return email.trim().toLowerCase();
+}
 
 function canUseStorage() {
   return typeof window !== "undefined" && typeof window.sessionStorage !== "undefined";
@@ -58,8 +96,11 @@ export function getAppSession(): AppSession {
       ...parsed,
       authenticated: parsed.authenticated === true,
       onboardingCompleted: parsed.onboardingCompleted === true,
+      role: parsed.role === "ADMIN" ? "ADMIN" : "USER",
       userName: parsed.userName ?? "",
       userEmail: parsed.userEmail ?? "",
+      clientIp: parsed.clientIp ?? "",
+      adminVpnApproved: parsed.adminVpnApproved === true,
       connectedEmail: primaryConnectedEmail,
       connectedEmails,
     };
@@ -71,16 +112,25 @@ export function getAppSession(): AppSession {
 export function createAuthenticatedSession({
   name,
   email,
+  role = "USER",
+  clientIp = DEFAULT_MOCK_CLIENT_IP,
+  adminVpnApproved = false,
 }: {
   name: string;
   email: string;
+  role?: UserRole;
+  clientIp?: string;
+  adminVpnApproved?: boolean;
 }) {
   const session: AppSession = {
     ...defaultSession,
     authenticated: true,
-    onboardingCompleted: false,
+    onboardingCompleted: role === "ADMIN",
+    role,
     userName: name,
     userEmail: email,
+    clientIp,
+    adminVpnApproved,
   };
 
   writeSession(session);
@@ -111,6 +161,63 @@ export function setConnectedEmail(connectedEmail: string) {
     connectedEmail,
     connectedEmails,
   });
+}
+
+export function resolveMockAuthAccount(email: string): MockAuthAccount {
+  const normalizedEmail = normalizeEmail(email);
+  const account = mockAuthAccounts.find((item) => item.email === normalizedEmail);
+
+  if (account) {
+    return account;
+  }
+
+  return {
+    email: normalizedEmail,
+    name: deriveNameFromEmail(normalizedEmail) || "사용자",
+    role: "USER",
+    password: "",
+  };
+}
+
+export function validateMockAccountPassword(email: string, password: string) {
+  const normalizedEmail = normalizeEmail(email);
+  const account = mockAuthAccounts.find((item) => item.email === normalizedEmail);
+
+  if (!account) {
+    return true;
+  }
+
+  return account.password === password.trim();
+}
+
+export function isVpnIpAllowed(ip: string, cidr = ADMIN_VPN_CIDR) {
+  const [network, maskBits] = cidr.split("/");
+  const normalizedMask = Number(maskBits);
+
+  if (!network || Number.isNaN(normalizedMask) || normalizedMask !== 24) {
+    return false;
+  }
+
+  const ipParts = ip.split(".");
+  const networkParts = network.split(".");
+
+  if (ipParts.length !== 4 || networkParts.length !== 4) {
+    return false;
+  }
+
+  return ipParts.slice(0, 3).join(".") === networkParts.slice(0, 3).join(".");
+}
+
+export function isAdminSession(session: AppSession) {
+  return session.authenticated && session.role === "ADMIN";
+}
+
+export function canAccessAdmin(session: AppSession) {
+  return isAdminSession(session) && session.adminVpnApproved;
+}
+
+export function canAccessUserWorkspace(session: AppSession) {
+  return session.authenticated && session.role === "USER";
 }
 
 export function setConnectedEmails(connectedEmails: string[]) {

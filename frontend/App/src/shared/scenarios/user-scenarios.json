@@ -27,6 +27,15 @@
     "description": "로그인 요청 실패 상태"
   },
   {
+    "scenarioId": "auth-admin-ip-denied",
+    "route": "/",
+    "screenTitle": "관리자 IP 승인 거부",
+    "stateType": "permission",
+    "outputFile": "screenshots/user/auth-admin-ip-denied.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "관리자 계정의 VPN IP 승인 거부 상태"
+  },
+  {
     "scenarioId": "onboarding-google-oauth-error",
     "route": "/onboarding",
     "screenTitle": "온보딩 Gmail OAuth 실패",
