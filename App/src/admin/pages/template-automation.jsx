@@ -2,18 +2,25 @@ import { useMemo, useState } from "react";
 import { Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { useSearchParams } from "react-router";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../app/components/ui/select";
+import {
   generatedTemplates,
   initialAutomationRules,
   templateCategoryStats,
   templateSummary,
   userIndustryOptions,
-} from "../../shared/mock/adminData";
-import { MetricCard } from "../../shared/ui/MetricCard";
-import { PageHeader } from "../../shared/ui/PageHeader";
-import { AdminModal } from "../../shared/ui/AdminModal";
-import { AdminStateNotice } from "../../shared/ui/AdminStateNotice";
-import { AdminStatePage } from "../../shared/ui/AdminStatePage";
-import { StatusBadge } from "../../shared/ui/StatusBadge";
+} from "../shared/mock/adminData";
+import { MetricCard } from "../shared/ui/MetricCard";
+import { PageHeader } from "../shared/ui/PageHeader";
+import { AdminModal } from "../shared/ui/AdminModal";
+import { AdminStateNotice } from "../shared/ui/AdminStateNotice";
+import { AdminStatePage } from "../shared/ui/AdminStatePage";
+import { StatusBadge } from "../shared/ui/StatusBadge";
 
 const emptyRuleDraft = {
   name: "",
@@ -213,13 +220,12 @@ export function TemplateAutomationPage() {
       />
 
       <div className="admin-card-grid admin-card-grid--four">
-        {templateSummary.map((card, index) => (
+        {templateSummary.map((card) => (
           <MetricCard
             key={card.label}
             label={card.label}
             value={card.value}
             hint={card.hint}
-            tone={index === 0 || index === 2 ? "accent" : "default"}
           />
         ))}
       </div>
@@ -256,41 +262,55 @@ export function TemplateAutomationPage() {
 
             <div className="admin-toolbar">
               <div className="admin-toolbar-group">
-                <div className="admin-input-wrap">
+                <div className="admin-input-wrap app-input-shell">
                   <Search size={14} />
                   <input
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
-                    className="admin-input admin-input--compact"
+                    className="admin-input admin-input--compact bg-transparent text-sm placeholder:text-muted-foreground"
                     placeholder="템플릿명 / 카테고리 / ID 검색"
                   />
                 </div>
-                <select
-                  value={industry}
-                  onChange={(event) => setIndustry(event.target.value)}
-                  className="admin-select"
-                >
-                  <option value="all">전체 업종</option>
-                  {userIndustryOptions.map((item) => (
-                    <option key={item.value} value={item.value}>
-                      {item.label}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={categoryFilter}
-                  onChange={(event) => setCategoryFilter(event.target.value)}
-                  className="admin-select"
-                >
-                  <option value="all">전체 카테고리</option>
-                  {categories
-                    .filter((item) => item !== "all")
-                    .map((item) => (
-                      <option key={item} value={item}>
-                        {item}
-                      </option>
+                <Select value={industry} onValueChange={setIndustry}>
+                  <SelectTrigger className="app-form-input h-11 min-w-[148px] rounded-xl px-4 text-sm">
+                    <SelectValue placeholder="전체 업종" />
+                  </SelectTrigger>
+                  <SelectContent className="app-select-content rounded-2xl p-1">
+                    <SelectItem value="all" className="app-select-item rounded-xl px-3 py-2.5 text-sm">
+                      전체 업종
+                    </SelectItem>
+                    {userIndustryOptions.map((item) => (
+                      <SelectItem
+                        key={item.value}
+                        value={item.value}
+                        className="app-select-item rounded-xl px-3 py-2.5 text-sm"
+                      >
+                        {item.label}
+                      </SelectItem>
                     ))}
-                </select>
+                  </SelectContent>
+                </Select>
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger className="app-form-input h-11 min-w-[156px] rounded-xl px-4 text-sm">
+                    <SelectValue placeholder="전체 카테고리" />
+                  </SelectTrigger>
+                  <SelectContent className="app-select-content rounded-2xl p-1">
+                    <SelectItem value="all" className="app-select-item rounded-xl px-3 py-2.5 text-sm">
+                      전체 카테고리
+                    </SelectItem>
+                    {categories
+                      .filter((item) => item !== "all")
+                      .map((item) => (
+                        <SelectItem
+                          key={item}
+                          value={item}
+                          className="app-select-item rounded-xl px-3 py-2.5 text-sm"
+                        >
+                          {item}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
               </div>
               <span className="admin-toolbar-note">
                 LLM이 생성한 템플릿 결과와 사용 횟수를 기준으로 정렬합니다.
@@ -470,6 +490,7 @@ export function TemplateAutomationPage() {
         title={editingRuleId ? "자동화 규칙 수정" : "자동화 규칙 생성"}
         description="규칙명, 카테고리, 조건, 동작을 입력하면 즉시 목록에 반영됩니다."
         onClose={() => setRuleDialogOpen(false)}
+        width={680}
         footer={
           <>
             <button
@@ -495,63 +516,79 @@ export function TemplateAutomationPage() {
             />
           ) : null}
 
-          <div className="admin-form-grid">
-          <label className="admin-field">
-            <span>규칙명</span>
-            <input
-              value={ruleDraft.name}
-              onChange={(event) => setRuleDraft((current) => ({ ...current, name: event.target.value }))}
-              className="admin-input"
-              placeholder="예: 환불 요청 우선 검토"
-            />
-          </label>
-          <label className="admin-field">
-            <span>카테고리</span>
-            <select
-              value={ruleDraft.category}
-              onChange={(event) => setRuleDraft((current) => ({ ...current, category: event.target.value }))}
-              className="admin-select"
-            >
-              {categories
-                .filter((item) => item !== "all")
-                .map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-            </select>
-          </label>
-          <label className="admin-field admin-field--full">
-            <span>조건</span>
-            <textarea
-              value={ruleDraft.trigger}
-              onChange={(event) => setRuleDraft((current) => ({ ...current, trigger: event.target.value }))}
-              className="admin-textarea"
-              rows={4}
-              placeholder="키워드나 분류 조건을 입력하세요"
-            />
-          </label>
-          <label className="admin-field admin-field--full">
-            <span>동작</span>
-            <textarea
-              value={ruleDraft.action}
-              onChange={(event) => setRuleDraft((current) => ({ ...current, action: event.target.value }))}
-              className="admin-textarea"
-              rows={4}
-              placeholder="초안 생성, 담당자 검토, 캘린더 등록 등 동작을 입력하세요"
-            />
-          </label>
-          <label className="admin-field">
-            <span>상태</span>
-            <select
-              value={ruleDraft.status}
-              onChange={(event) => setRuleDraft((current) => ({ ...current, status: event.target.value }))}
-              className="admin-select"
-            >
-              <option value="활성">활성</option>
-              <option value="비활성">비활성</option>
-            </select>
-          </label>
+          <div className="admin-form-grid admin-form-grid--single">
+            <label className="admin-field">
+              <span>규칙명</span>
+              <input
+                value={ruleDraft.name}
+                onChange={(event) => setRuleDraft((current) => ({ ...current, name: event.target.value }))}
+                className="admin-input app-form-input"
+                placeholder="예: 환불 요청 우선 검토"
+              />
+            </label>
+            <label className="admin-field">
+              <span>카테고리</span>
+              <Select
+                value={ruleDraft.category}
+                onValueChange={(value) => setRuleDraft((current) => ({ ...current, category: value }))}
+              >
+                <SelectTrigger className="app-form-input h-11 w-full rounded-xl px-4 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="app-select-content rounded-2xl p-1">
+                  {categories
+                    .filter((item) => item !== "all")
+                    .map((item) => (
+                      <SelectItem
+                        key={item}
+                        value={item}
+                        className="app-select-item rounded-xl px-3 py-2.5 text-sm"
+                      >
+                        {item}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </label>
+            <label className="admin-field">
+              <span>조건</span>
+              <textarea
+                value={ruleDraft.trigger}
+                onChange={(event) => setRuleDraft((current) => ({ ...current, trigger: event.target.value }))}
+                className="admin-textarea app-form-input"
+                rows={4}
+                placeholder="키워드나 분류 조건을 입력하세요"
+              />
+            </label>
+            <label className="admin-field">
+              <span>동작</span>
+              <textarea
+                value={ruleDraft.action}
+                onChange={(event) => setRuleDraft((current) => ({ ...current, action: event.target.value }))}
+                className="admin-textarea app-form-input"
+                rows={4}
+                placeholder="초안 생성, 담당자 검토, 캘린더 등록 등 동작을 입력하세요"
+              />
+            </label>
+            <label className="admin-field">
+              <span>상태</span>
+              <Select
+                value={ruleDraft.status}
+                onValueChange={(value) => setRuleDraft((current) => ({ ...current, status: value }))}
+              >
+                <SelectTrigger className="app-form-input h-11 w-full rounded-xl px-4 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="app-select-content rounded-2xl p-1">
+                  <SelectItem value="활성" className="app-select-item rounded-xl px-3 py-2.5 text-sm">
+                    활성
+                  </SelectItem>
+                  <SelectItem value="비활성" className="app-select-item rounded-xl px-3 py-2.5 text-sm">
+                    비활성
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </label>
           </div>
         </div>
       </AdminModal>

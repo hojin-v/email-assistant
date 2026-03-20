@@ -33,7 +33,7 @@ export function AdminStatePage({
         <p>{description}</p>
         <div className="admin-state-page-actions">
           {action ?? (
-            <Link to="/" className="admin-button">
+            <Link to="/admin" className="admin-button">
               운영 대시보드로 이동
             </Link>
           )}

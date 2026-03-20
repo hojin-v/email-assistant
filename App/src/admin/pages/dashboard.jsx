@@ -6,12 +6,12 @@ import {
   mailProcessingByPeriod,
   recentDashboardInquiries,
   recentSevenDayTrend,
-} from "../../shared/mock/adminData";
-import { MetricCard } from "../../shared/ui/MetricCard";
-import { PageHeader } from "../../shared/ui/PageHeader";
-import { AdminStateNotice } from "../../shared/ui/AdminStateNotice";
-import { AdminStatePage } from "../../shared/ui/AdminStatePage";
-import { StatusBadge } from "../../shared/ui/StatusBadge";
+} from "../shared/mock/adminData";
+import { MetricCard } from "../shared/ui/MetricCard";
+import { PageHeader } from "../shared/ui/PageHeader";
+import { AdminStateNotice } from "../shared/ui/AdminStateNotice";
+import { AdminStatePage } from "../shared/ui/AdminStatePage";
+import { StatusBadge } from "../shared/ui/StatusBadge";
 
 export function DashboardPage() {
   const [searchParams] = useSearchParams();
@@ -68,13 +68,12 @@ export function DashboardPage() {
       />
 
       <div className="admin-card-grid admin-card-grid--five">
-        {dashboardMetrics.map((card, index) => (
+        {dashboardMetrics.map((card) => (
           <MetricCard
             key={card.label}
             label={card.label}
             value={card.value}
             hint={card.hint}
-            tone={index === 2 || index === 3 ? "accent" : index === 4 ? "warn" : "default"}
           />
         ))}
       </div>

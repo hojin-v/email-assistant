@@ -1,16 +1,27 @@
 import type { ReactNode } from "react";
-import { Navigate, createBrowserRouter } from "react-router";
+import { Link, Navigate, createBrowserRouter } from "react-router";
 import { AppShell } from "../../shared/ui/AppShell";
-import { getAppSession } from "../../shared/lib/app-session";
+import {
+  canAccessAdmin,
+  canAccessUserWorkspace,
+  getAppSession,
+  isAdminSession,
+} from "../../shared/lib/app-session";
+import { AppStatePage } from "../../shared/ui/primitives/AppStatePage";
+import { AdminRootLayout } from "../../admin/AdminRootLayout";
 
 function AuthEntryGate({ children }: { children: ReactNode }) {
   const session = getAppSession();
 
-  if (session.authenticated && session.onboardingCompleted) {
+  if (canAccessAdmin(session)) {
+    return <Navigate replace to="/admin" />;
+  }
+
+  if (canAccessUserWorkspace(session) && session.onboardingCompleted) {
     return <Navigate replace to="/app" />;
   }
 
-  if (session.authenticated) {
+  if (canAccessUserWorkspace(session)) {
     return <Navigate replace to="/onboarding" />;
   }
 
@@ -22,6 +33,10 @@ function OnboardingGate({ children }: { children: ReactNode }) {
 
   if (!session.authenticated) {
     return <Navigate replace to="/" />;
+  }
+
+  if (isAdminSession(session)) {
+    return <Navigate replace to="/admin" />;
   }
 
   if (session.onboardingCompleted) {
@@ -38,11 +53,61 @@ function AppGate() {
     return <Navigate replace to="/" />;
   }
 
+  if (isAdminSession(session)) {
+    return <Navigate replace to="/admin" />;
+  }
+
   if (!session.onboardingCompleted) {
     return <Navigate replace to="/onboarding" />;
   }
 
   return <AppShell />;
+}
+
+function AdminGate() {
+  const session = getAppSession();
+
+  if (!session.authenticated) {
+    return <Navigate replace to="/" />;
+  }
+
+  if (!isAdminSession(session)) {
+    return (
+      <AppStatePage
+        title="관리자 화면에 접근할 수 없습니다"
+        description="현재 로그인한 계정은 운영 콘솔 권한이 없습니다. 사용자 업무 화면으로 돌아가 계속 진행해 주세요."
+        tone="permission"
+        action={
+          <Link
+            to={session.onboardingCompleted ? "/app" : "/onboarding"}
+            className="app-cta-primary inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm font-medium"
+          >
+            사용자 화면으로 이동
+          </Link>
+        }
+      />
+    );
+  }
+
+  if (!canAccessAdmin(session)) {
+    return (
+      <AppStatePage
+        title="관리자 접근이 승인되지 않았습니다"
+        description={`현재 접속 IP ${session.clientIp || "-"}는 관리자 VPN 허용 대역(192.168.0.0/24)에 포함되지 않습니다. VPN 연결 후 다시 로그인해 주세요.`}
+        tone="warning"
+        action={
+          <Link
+            to="/"
+            className="app-cta-primary inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm font-medium"
+          >
+            로그인 화면으로 이동
+          </Link>
+        }
+      />
+    );
+  }
+
+  return <AdminRootLayout />;
 }
 
 export const router = createBrowserRouter([
@@ -123,6 +188,54 @@ export const router = createBrowserRouter([
         lazy: async () => {
           const module = await import("../../pages/settings");
           return { Component: module.SettingsPage };
+        },
+      },
+    ],
+  },
+  {
+    path: "/admin",
+    element: <AdminGate />,
+    children: [
+      {
+        index: true,
+        lazy: async () => {
+          const module = await import("../../admin/pages/dashboard");
+          return { Component: module.DashboardPage };
+        },
+      },
+      {
+        path: "users",
+        lazy: async () => {
+          const module = await import("../../admin/pages/users");
+          return { Component: module.UsersPage };
+        },
+      },
+      {
+        path: "template-automation",
+        lazy: async () => {
+          const module = await import("../../admin/pages/template-automation");
+          return { Component: module.TemplateAutomationPage };
+        },
+      },
+      {
+        path: "inquiries",
+        lazy: async () => {
+          const module = await import("../../admin/pages/inquiries");
+          return { Component: module.InquiriesPage };
+        },
+      },
+      {
+        path: "monitoring",
+        lazy: async () => {
+          const module = await import("../../admin/pages/monitoring");
+          return { Component: module.MonitoringPage };
+        },
+      },
+      {
+        path: "*",
+        lazy: async () => {
+          const module = await import("../../admin/pages/not-found");
+          return { Component: module.NotFoundPage };
         },
       },
     ],

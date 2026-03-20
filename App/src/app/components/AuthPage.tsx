@@ -12,8 +12,14 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import {
+  ADMIN_IP_DENIED_MOCK_CLIENT_IP,
+  ADMIN_VPN_CIDR,
+  DEFAULT_MOCK_CLIENT_IP,
   createAuthenticatedSession,
   deriveNameFromEmail,
+  isVpnIpAllowed,
+  resolveMockAuthAccount,
+  validateMockAccountPassword,
 } from "../../shared/lib/app-session";
 import { AuthOnboardingLayout } from "../../shared/ui/AuthOnboardingLayout";
 import { StateBanner } from "../../shared/ui/primitives/StateBanner";
@@ -73,6 +79,12 @@ interface AuthPageProps {
   scenarioId?: string | null;
 }
 
+type RuntimeBanner = {
+  tone: "error" | "warning" | "info" | "neutral";
+  title: string;
+  description: string;
+};
+
 export function AuthPage({ scenarioId }: AuthPageProps) {
   const navigate = useNavigate();
   const [mode, setMode] = useState<AuthMode>("login");
@@ -93,6 +105,7 @@ export function AuthPage({ scenarioId }: AuthPageProps) {
     passwordConfirm: "",
   });
   const [resetCompleted, setResetCompleted] = useState(false);
+  const [runtimeBanner, setRuntimeBanner] = useState<RuntimeBanner | null>(null);
 
   const isLogin = mode === "login";
   const isReset = mode === "reset";
@@ -103,8 +116,16 @@ export function AuthPage({ scenarioId }: AuthPageProps) {
   const loginValidationScenario = scenarioId === "auth-login-validation";
   const signupValidationScenario = scenarioId === "auth-signup-validation";
   const loginServiceErrorScenario = scenarioId === "auth-login-service-error";
+  const adminIpDeniedScenario = scenarioId === "auth-admin-ip-denied";
+  const selectedAccount = useMemo(
+    () => resolveMockAuthAccount(loginForm.email.trim()),
+    [loginForm.email],
+  );
+  const adminAccountSelected = selectedAccount.role === "ADMIN";
 
   useEffect(() => {
+    setRuntimeBanner(null);
+
     if (signupModeScenario) {
       setMode("signup");
       setResetCompleted(false);
@@ -149,6 +170,16 @@ export function AuthPage({ scenarioId }: AuthPageProps) {
       return;
     }
 
+    if (adminIpDeniedScenario) {
+      setMode("login");
+      setResetCompleted(false);
+      setLoginForm({
+        email: "admin@admin",
+        password: "admin",
+      });
+      return;
+    }
+
     if (resetModeScenario) {
       setMode("reset");
       setResetForm({
@@ -174,6 +205,7 @@ export function AuthPage({ scenarioId }: AuthPageProps) {
   }, [
     loginServiceErrorScenario,
     loginValidationScenario,
+    adminIpDeniedScenario,
     resetCompleteScenario,
     resetModeScenario,
     signupModeScenario,
@@ -205,11 +237,26 @@ export function AuthPage({ scenarioId }: AuthPageProps) {
       };
     }
 
-    return null;
-  }, [loginServiceErrorScenario, loginValidationScenario, signupValidationScenario]);
+    if (adminIpDeniedScenario) {
+      return {
+        tone: "error" as const,
+        title: "관리자 접근이 승인되지 않았습니다",
+        description: `현재 접속 IP ${ADMIN_IP_DENIED_MOCK_CLIENT_IP}는 관리자 VPN 허용 대역(${ADMIN_VPN_CIDR})에 포함되지 않습니다. VPN 연결 후 다시 로그인해 주세요.`,
+      };
+    }
+
+    return runtimeBanner;
+  }, [
+    adminIpDeniedScenario,
+    loginServiceErrorScenario,
+    loginValidationScenario,
+    runtimeBanner,
+    signupValidationScenario,
+  ]);
 
   const handleLoginSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setRuntimeBanner(null);
 
     if (!loginForm.email.trim() || !loginForm.password.trim()) {
       toast.error("이메일과 비밀번호를 입력해주세요.");
@@ -221,10 +268,43 @@ export function AuthPage({ scenarioId }: AuthPageProps) {
       return;
     }
 
+    if (!validateMockAccountPassword(loginForm.email.trim(), loginForm.password.trim())) {
+      setRuntimeBanner({
+        tone: "error",
+        title: "로그인 정보를 다시 확인해 주세요",
+        description: "관리자 계정의 이메일 또는 비밀번호가 올바르지 않습니다. 다시 입력해 주세요.",
+      });
+      return;
+    }
+
+    const account = resolveMockAuthAccount(loginForm.email.trim());
+    const clientIp = adminIpDeniedScenario
+      ? ADMIN_IP_DENIED_MOCK_CLIENT_IP
+      : DEFAULT_MOCK_CLIENT_IP;
+    const adminVpnApproved = account.role === "ADMIN" ? isVpnIpAllowed(clientIp) : false;
+
+    if (account.role === "ADMIN" && !adminVpnApproved) {
+      setRuntimeBanner({
+        tone: "error",
+        title: "관리자 접근이 승인되지 않았습니다",
+        description: `현재 접속 IP ${clientIp}는 관리자 VPN 허용 대역(${ADMIN_VPN_CIDR})에 포함되지 않습니다. VPN 연결 후 다시 로그인해 주세요.`,
+      });
+      return;
+    }
+
     createAuthenticatedSession({
-      name: deriveNameFromEmail(loginForm.email.trim()) || "사용자",
-      email: loginForm.email.trim(),
+      name: account.name || deriveNameFromEmail(loginForm.email.trim()) || "사용자",
+      email: account.email || loginForm.email.trim(),
+      role: account.role,
+      clientIp,
+      adminVpnApproved,
     });
+
+    if (account.role === "ADMIN") {
+      toast.success("관리자 계정으로 로그인되었습니다.");
+      navigate("/admin");
+      return;
+    }
 
     toast.success("로그인되었습니다. 온보딩으로 이동합니다.");
     navigate("/onboarding");
@@ -336,9 +416,9 @@ export function AuthPage({ scenarioId }: AuthPageProps) {
           </h2>
           <p className="text-[14px] text-[#94A3B8] dark:text-muted-foreground">
             {isLogin
-              ? "로그인 후 온보딩에서 이메일 연결과 초기 설정을 진행합니다"
+              ? "로그인 후 일반 사용자는 온보딩으로, 관리자는 운영 콘솔로 이동합니다"
               : isReset
-              ? "이름과 이메일을 확인하면 임시 비밀번호를 새로 만들 수 있습니다"
+              ? "이름과 이메일을 확인한 뒤 새 비밀번호를 다시 설정할 수 있습니다"
               : "회원가입 후 온보딩에서 이메일 연동과 비즈니스 설정을 완료합니다"}
           </p>
         </div>
@@ -357,6 +437,7 @@ export function AuthPage({ scenarioId }: AuthPageProps) {
             <button
               type="button"
               onClick={() => {
+                setRuntimeBanner(null);
                 setMode("login");
                 setResetCompleted(false);
               }}
@@ -369,7 +450,10 @@ export function AuthPage({ scenarioId }: AuthPageProps) {
           <div className="mb-6 flex rounded-xl bg-[#F8FAFC] p-1 dark:bg-[#111827]">
             <button
               type="button"
-              onClick={() => setMode("login")}
+              onClick={() => {
+                setRuntimeBanner(null);
+                setMode("login");
+              }}
               className={`flex-1 rounded-lg px-4 py-2.5 text-[13px] font-medium transition-colors ${
                 isLogin
                   ? "bg-white text-[#1E2A3A] shadow-sm dark:bg-[#18263A] dark:text-foreground"
@@ -380,7 +464,10 @@ export function AuthPage({ scenarioId }: AuthPageProps) {
             </button>
             <button
               type="button"
-              onClick={() => setMode("signup")}
+              onClick={() => {
+                setRuntimeBanner(null);
+                setMode("signup");
+              }}
               className={`flex-1 rounded-lg px-4 py-2.5 text-[13px] font-medium transition-colors ${
                 mode === "signup"
                   ? "bg-white text-[#1E2A3A] shadow-sm dark:bg-[#18263A] dark:text-foreground"
@@ -402,10 +489,13 @@ export function AuthPage({ scenarioId }: AuthPageProps) {
                   type="email"
                   value={loginForm.email}
                   onChange={(event) =>
-                    setLoginForm((current) => ({
-                      ...current,
-                      email: event.target.value,
-                    }))
+                    {
+                      setRuntimeBanner(null);
+                      setLoginForm((current) => ({
+                        ...current,
+                        email: event.target.value,
+                      }));
+                    }
                   }
                   placeholder="name@company.com"
                   className="w-full bg-transparent text-[14px] text-[#1E2A3A] outline-none placeholder:text-[#94A3B8] dark:text-foreground dark:placeholder:text-muted-foreground"
@@ -426,10 +516,13 @@ export function AuthPage({ scenarioId }: AuthPageProps) {
                   type="password"
                   value={loginForm.password}
                   onChange={(event) =>
-                    setLoginForm((current) => ({
-                      ...current,
-                      password: event.target.value,
-                    }))
+                    {
+                      setRuntimeBanner(null);
+                      setLoginForm((current) => ({
+                        ...current,
+                        password: event.target.value,
+                      }));
+                    }
                   }
                   placeholder="비밀번호를 입력하세요"
                   className="w-full bg-transparent text-[14px] text-[#1E2A3A] outline-none placeholder:text-[#94A3B8] dark:text-foreground dark:placeholder:text-muted-foreground"
@@ -442,6 +535,14 @@ export function AuthPage({ scenarioId }: AuthPageProps) {
               ) : null}
             </label>
 
+            {adminAccountSelected ? (
+              <StateBanner
+                title="관리자 계정은 VPN 연결 후 로그인할 수 있습니다"
+                description={`운영 콘솔 접근은 관리자 role과 VPN 허용 대역(${ADMIN_VPN_CIDR})을 함께 확인합니다.`}
+                tone="info"
+              />
+            ) : null}
+
             <button
               type="submit"
               className="app-cta-primary flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3.5"
@@ -453,6 +554,7 @@ export function AuthPage({ scenarioId }: AuthPageProps) {
             <button
               type="button"
               onClick={() => {
+                setRuntimeBanner(null);
                 setMode("reset");
                 setResetForm({
                   name: "",
@@ -568,6 +670,7 @@ export function AuthPage({ scenarioId }: AuthPageProps) {
                   type="button"
                   className="app-cta-primary flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3.5"
                   onClick={() => {
+                    setRuntimeBanner(null);
                     setMode("login");
                     setResetCompleted(false);
                   }}

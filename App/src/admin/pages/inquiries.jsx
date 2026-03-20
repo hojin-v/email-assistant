@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Filter, Send } from "lucide-react";
 import { useSearchParams } from "react-router";
-import { inquiries, responseHistory } from "../../shared/mock/adminData";
-import { MetricCard } from "../../shared/ui/MetricCard";
-import { PageHeader } from "../../shared/ui/PageHeader";
-import { AdminStateNotice } from "../../shared/ui/AdminStateNotice";
-import { AdminStatePage } from "../../shared/ui/AdminStatePage";
-import { StatusBadge } from "../../shared/ui/StatusBadge";
+import { inquiries, responseHistory } from "../shared/mock/adminData";
+import { MetricCard } from "../shared/ui/MetricCard";
+import { PageHeader } from "../shared/ui/PageHeader";
+import { AdminStateNotice } from "../shared/ui/AdminStateNotice";
+import { AdminStatePage } from "../shared/ui/AdminStatePage";
+import { StatusBadge } from "../shared/ui/StatusBadge";
 
 export function InquiriesPage() {
   const [searchParams] = useSearchParams();
@@ -162,13 +162,12 @@ export function InquiriesPage() {
       />
 
       <div className="admin-card-grid admin-card-grid--three">
-        {summaryCards.map((card, index) => (
+        {summaryCards.map((card) => (
           <MetricCard
             key={card.label}
             label={card.label}
             value={card.value}
             hint={card.hint}
-            tone={index === 1 ? "warn" : index === 2 ? "accent" : "default"}
           />
         ))}
       </div>
@@ -266,111 +265,113 @@ export function InquiriesPage() {
                 <StatusBadge>{selectedInquiry.status}</StatusBadge>
               </div>
 
-              <div className="admin-detail-card">
-                <dl className="admin-meta-grid">
-                  <div>
-                    <dt>문의 제목</dt>
-                    <dd>{selectedInquiry.title}</dd>
-                  </div>
-                  <div>
-                    <dt>이메일</dt>
-                    <dd>{selectedInquiry.email}</dd>
-                  </div>
-                  <div>
-                    <dt>업종</dt>
-                    <dd>{selectedInquiry.industry}</dd>
-                  </div>
-                  <div>
-                    <dt>접수 시각</dt>
-                    <dd>{selectedInquiry.createdAt}</dd>
-                  </div>
-                  <div>
-                    <dt>최근 업데이트</dt>
-                    <dd>{selectedInquiry.updatedAt}</dd>
-                  </div>
-                  <div>
-                    <dt>최근 응답자</dt>
-                    <dd>{selectedInquiry.latestResponder}</dd>
-                  </div>
-                </dl>
-              </div>
+              <div className="admin-stack admin-stack--lg">
+                <div className="admin-detail-card">
+                  <dl className="admin-meta-grid">
+                    <div>
+                      <dt>문의 제목</dt>
+                      <dd>{selectedInquiry.title}</dd>
+                    </div>
+                    <div>
+                      <dt>이메일</dt>
+                      <dd>{selectedInquiry.email}</dd>
+                    </div>
+                    <div>
+                      <dt>업종</dt>
+                      <dd>{selectedInquiry.industry}</dd>
+                    </div>
+                    <div>
+                      <dt>접수 시각</dt>
+                      <dd>{selectedInquiry.createdAt}</dd>
+                    </div>
+                    <div>
+                      <dt>최근 업데이트</dt>
+                      <dd>{selectedInquiry.updatedAt}</dd>
+                    </div>
+                    <div>
+                      <dt>최근 응답자</dt>
+                      <dd>{selectedInquiry.latestResponder}</dd>
+                    </div>
+                  </dl>
+                </div>
 
-              <div className="admin-detail-card">
-                <h3>문의 내용</h3>
-                <p className="admin-detail-copy">{selectedInquiry.content}</p>
-              </div>
+                <div className="admin-detail-card">
+                  <h3>문의 내용</h3>
+                  <p className="admin-detail-copy">{selectedInquiry.content}</p>
+                </div>
 
-              <div className="admin-detail-card">
-                <div className="admin-panel-head" style={{ marginBottom: 12 }}>
-                  <div>
-                    <h2>관리자 답변 작성</h2>
-                    <p className="admin-panel-subtitle">
-                      답변 저장 시 상태는 자동으로 답변완료로 변경됩니다.
-                    </p>
+                <div className="admin-detail-card">
+                  <div className="admin-panel-head" style={{ marginBottom: 12 }}>
+                    <div>
+                      <h2>관리자 답변 작성</h2>
+                      <p className="admin-panel-subtitle">
+                        답변 저장 시 상태는 자동으로 답변완료로 변경됩니다.
+                      </p>
+                    </div>
+                  </div>
+
+                  <textarea
+                    value={replyDraft}
+                    onChange={(event) => setReplyDraft(event.target.value)}
+                    className="admin-textarea app-form-input"
+                    rows={6}
+                    placeholder="고객에게 전달할 관리자 답변을 입력하세요"
+                  />
+
+                  {errorNotice ? (
+                    <div className="admin-feedback">{errorNotice}</div>
+                  ) : null}
+
+                  {saveNotice ? (
+                    <div className="admin-feedback admin-feedback--success">{saveNotice}</div>
+                  ) : null}
+
+                  <div className="admin-button-row" style={{ justifyContent: "flex-end", marginTop: 14 }}>
+                    <button
+                      type="button"
+                      className="admin-button admin-button--ghost"
+                      onClick={() => setReplyDraft("")}
+                      disabled={!replyDraft.trim()}
+                    >
+                      초기화
+                    </button>
+                    <button
+                      type="button"
+                      className="admin-button"
+                      onClick={handleSubmitReply}
+                      disabled={!replyDraft.trim()}
+                    >
+                      <Send size={14} />
+                      답변 저장
+                    </button>
                   </div>
                 </div>
 
-                <textarea
-                  value={replyDraft}
-                  onChange={(event) => setReplyDraft(event.target.value)}
-                  className="admin-textarea"
-                  rows={6}
-                  placeholder="고객에게 전달할 관리자 답변을 입력하세요"
-                />
-
-                {errorNotice ? (
-                  <div className="admin-feedback">{errorNotice}</div>
-                ) : null}
-
-                {saveNotice ? (
-                  <div className="admin-feedback admin-feedback--success">{saveNotice}</div>
-                ) : null}
-
-                <div className="admin-button-row" style={{ justifyContent: "flex-end", marginTop: 14 }}>
-                  <button
-                    type="button"
-                    className="admin-button admin-button--ghost"
-                    onClick={() => setReplyDraft("")}
-                    disabled={!replyDraft.trim()}
-                  >
-                    초기화
-                  </button>
-                  <button
-                    type="button"
-                    className="admin-button"
-                    onClick={handleSubmitReply}
-                    disabled={!replyDraft.trim()}
-                  >
-                    <Send size={14} />
-                    답변 저장
-                  </button>
-                </div>
-              </div>
-
-              <div className="admin-detail-card">
-                <div className="admin-panel-head">
-                  <div>
-                    <h2>답변 이력</h2>
-                    <p className="admin-panel-subtitle">
-                      문의 접수부터 관리자 답변까지의 기록입니다.
-                    </p>
+                <div className="admin-detail-card">
+                  <div className="admin-panel-head">
+                    <div>
+                      <h2>답변 이력</h2>
+                      <p className="admin-panel-subtitle">
+                        문의 접수부터 관리자 답변까지의 기록입니다.
+                      </p>
+                    </div>
                   </div>
-                </div>
 
-                <div className="admin-timeline">
-                  {history.map((item) => (
-                    <article key={`${item.at}-${item.author}`} className="admin-timeline-item">
-                      <div className="admin-timeline-marker" />
-                      <div className="admin-timeline-content">
-                        <div className="admin-timeline-meta">
-                          <strong>{item.author}</strong>
-                          <span>{item.channel}</span>
-                          <span>{item.at}</span>
+                  <div className="admin-timeline">
+                    {history.map((item) => (
+                      <article key={`${item.at}-${item.author}`} className="admin-timeline-item">
+                        <div className="admin-timeline-marker" />
+                        <div className="admin-timeline-content">
+                          <div className="admin-timeline-meta">
+                            <strong>{item.author}</strong>
+                            <span>{item.channel}</span>
+                            <span>{item.at}</span>
+                          </div>
+                          <p>{item.note}</p>
                         </div>
-                        <p>{item.note}</p>
-                      </div>
-                    </article>
-                  ))}
+                      </article>
+                    ))}
+                  </div>
                 </div>
               </div>
             </>

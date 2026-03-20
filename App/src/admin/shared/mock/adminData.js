@@ -2,7 +2,7 @@ import {
   businessTypeOptions,
   getBusinessTypeLabel,
   recommendedCategoryOptions,
-} from "../config/onboardingOptions";
+} from "../../../shared/config/onboarding-options";
 
 export const dashboardMetrics = [
   {

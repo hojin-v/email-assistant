@@ -1,13 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link2Off, Power, Search } from "lucide-react";
 import { useSearchParams } from "react-router";
-import { adminUsers, userIndustryOptions } from "../../shared/mock/adminData";
-import { MetricCard } from "../../shared/ui/MetricCard";
-import { PageHeader } from "../../shared/ui/PageHeader";
-import { AdminModal } from "../../shared/ui/AdminModal";
-import { AdminStateNotice } from "../../shared/ui/AdminStateNotice";
-import { AdminStatePage } from "../../shared/ui/AdminStatePage";
-import { StatusBadge } from "../../shared/ui/StatusBadge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../app/components/ui/select";
+import { adminUsers, userIndustryOptions } from "../shared/mock/adminData";
+import { MetricCard } from "../shared/ui/MetricCard";
+import { PageHeader } from "../shared/ui/PageHeader";
+import { AdminModal } from "../shared/ui/AdminModal";
+import { AdminStateNotice } from "../shared/ui/AdminStateNotice";
+import { AdminStatePage } from "../shared/ui/AdminStatePage";
+import { StatusBadge } from "../shared/ui/StatusBadge";
 
 export function UsersPage() {
   const [searchParams] = useSearchParams();
@@ -171,13 +178,12 @@ export function UsersPage() {
       />
 
       <div className="admin-card-grid admin-card-grid--four">
-        {summaryCards.map((card, index) => (
+        {summaryCards.map((card) => (
           <MetricCard
             key={card.label}
             label={card.label}
             value={card.value}
             hint={card.hint}
-            tone={index === 2 ? "accent" : "default"}
           />
         ))}
       </div>
@@ -196,45 +202,66 @@ export function UsersPage() {
 
           <div className="admin-toolbar">
             <div className="admin-toolbar-group">
-              <div className="admin-input-wrap">
+              <div className="admin-input-wrap app-input-shell">
                 <Search size={14} />
                 <input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
-                  className="admin-input admin-input--compact"
+                  className="admin-input admin-input--compact bg-transparent text-sm placeholder:text-muted-foreground"
                   placeholder="이름 / 이메일 / 회사 검색"
                 />
               </div>
-              <select
-                value={industry}
-                onChange={(event) => setIndustry(event.target.value)}
-                className="admin-select"
-              >
-                <option value="all">전체 업종</option>
-                {userIndustryOptions.map((item) => (
-                  <option key={item.value} value={item.value}>
-                    {item.label}
-                  </option>
+              <Select value={industry} onValueChange={setIndustry}>
+                <SelectTrigger className="app-form-input h-11 min-w-[148px] rounded-xl px-4 text-sm">
+                  <SelectValue placeholder="전체 업종" />
+                </SelectTrigger>
+                <SelectContent className="app-select-content rounded-2xl p-1">
+                  <SelectItem value="all" className="app-select-item rounded-xl px-3 py-2.5 text-sm">
+                    전체 업종
+                  </SelectItem>
+                  {userIndustryOptions.map((item) => (
+                    <SelectItem
+                      key={item.value}
+                      value={item.value}
+                      className="app-select-item rounded-xl px-3 py-2.5 text-sm"
+                    >
+                      {item.label}
+                    </SelectItem>
                   ))}
-              </select>
-              <select
-                value={statusFilter}
-                onChange={(event) => setStatusFilter(event.target.value)}
-                className="admin-select"
-              >
-                <option value="all">전체 상태</option>
-                <option value="활성">활성</option>
-                <option value="비활성">비활성</option>
-              </select>
-              <select
-                value={googleFilter}
-                onChange={(event) => setGoogleFilter(event.target.value)}
-                className="admin-select"
-              >
-                <option value="all">전체 연동 상태</option>
-                <option value="연동 완료">연동 완료</option>
-                <option value="미연동">미연동</option>
-              </select>
+                </SelectContent>
+              </Select>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="app-form-input h-11 min-w-[132px] rounded-xl px-4 text-sm">
+                  <SelectValue placeholder="전체 상태" />
+                </SelectTrigger>
+                <SelectContent className="app-select-content rounded-2xl p-1">
+                  <SelectItem value="all" className="app-select-item rounded-xl px-3 py-2.5 text-sm">
+                    전체 상태
+                  </SelectItem>
+                  <SelectItem value="활성" className="app-select-item rounded-xl px-3 py-2.5 text-sm">
+                    활성
+                  </SelectItem>
+                  <SelectItem value="비활성" className="app-select-item rounded-xl px-3 py-2.5 text-sm">
+                    비활성
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={googleFilter} onValueChange={setGoogleFilter}>
+                <SelectTrigger className="app-form-input h-11 min-w-[156px] rounded-xl px-4 text-sm">
+                  <SelectValue placeholder="전체 연동 상태" />
+                </SelectTrigger>
+                <SelectContent className="app-select-content rounded-2xl p-1">
+                  <SelectItem value="all" className="app-select-item rounded-xl px-3 py-2.5 text-sm">
+                    전체 연동 상태
+                  </SelectItem>
+                  <SelectItem value="연동 완료" className="app-select-item rounded-xl px-3 py-2.5 text-sm">
+                    연동 완료
+                  </SelectItem>
+                  <SelectItem value="미연동" className="app-select-item rounded-xl px-3 py-2.5 text-sm">
+                    미연동
+                  </SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -305,112 +332,114 @@ export function UsersPage() {
                 </div>
               </div>
 
-              {actionErrorScenario ? (
-                <AdminStateNotice
-                  title="사용자 운영 액션을 처리하지 못했습니다"
-                  description="계정 상태 변경 또는 Google 강제 해제 요청을 저장하는 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요."
-                  tone="error"
-                />
-              ) : null}
+              <div className="admin-stack admin-stack--lg">
+                {actionErrorScenario ? (
+                  <AdminStateNotice
+                    title="사용자 운영 액션을 처리하지 못했습니다"
+                    description="계정 상태 변경 또는 Google 강제 해제 요청을 저장하는 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요."
+                    tone="error"
+                  />
+                ) : null}
 
-              <div className="admin-detail-card">
-                <dl className="admin-meta-grid">
-                  <div>
-                    <dt>이름</dt>
-                    <dd>{selectedUser.name}</dd>
-                  </div>
-                  <div>
-                    <dt>이메일</dt>
-                    <dd>{selectedUser.email}</dd>
-                  </div>
-                  <div>
-                    <dt>회사</dt>
-                    <dd>{selectedUser.company}</dd>
-                  </div>
-                  <div>
-                    <dt>업종</dt>
-                    <dd>{selectedUser.industryLabel}</dd>
-                  </div>
-                  <div>
-                    <dt>역할</dt>
-                    <dd>{selectedUser.role}</dd>
-                  </div>
-                  <div>
-                    <dt>가입일</dt>
-                    <dd>{selectedUser.joinedAt}</dd>
-                  </div>
-                </dl>
-              </div>
-
-              <div className="admin-detail-card">
-                <div className="admin-list-card-row">
-                  <div>
-                    <h3>연동 상태</h3>
-                    <p className="admin-panel-copy">
-                      Google 계정 연동 여부와 연결된 이메일을 확인합니다.
-                    </p>
-                  </div>
-                  <StatusBadge>{selectedUser.googleStatus}</StatusBadge>
+                <div className="admin-detail-card">
+                  <dl className="admin-meta-grid">
+                    <div>
+                      <dt>이름</dt>
+                      <dd>{selectedUser.name}</dd>
+                    </div>
+                    <div>
+                      <dt>이메일</dt>
+                      <dd>{selectedUser.email}</dd>
+                    </div>
+                    <div>
+                      <dt>회사</dt>
+                      <dd>{selectedUser.company}</dd>
+                    </div>
+                    <div>
+                      <dt>업종</dt>
+                      <dd>{selectedUser.industryLabel}</dd>
+                    </div>
+                    <div>
+                      <dt>역할</dt>
+                      <dd>{selectedUser.role}</dd>
+                    </div>
+                    <div>
+                      <dt>가입일</dt>
+                      <dd>{selectedUser.joinedAt}</dd>
+                    </div>
+                  </dl>
                 </div>
+
+                <div className="admin-detail-card">
+                  <div className="admin-list-card-row">
+                    <div>
+                      <h3>연동 상태</h3>
+                      <p className="admin-panel-copy">
+                        Google 계정 연동 여부와 연결된 이메일을 확인합니다.
+                      </p>
+                    </div>
+                    <StatusBadge>{selectedUser.googleStatus}</StatusBadge>
+                  </div>
+                  <div className="admin-inline-stat-grid">
+                    <article className="admin-inline-stat-card">
+                      <span>계정 상태</span>
+                      <strong>{selectedUser.status}</strong>
+                    </article>
+                    <article className="admin-inline-stat-card">
+                      <span>Google 연동 이메일</span>
+                      <strong>{selectedUser.googleEmail ?? "연결된 계정 없음"}</strong>
+                    </article>
+                  </div>
+                </div>
+
                 <div className="admin-inline-stat-grid">
                   <article className="admin-inline-stat-card">
-                    <span>계정 상태</span>
-                    <strong>{selectedUser.status}</strong>
+                    <span>최근 처리한 이메일 수</span>
+                    <strong>{selectedUser.processedEmails}건</strong>
                   </article>
                   <article className="admin-inline-stat-card">
-                    <span>Google 연동 이메일</span>
-                    <strong>{selectedUser.googleEmail ?? "연결된 계정 없음"}</strong>
+                    <span>생성된 초안 수</span>
+                    <strong>{selectedUser.generatedDrafts}건</strong>
+                  </article>
+                  <article className="admin-inline-stat-card">
+                    <span>최근 문의 내역</span>
+                    <strong>{selectedUser.inquiryCount}건</strong>
                   </article>
                 </div>
-              </div>
 
-              <div className="admin-inline-stat-grid">
-                <article className="admin-inline-stat-card">
-                  <span>최근 처리한 이메일 수</span>
-                  <strong>{selectedUser.processedEmails}건</strong>
-                </article>
-                <article className="admin-inline-stat-card">
-                  <span>생성된 초안 수</span>
-                  <strong>{selectedUser.generatedDrafts}건</strong>
-                </article>
-                <article className="admin-inline-stat-card">
-                  <span>최근 문의 내역</span>
-                  <strong>{selectedUser.inquiryCount}건</strong>
-                </article>
-              </div>
-
-              <div className="admin-detail-card">
-                <div className="admin-panel-head">
-                  <div>
-                    <h2>최근 문의 내역</h2>
-                    <p className="admin-panel-subtitle">
-                      최근에 접수된 관리자 문의 내역과 처리 상태입니다.
-                    </p>
+                <div className="admin-detail-card">
+                  <div className="admin-panel-head">
+                    <div>
+                      <h2>최근 문의 내역</h2>
+                      <p className="admin-panel-subtitle">
+                        최근에 접수된 관리자 문의 내역과 처리 상태입니다.
+                      </p>
+                    </div>
                   </div>
-                </div>
 
-                {selectedUser.recentInquiries.length > 0 ? (
-                  <div className="admin-stack">
-                    {selectedUser.recentInquiries.map((inquiry) => (
-                      <article key={inquiry.id} className="admin-list-card">
-                        <div className="admin-list-card-row">
-                          <div>
-                            <h3>{inquiry.title}</h3>
-                            <p>{inquiry.id}</p>
+                  {selectedUser.recentInquiries.length > 0 ? (
+                    <div className="admin-stack">
+                      {selectedUser.recentInquiries.map((inquiry) => (
+                        <article key={inquiry.id} className="admin-list-card">
+                          <div className="admin-list-card-row">
+                            <div>
+                              <h3>{inquiry.title}</h3>
+                              <p>{inquiry.id}</p>
+                            </div>
+                            <StatusBadge>{inquiry.status}</StatusBadge>
                           </div>
-                          <StatusBadge>{inquiry.status}</StatusBadge>
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                ) : (
-                  <AdminStateNotice
-                    title="최근 문의 내역이 없습니다"
-                    description="이 사용자는 아직 관리자 문의를 접수하지 않았습니다."
-                    tone="empty"
-                    compact
-                  />
-                )}
+                        </article>
+                      ))}
+                    </div>
+                  ) : (
+                    <AdminStateNotice
+                      title="최근 문의 내역이 없습니다"
+                      description="이 사용자는 아직 관리자 문의를 접수하지 않았습니다."
+                      tone="empty"
+                      compact
+                    />
+                  )}
+                </div>
               </div>
             </>
           ) : (
