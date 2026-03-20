@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MessageSquareMore, Plus, Send } from "lucide-react";
 import { toast } from "sonner";
 import { SectionCard } from "../../../shared/ui/primitives/SectionCard";
+import { StateBanner } from "../../../shared/ui/primitives/StateBanner";
 import { StatusBadge } from "../../../shared/ui/primitives/StatusBadge";
 import {
   Dialog,
@@ -53,13 +54,42 @@ function formatTicketStatus(status: SupportTicketStatus) {
     : { label: "답변 대기", tone: "warning" as const };
 }
 
-export function AdminInquirySettingsPanel() {
+interface AdminInquirySettingsPanelProps {
+  scenarioId?: string | null;
+}
+
+export function AdminInquirySettingsPanel({
+  scenarioId,
+}: AdminInquirySettingsPanelProps) {
+  const supportDialogNormalScenario = scenarioId === "settings-support-dialog-normal";
+  const supportSubmitErrorScenario = scenarioId === "settings-support-submit-error";
   const [tickets, setTickets] = useState<SupportTicket[]>(initialTickets);
   const [activeFilter, setActiveFilter] = useState<SupportTicketFilter>("all");
   const [selectedTicketId, setSelectedTicketId] = useState(initialTickets[0]?.ticketId ?? "");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [draftTitle, setDraftTitle] = useState("");
   const [draftContent, setDraftContent] = useState("");
+
+  useEffect(() => {
+    if (supportDialogNormalScenario) {
+      setDialogOpen(true);
+      setDraftTitle("캘린더 등록 자동화 동작 문의");
+      setDraftContent(
+        "미팅 요청 메일에서 감지된 일정이 어떤 조건일 때 자동 등록되는지 확인하고 싶습니다.",
+      );
+      return;
+    }
+
+    if (!supportSubmitErrorScenario) {
+      return;
+    }
+
+    setDialogOpen(true);
+    setDraftTitle("캘린더 등록 실패 문의");
+    setDraftContent(
+      "일정 추가 후 저장을 눌렀지만 캘린더에 반영되지 않습니다. 로그를 확인하고 싶습니다.",
+    );
+  }, [supportDialogNormalScenario, supportSubmitErrorScenario]);
 
   const visibleTickets = useMemo(
     () =>
@@ -77,6 +107,11 @@ export function AdminInquirySettingsPanel() {
   const submitTicket = () => {
     if (!draftTitle.trim() || !draftContent.trim()) {
       toast.error("문의 제목과 내용을 모두 입력하세요.");
+      return;
+    }
+
+    if (supportSubmitErrorScenario) {
+      toast.error("문의 등록을 완료하지 못했습니다.");
       return;
     }
 
@@ -233,6 +268,14 @@ export function AdminInquirySettingsPanel() {
               설정, 연동, 템플릿, 일정 동작 관련 문의를 등록할 수 있습니다.
             </DialogDescription>
           </DialogHeader>
+
+          {supportSubmitErrorScenario ? (
+            <StateBanner
+              title="문의 등록을 완료하지 못했습니다"
+              description="문의 저장 응답이 지연되고 있습니다. 내용을 유지한 채 다시 시도해 주세요."
+              tone="error"
+            />
+          ) : null}
 
           <div className="space-y-4">
             <label className="block text-sm text-foreground">

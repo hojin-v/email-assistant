@@ -1,5 +1,8 @@
+import { useSearchParams } from "react-router";
 import { AutomationSettings } from "../../app/components/AutomationSettings";
 
 export function AutomationSettingsPage() {
-  return <AutomationSettings />;
+  const [searchParams] = useSearchParams();
+
+  return <AutomationSettings scenarioId={searchParams.get("scenario")} />;
 }

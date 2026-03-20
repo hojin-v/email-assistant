@@ -11,3 +11,6 @@ Thumbs.db
 AGENTS.md
 
 docs/
+tools/
+.dockerignore
+README.md

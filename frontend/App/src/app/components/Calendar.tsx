@@ -50,6 +50,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
+import { AppStatePage } from "../../shared/ui/primitives/AppStatePage";
+import { StateBanner } from "../../shared/ui/primitives/StateBanner";
+import { StatePanel } from "../../shared/ui/primitives/StatePanel";
 
 export interface CalendarEvent {
   id: string;
@@ -407,9 +410,20 @@ function TimePickerField({ label, value, onChange }: TimePickerFieldProps) {
   );
 }
 
-export function Calendar() {
+interface CalendarProps {
+  scenarioId?: string | null;
+}
+
+export function Calendar({ scenarioId }: CalendarProps) {
   const location = useLocation();
   const navigate = useNavigate();
+  const loadErrorScenario = scenarioId === "calendar-load-error";
+  const emptyScenario = scenarioId === "calendar-empty";
+  const syncErrorScenario = scenarioId === "calendar-sync-error";
+  const createNormalScenario = scenarioId === "calendar-create-normal";
+  const editNormalScenario = scenarioId === "calendar-edit-normal";
+  const deleteNormalScenario = scenarioId === "calendar-delete-normal";
+  const createErrorScenario = scenarioId === "calendar-create-error";
   const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
   const [currentYear, setCurrentYear] = useState(2026);
   const [currentMonth, setCurrentMonth] = useState(2);
@@ -428,13 +442,14 @@ export function Calendar() {
     notes: "",
   });
   const [deleteTarget, setDeleteTarget] = useState<CalendarEvent | null>(null);
+  const visibleEvents = emptyScenario ? [] : events;
 
   const daysInMonth = getDaysInMonth(currentYear, currentMonth);
   const firstDay = getFirstDayOfMonth(currentYear, currentMonth);
   const trailingDays = Math.max(0, 42 - (firstDay + daysInMonth));
 
   const selectedEvent =
-    events.find((event) => event.id === selectedEventId) || null;
+    visibleEvents.find((event) => event.id === selectedEventId) || null;
 
   useEffect(() => {
     const state = location.state as
@@ -497,6 +512,63 @@ export function Calendar() {
     navigate(location.pathname, { replace: true, state: null });
   }, [location.pathname, location.state, navigate]);
 
+  useEffect(() => {
+    if (createNormalScenario) {
+      setSelectedDate("2026-03-12");
+      setSelectedEventId(null);
+      setEditorMode("create");
+      setDraft({
+        title: "에이전시 데모 미팅",
+        date: "2026-03-12",
+        startTime: "10:00",
+        endTime: "11:00",
+        type: "video",
+        location: "Google Meet",
+        attendeesText: "윤서영, 김호진",
+        notes: "도입 검토용 제품 데모와 가격 정책 안내",
+      });
+      setEditorOpen(true);
+      return;
+    }
+
+    if (editNormalScenario) {
+      const targetEvent = initialEvents[1];
+      setSelectedDate(targetEvent.date);
+      setSelectedEventId(targetEvent.id);
+      setEditorMode("edit");
+      setDraft(draftFromEvent(targetEvent));
+      setEditorOpen(true);
+      return;
+    }
+
+    if (deleteNormalScenario) {
+      const targetEvent = initialEvents[1];
+      setSelectedDate(targetEvent.date);
+      setSelectedEventId(targetEvent.id);
+      setEditorOpen(false);
+      setDeleteTarget(targetEvent);
+      return;
+    }
+
+    if (!createErrorScenario) {
+      return;
+    }
+
+    setSelectedDate("2026-03-12");
+    setEditorMode("create");
+    setDraft({
+      title: "그린에너지 후속 미팅",
+      date: "2026-03-12",
+      startTime: "14:00",
+      endTime: "15:00",
+      type: "meeting",
+      location: "본사 3층 회의실 A",
+      attendeesText: "최영호, 김호진",
+      notes: "계약 조건 후속 협의",
+    });
+    setEditorOpen(true);
+  }, [createErrorScenario, createNormalScenario, deleteNormalScenario, editNormalScenario]);
+
   const changeMonth = (direction: number) => {
     const nextDate = new Date(currentYear, currentMonth + direction, 1);
     const nextYear = nextDate.getFullYear();
@@ -512,16 +584,16 @@ export function Calendar() {
   };
 
   const getEventsForDate = (dateStr: string) =>
-    events.filter((event) => event.date === dateStr);
+    visibleEvents.filter((event) => event.date === dateStr);
 
   const selectedDateEvents = selectedDate ? getEventsForDate(selectedDate) : [];
   const emailLinkedEvents = useMemo(
-    () => events.filter((event) => event.fromEmail),
-    [events]
+    () => visibleEvents.filter((event) => event.fromEmail),
+    [visibleEvents]
   );
   const pendingEvents = useMemo(
-    () => events.filter((event) => !event.confirmed),
-    [events]
+    () => visibleEvents.filter((event) => !event.confirmed),
+    [visibleEvents]
   );
 
   const openCreateDialog = () => {
@@ -549,6 +621,11 @@ export function Calendar() {
   const handleSaveEvent = () => {
     if (!draft.title.trim()) {
       toast.error("일정 제목을 입력하세요.");
+      return;
+    }
+
+    if (createErrorScenario) {
+      toast.error("일정을 저장하지 못했습니다.");
       return;
     }
 
@@ -637,10 +714,28 @@ export function Calendar() {
 
   const today = "2026-03-02";
 
+  if (loadErrorScenario) {
+    return (
+      <AppStatePage
+        title="캘린더를 불러오지 못했습니다"
+        description="일정 목록과 상세 데이터를 가져오는 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요."
+      />
+    );
+  }
+
   return (
     <>
       <div className="flex h-full w-full min-h-0 min-w-0 flex-col bg-background lg:flex-row">
         <div className="scrollbar-none min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-4 lg:px-6 lg:py-5">
+          {syncErrorScenario ? (
+            <StateBanner
+              title="Google Calendar 동기화에 문제가 있습니다"
+              description="연결은 유지되지만 최근 변경 사항을 불러오지 못했습니다. 다시 동기화하거나 수동으로 일정을 추가해 주세요."
+              tone="error"
+              className="mb-5"
+            />
+          ) : null}
+
           <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             {pendingEvents.length > 0 ? (
               <div className="app-warning-card flex items-start gap-3 rounded-xl border p-4 lg:max-w-[640px]">
@@ -980,23 +1075,20 @@ export function Calendar() {
 
               {selectedDateEvents.length === 0 ? (
                 <div className="px-4 py-4">
-                  <div className="app-soft-surface rounded-xl px-4 py-5">
-                    <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-white dark:bg-[#182235]">
-                      <CalendarCheck className="h-5 w-5 text-[#CBD5E1] dark:text-muted-foreground" />
-                    </div>
-                    <p className="mb-1 text-[13px] text-[#94A3B8] dark:text-muted-foreground">
-                      이 날에는 일정이 없습니다
-                    </p>
-                    <p className="text-[11px] text-[#CBD5E1] dark:text-[#64748B]">
-                      직접 추가하거나 이메일에서 감지된 일정을 등록할 수 있습니다
-                    </p>
-                    <button
-                      onClick={openCreateDialog}
-                      className="app-cta-primary mt-4 rounded-lg px-4 py-2 text-[12px]"
-                    >
-                      일정 추가
-                    </button>
-                  </div>
+                  <StatePanel
+                    title="이 날짜에는 일정이 없습니다"
+                    description="직접 추가하거나 이메일에서 감지된 일정을 등록할 수 있습니다."
+                    tone="empty"
+                    action={
+                      <button
+                        onClick={openCreateDialog}
+                        className="app-cta-primary rounded-lg px-4 py-2 text-[12px]"
+                      >
+                        일정 추가
+                      </button>
+                    }
+                    className="min-h-[220px]"
+                  />
                 </div>
               ) : null}
 
@@ -1055,34 +1147,43 @@ export function Calendar() {
                   </p>
                 </div>
                 <div className="space-y-2 px-4 pb-4">
-                  {emailLinkedEvents.slice(0, 4).map((event) => (
-                    <button
-                      key={event.id}
-                      onClick={() => {
-                        setSelectedDate(event.date);
-                        setSelectedEventId(event.id);
-                      }}
-                      className="w-full rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-3 text-left transition-colors hover:border-[#CBD5E1] dark:border-border dark:bg-[#131D2F] dark:hover:border-[#475569]"
-                    >
-                      <div className="mb-1 flex items-center gap-2">
-                        <span
-                          className="h-2 w-2 rounded-full"
-                          style={{ backgroundColor: event.color }}
-                        />
-                        <span className="flex-1 truncate text-[12px] text-[#1E2A3A] dark:text-foreground">
-                          {event.title}
-                        </span>
-                        {!event.confirmed ? (
-                          <span className="app-warning-pill rounded-full px-1.5 py-0.5 text-[9px]">
-                            대기
+                  {emailLinkedEvents.length > 0 ? (
+                    emailLinkedEvents.slice(0, 4).map((event) => (
+                      <button
+                        key={event.id}
+                        onClick={() => {
+                          setSelectedDate(event.date);
+                          setSelectedEventId(event.id);
+                        }}
+                        className="w-full rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-3 text-left transition-colors hover:border-[#CBD5E1] dark:border-border dark:bg-[#131D2F] dark:hover:border-[#475569]"
+                      >
+                        <div className="mb-1 flex items-center gap-2">
+                          <span
+                            className="h-2 w-2 rounded-full"
+                            style={{ backgroundColor: event.color }}
+                          />
+                          <span className="flex-1 truncate text-[12px] text-[#1E2A3A] dark:text-foreground">
+                            {event.title}
                           </span>
-                        ) : null}
-                      </div>
-                      <p className="text-[10px] text-[#94A3B8] dark:text-muted-foreground">
-                        {event.date.replace(/-/g, ".")} {event.startTime}
-                      </p>
-                    </button>
-                  ))}
+                          {!event.confirmed ? (
+                            <span className="app-warning-pill rounded-full px-1.5 py-0.5 text-[9px]">
+                              대기
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="text-[10px] text-[#94A3B8] dark:text-muted-foreground">
+                          {event.date.replace(/-/g, ".")} {event.startTime}
+                        </p>
+                      </button>
+                    ))
+                  ) : (
+                    <StatePanel
+                      title="이메일에서 감지된 일정이 없습니다"
+                      description="이메일 기반 일정 제안이 들어오면 이 영역에서 바로 확인할 수 있습니다."
+                      tone="empty"
+                      className="min-h-[180px]"
+                    />
+                  )}
                 </div>
               </div>
             </div>
@@ -1100,6 +1201,14 @@ export function Calendar() {
               캘린더에 표시할 일정 정보를 입력하세요.
             </DialogDescription>
           </DialogHeader>
+
+          {createErrorScenario ? (
+            <StateBanner
+              title="일정 저장을 완료하지 못했습니다"
+              description="입력한 내용은 유지되었지만 저장 응답이 지연되고 있습니다. 다시 시도해 주세요."
+              tone="error"
+            />
+          ) : null}
 
           <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-2 text-sm text-foreground">

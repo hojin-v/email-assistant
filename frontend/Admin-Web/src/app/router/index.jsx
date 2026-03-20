@@ -1,9 +1,10 @@
-﻿import { createBrowserRouter } from "react-router";
+﻿import { createBrowserRouter, Navigate } from "react-router";
 import { AdminShell } from "../../shared/ui/AdminShell";
 import { DashboardPage } from "../../pages/dashboard";
-import { MembersPage } from "../../pages/members";
-import { TemplatesPage } from "../../pages/templates";
+import { UsersPage } from "../../pages/members";
+import { TemplateAutomationPage } from "../../pages/templates";
 import { InquiriesPage } from "../../pages/inquiries";
+import { MonitoringPage } from "../../pages/monitoring";
 import { NotFoundPage } from "../../pages/not-found";
 
 export const router = createBrowserRouter([
@@ -12,9 +13,12 @@ export const router = createBrowserRouter([
     element: <AdminShell />,
     children: [
       { index: true, element: <DashboardPage /> },
-      { path: "members", element: <MembersPage /> },
-      { path: "templates", element: <TemplatesPage /> },
+      { path: "users", element: <UsersPage /> },
+      { path: "template-automation", element: <TemplateAutomationPage /> },
       { path: "inquiries", element: <InquiriesPage /> },
+      { path: "monitoring", element: <MonitoringPage /> },
+      { path: "members", element: <Navigate replace to="/users" /> },
+      { path: "templates", element: <Navigate replace to="/template-automation" /> },
       { path: "*", element: <NotFoundPage /> },
     ],
   },

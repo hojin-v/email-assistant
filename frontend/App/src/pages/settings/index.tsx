@@ -16,6 +16,7 @@ import type {
 export function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const searchTab = searchParams.get("tab");
+  const scenarioId = searchParams.get("scenario");
   const [activeTab, setActiveTab] = useState<SettingsTabId>(
     (searchTab as SettingsTabId) || (defaultSettingsState.activeTab as SettingsTabId)
   );
@@ -42,7 +43,9 @@ export function SettingsPage() {
       <PageHeader title="설정" description="계정 및 서비스 환경을 관리합니다" />
       <SettingsTabs activeTab={activeTab} onChange={handleTabChange} />
 
-      {activeTab === "account" ? <AccountSettingsPanel account={defaultSettingsState.account} /> : null}
+      {activeTab === "account" ? (
+        <AccountSettingsPanel account={defaultSettingsState.account} scenarioId={scenarioId} />
+      ) : null}
       {activeTab === "notifications" ? (
         <NotificationSettingsPanel notifications={defaultSettingsState.notifications} />
       ) : null}
@@ -50,9 +53,12 @@ export function SettingsPage() {
         <DisplaySettingsPanel display={defaultSettingsState.display as DisplaySettings} />
       ) : null}
       {activeTab === "email" ? (
-        <EmailIntegrationSettingsPanel accounts={defaultSettingsState.emailAccounts} />
+        <EmailIntegrationSettingsPanel
+          accounts={defaultSettingsState.emailAccounts}
+          scenarioId={scenarioId}
+        />
       ) : null}
-      {activeTab === "support" ? <AdminInquirySettingsPanel /> : null}
+      {activeTab === "support" ? <AdminInquirySettingsPanel scenarioId={scenarioId} /> : null}
     </div>
   );
 }
