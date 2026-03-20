@@ -1,9 +1,11 @@
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { ArrowRight, Mail, Target, Link as LinkIcon, FileText, CalendarDays, Video, Users } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { emailItems, getPendingEmailCount } from "../../entities/email/model/email-data";
 import { calendarEvents } from "../../entities/calendar/model/calendar-data";
+import { AppStatePage } from "../../shared/ui/primitives/AppStatePage";
 import { SectionCard } from "../../shared/ui/primitives/SectionCard";
+import { StatePanel } from "../../shared/ui/primitives/StatePanel";
 import { StatusBadge } from "../../shared/ui/primitives/StatusBadge";
 
 const weeklyData = [
@@ -14,13 +16,58 @@ const weeklyData = [
 ];
 
 export function DashboardPage() {
+  const [searchParams] = useSearchParams();
+  const scenarioId = searchParams.get("scenario");
   const pendingCount = getPendingEmailCount();
+  const showFullLoadError =
+    scenarioId === "dashboard-load-error" ||
+    scenarioId === "global-service-unavailable";
+  const showPermissionError = scenarioId === "global-session-expired";
+  const showUnexpectedError = scenarioId === "global-unexpected-error";
+  const showCalendarPanelError = scenarioId === "dashboard-calendar-panel-error";
+  const showEmailPanelError = scenarioId === "dashboard-email-panel-error";
   const statCards = [
     { label: "오늘 처리된 이메일", value: "47", note: "어제 대비 +5", icon: Mail, tone: "teal" },
     { label: "검토 대기 중인 초안", value: String(pendingCount), note: pendingCount ? "즉시 확인 필요" : "없음", icon: FileText, tone: "amber" },
     { label: "템플릿 매칭률", value: "96%", note: "전주 대비 +2%", icon: Target, tone: "teal" },
     { label: "이메일 계정 상태", value: "정상 연결", note: "user@gmail.com", icon: LinkIcon, tone: "green" },
   ];
+
+  if (showPermissionError) {
+    return (
+      <AppStatePage
+        title="세션이 만료되었습니다"
+        description="보안을 위해 세션이 종료되었습니다. 다시 로그인한 뒤 계속 진행해 주세요."
+        tone="permission"
+        action={
+          <Link
+            to="/"
+            className="app-cta-primary inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm font-medium"
+          >
+            로그인으로 이동
+          </Link>
+        }
+      />
+    );
+  }
+
+  if (showUnexpectedError) {
+    return (
+      <AppStatePage
+        title="예기치 않은 오류가 발생했습니다"
+        description="대시보드 데이터를 렌더링하는 중 알 수 없는 문제가 발생했습니다. 잠시 후 다시 시도해 주세요."
+      />
+    );
+  }
+
+  if (showFullLoadError) {
+    return (
+      <AppStatePage
+        title="대시보드를 불러오지 못했습니다"
+        description="요약 지표와 최근 활동 데이터를 가져오는 중 문제가 발생했습니다. 연결 상태를 확인한 뒤 다시 시도해 주세요."
+      />
+    );
+  }
 
   return (
     <div className="mx-auto max-w-[1400px]">
@@ -63,29 +110,36 @@ export function DashboardPage() {
               </Link>
             }
           >
-            <div className="space-y-3">
-              {calendarEvents.map((event) => (
-                <div key={event.id} className="flex flex-wrap items-center gap-4 rounded-2xl border border-[#E2E8F0] px-4 py-4">
-                  <div className="h-12 w-1 rounded-full bg-[#2DD4BF]" />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-medium text-[#1E2A3A]">{event.title}</p>
-                      {!event.approved ? <StatusBadge label="등록 대기" tone="warning" /> : null}
-                    </div>
-                    <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-[#64748B]">
-                      <span className="inline-flex items-center gap-1">
-                        <CalendarDays className="h-3.5 w-3.5" />
-                        {event.dateLabel} {event.timeLabel}
-                      </span>
-                      <span className="inline-flex items-center gap-1">
-                        {event.type === "video" ? <Video className="h-3.5 w-3.5" /> : <Users className="h-3.5 w-3.5" />}
-                        {event.source}
-                      </span>
+            {showCalendarPanelError ? (
+              <StatePanel
+                title="일정 데이터를 불러오지 못했습니다"
+                description="다가오는 일정 패널 응답이 지연되고 있습니다. 캘린더 화면에서 다시 확인해 주세요."
+              />
+            ) : (
+              <div className="space-y-3">
+                {calendarEvents.map((event) => (
+                  <div key={event.id} className="flex flex-wrap items-center gap-4 rounded-2xl border border-[#E2E8F0] px-4 py-4">
+                    <div className="h-12 w-1 rounded-full bg-[#2DD4BF]" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-medium text-[#1E2A3A]">{event.title}</p>
+                        {!event.approved ? <StatusBadge label="등록 대기" tone="warning" /> : null}
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-[#64748B]">
+                        <span className="inline-flex items-center gap-1">
+                          <CalendarDays className="h-3.5 w-3.5" />
+                          {event.dateLabel} {event.timeLabel}
+                        </span>
+                        <span className="inline-flex items-center gap-1">
+                          {event.type === "video" ? <Video className="h-3.5 w-3.5" /> : <Users className="h-3.5 w-3.5" />}
+                          {event.source}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </SectionCard>
 
           <SectionCard
@@ -97,28 +151,35 @@ export function DashboardPage() {
               </Link>
             }
           >
-            <div className="space-y-3">
-              {emailItems.slice(0, 4).map((email) => (
-                <div key={email.id} className="flex flex-wrap items-center gap-4 rounded-2xl border border-[#E2E8F0] px-4 py-4">
-                  <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#1E2A3A] text-sm font-semibold text-white">
-                    {email.sender.slice(0, 1)}
+            {showEmailPanelError ? (
+              <StatePanel
+                title="최근 메일 패널을 표시할 수 없습니다"
+                description="수신 메일 목록 응답을 확인하지 못했습니다. 수신함에서 전체 목록을 확인해 주세요."
+              />
+            ) : (
+              <div className="space-y-3">
+                {emailItems.slice(0, 4).map((email) => (
+                  <div key={email.id} className="flex flex-wrap items-center gap-4 rounded-2xl border border-[#E2E8F0] px-4 py-4">
+                    <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#1E2A3A] text-sm font-semibold text-white">
+                      {email.sender.slice(0, 1)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-[#1E2A3A]">
+                        {email.sender} · {email.company}
+                      </p>
+                      <p className="mt-1 truncate text-sm text-[#64748B]">{email.subject}</p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <StatusBadge label={email.category} tone="teal" />
+                      <StatusBadge
+                        label={email.status === "pending" ? "검토 대기" : email.status === "completed" ? "처리 완료" : "자동 발송"}
+                        tone={email.status === "pending" ? "warning" : email.status === "completed" ? "neutral" : "success"}
+                      />
+                    </div>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-[#1E2A3A]">
-                      {email.sender} · {email.company}
-                    </p>
-                    <p className="mt-1 truncate text-sm text-[#64748B]">{email.subject}</p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <StatusBadge label={email.category} tone="teal" />
-                    <StatusBadge
-                      label={email.status === "pending" ? "검토 대기" : email.status === "completed" ? "처리 완료" : "자동 발송"}
-                      tone={email.status === "pending" ? "warning" : email.status === "completed" ? "neutral" : "success"}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </SectionCard>
         </div>
 

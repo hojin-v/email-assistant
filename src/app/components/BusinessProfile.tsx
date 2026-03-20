@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import {
   Building2,
@@ -37,6 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
+import { StateBanner } from "../../shared/ui/primitives/StateBanner";
 
 const toneOptions = [
   { id: "formal", label: "격식체" },
@@ -73,8 +74,22 @@ const emptyFaqDraft: FAQDraft = {
   answer: "",
 };
 
-export function BusinessProfile() {
+interface BusinessProfileProps {
+  scenarioId?: string | null;
+}
+
+export function BusinessProfile({ scenarioId }: BusinessProfileProps) {
   const navigate = useNavigate();
+  const faqDialogNormalScenario = scenarioId === "profile-faq-dialog-normal";
+  const faqDeleteNormalScenario = scenarioId === "profile-faq-delete-normal";
+  const regenerateBulkNormalScenario =
+    scenarioId === "profile-regenerate-bulk-normal";
+  const regenerateSelectNormalScenario =
+    scenarioId === "profile-regenerate-select-normal";
+  const saveErrorScenario = scenarioId === "profile-save-error";
+  const uploadErrorScenario = scenarioId === "profile-upload-error";
+  const faqSaveErrorScenario = scenarioId === "profile-faq-save-error";
+  const regenerateErrorScenario = scenarioId === "profile-regenerate-error";
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [businessType, setBusinessType] = useState("Sales");
   const [tone, setTone] = useState("neutral");
@@ -113,9 +128,66 @@ export function BusinessProfile() {
     [faqItems.length, uploadedFiles.length]
   );
 
+  useEffect(() => {
+    if (faqDialogNormalScenario) {
+      setFaqDialogOpen(true);
+      setEditingFaqId(null);
+      setFaqDraft({
+        question: "도입 상담은 어느 채널로 진행되나요?",
+        answer: "기본적으로 이메일 응답 후 미팅 링크를 함께 안내합니다.",
+      });
+      return;
+    }
+
+    if (faqDeleteNormalScenario) {
+      setFaqDeleteTarget({
+        id: "2",
+        question: "기술 지원 시간은?",
+        answer: "평일 09:00 ~ 18:00 (KST)",
+      });
+      return;
+    }
+
+    if (regenerateBulkNormalScenario) {
+      setRegenerateMode("bulk");
+      return;
+    }
+
+    if (regenerateSelectNormalScenario) {
+      setRegenerateMode("select");
+      return;
+    }
+
+    if (faqSaveErrorScenario) {
+      setFaqDialogOpen(true);
+      setEditingFaqId("1");
+      setFaqDraft({
+        question: "환불 정책은?",
+        answer: "환불 정책 문구를 최신 기준으로 수정해 주세요.",
+      });
+      return;
+    }
+
+    if (regenerateErrorScenario) {
+      setRegenerateMode("bulk");
+    }
+  }, [
+    faqDialogNormalScenario,
+    faqDeleteNormalScenario,
+    faqSaveErrorScenario,
+    regenerateBulkNormalScenario,
+    regenerateErrorScenario,
+    regenerateSelectNormalScenario,
+  ]);
+
   const markChanged = () => setHasChanges(true);
 
   const handleSaveProfile = () => {
+    if (saveErrorScenario) {
+      toast.error("비즈니스 프로필을 저장하지 못했습니다.");
+      return;
+    }
+
     setHasChanges(false);
     toast.success("비즈니스 프로필을 저장했습니다.");
   };
@@ -139,6 +211,11 @@ export function BusinessProfile() {
   const handleSaveFaq = () => {
     if (!faqDraft.question.trim() || !faqDraft.answer.trim()) {
       toast.error("질문과 답변을 모두 입력하세요.");
+      return;
+    }
+
+    if (faqSaveErrorScenario) {
+      toast.error("FAQ 항목을 저장하지 못했습니다.");
       return;
     }
 
@@ -193,6 +270,12 @@ export function BusinessProfile() {
       return;
     }
 
+    if (uploadErrorScenario) {
+      toast.error("비즈니스 자료 업로드를 완료하지 못했습니다.");
+      event.target.value = "";
+      return;
+    }
+
     const newFiles = files.map((file, index) => ({
       id: `${Date.now()}-${index}`,
       name: file.name,
@@ -211,6 +294,11 @@ export function BusinessProfile() {
         ? impactedCount
         : selectedTemplates.length;
 
+    if (regenerateErrorScenario) {
+      toast.error("템플릿 재생성을 완료하지 못했습니다.");
+      return;
+    }
+
     setHasChanges(false);
     setRegenerateMode(null);
     toast.success(`템플릿 ${targetCount}개를 재생성했습니다.`);
@@ -219,6 +307,24 @@ export function BusinessProfile() {
   return (
     <>
       <div className="mx-auto max-w-[1200px] p-4 lg:p-8">
+        {saveErrorScenario ? (
+          <StateBanner
+            title="비즈니스 프로필을 저장하지 못했습니다"
+            description="회사 정보 변경 사항은 유지되지만 저장 응답을 확인하지 못했습니다. 다시 저장해 주세요."
+            tone="error"
+            className="mb-6"
+          />
+        ) : null}
+
+        {uploadErrorScenario ? (
+          <StateBanner
+            title="비즈니스 자료 업로드를 완료하지 못했습니다"
+            description="파일 용량 또는 형식을 다시 확인해 주세요. FAQ 입력으로도 동일한 정보를 보완할 수 있습니다."
+            tone="error"
+            className="mb-6"
+          />
+        ) : null}
+
         <div className="mb-8">
           <h1 className="mb-1 text-[#1E2A3A]">비즈니스 프로필</h1>
           <p className="text-[14px] text-[#64748B]">
@@ -464,6 +570,14 @@ export function BusinessProfile() {
             </DialogDescription>
           </DialogHeader>
 
+          {faqSaveErrorScenario ? (
+            <StateBanner
+              title="FAQ 항목을 저장하지 못했습니다"
+              description="입력한 질문과 답변은 그대로 유지됩니다. 다시 시도해 주세요."
+              tone="error"
+            />
+          ) : null}
+
           <div className="space-y-4">
             <label className="block space-y-2 text-sm text-foreground">
               <span>질문</span>
@@ -544,6 +658,14 @@ export function BusinessProfile() {
                 : "변경된 비즈니스 자료를 반영할 템플릿을 선택하세요."}
             </DialogDescription>
           </DialogHeader>
+
+          {regenerateErrorScenario ? (
+            <StateBanner
+              title="템플릿 재생성을 완료하지 못했습니다"
+              description="변경 내용은 유지되지만 재생성 작업을 끝내지 못했습니다. 다시 시도해 주세요."
+              tone="error"
+            />
+          ) : null}
 
           {regenerateMode === "select" ? (
             <div className="space-y-2">

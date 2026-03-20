@@ -1,0 +1,326 @@
+[
+  {
+    "scenarioId": "auth-login-validation",
+    "route": "/",
+    "screenTitle": "로그인 유효성 오류",
+    "stateType": "validation",
+    "outputFile": "screenshots/user/auth-login-validation.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "로그인 폼 입력 누락 오류 상태"
+  },
+  {
+    "scenarioId": "auth-signup-validation",
+    "route": "/",
+    "screenTitle": "회원가입 유효성 오류",
+    "stateType": "validation",
+    "outputFile": "screenshots/user/auth-signup-validation.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "회원가입 폼 비밀번호 불일치 상태"
+  },
+  {
+    "scenarioId": "auth-login-service-error",
+    "route": "/",
+    "screenTitle": "로그인 처리 실패",
+    "stateType": "action-error",
+    "outputFile": "screenshots/user/auth-login-service-error.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "로그인 요청 실패 상태"
+  },
+  {
+    "scenarioId": "onboarding-google-oauth-error",
+    "route": "/onboarding",
+    "screenTitle": "온보딩 Gmail OAuth 실패",
+    "stateType": "action-error",
+    "outputFile": "screenshots/user/onboarding-google-oauth-error.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "Gmail 연동 단계 인증 실패 상태"
+  },
+  {
+    "scenarioId": "onboarding-upload-error",
+    "route": "/onboarding",
+    "screenTitle": "온보딩 자료 업로드 실패",
+    "stateType": "action-error",
+    "outputFile": "screenshots/user/onboarding-upload-error.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "비즈니스 자료 업로드 실패 상태"
+  },
+  {
+    "scenarioId": "onboarding-template-generation-error",
+    "route": "/onboarding",
+    "screenTitle": "온보딩 템플릿 생성 실패",
+    "stateType": "action-error",
+    "outputFile": "screenshots/user/onboarding-template-generation-error.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "템플릿 자동 생성 실패 상태"
+  },
+  {
+    "scenarioId": "dashboard-load-error",
+    "route": "/app",
+    "screenTitle": "대시보드 로드 실패",
+    "stateType": "load-error",
+    "outputFile": "screenshots/user/dashboard-load-error.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "대시보드 전체 로드 실패 상태"
+  },
+  {
+    "scenarioId": "dashboard-calendar-panel-error",
+    "route": "/app",
+    "screenTitle": "대시보드 일정 패널 오류",
+    "stateType": "load-error",
+    "outputFile": "screenshots/user/dashboard-calendar-panel-error.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "다가오는 일정 패널만 실패한 상태"
+  },
+  {
+    "scenarioId": "dashboard-email-panel-error",
+    "route": "/app",
+    "screenTitle": "대시보드 최근 메일 패널 오류",
+    "stateType": "load-error",
+    "outputFile": "screenshots/user/dashboard-email-panel-error.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "최근 수신 이메일 패널만 실패한 상태"
+  },
+  {
+    "scenarioId": "inbox-empty",
+    "route": "/app/inbox",
+    "screenTitle": "수신함 빈 상태",
+    "stateType": "empty",
+    "outputFile": "screenshots/user/inbox-empty.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "선택한 필터에 메일이 없는 상태"
+  },
+  {
+    "scenarioId": "inbox-list-error",
+    "route": "/app/inbox",
+    "screenTitle": "수신함 목록 오류",
+    "stateType": "load-error",
+    "outputFile": "screenshots/user/inbox-list-error.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "메일 목록 패널 로드 실패 상태"
+  },
+  {
+    "scenarioId": "inbox-thread-error",
+    "route": "/app/inbox",
+    "screenTitle": "수신함 상세 오류",
+    "stateType": "load-error",
+    "outputFile": "screenshots/user/inbox-thread-error.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "메일 상세 패널 로드 실패 상태"
+  },
+  {
+    "scenarioId": "inbox-draft-send-error",
+    "route": "/app/inbox",
+    "screenTitle": "수신함 답변 발송 실패",
+    "stateType": "action-error",
+    "outputFile": "screenshots/user/inbox-draft-send-error.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "답변 발송 실패 상태"
+  },
+  {
+    "scenarioId": "inbox-schedule-detect-error",
+    "route": "/app/inbox",
+    "screenTitle": "수신함 일정 감지 실패",
+    "stateType": "action-error",
+    "outputFile": "screenshots/user/inbox-schedule-detect-error.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "일정 감지/등록 제안 실패 상태"
+  },
+  {
+    "scenarioId": "calendar-load-error",
+    "route": "/app/calendar",
+    "screenTitle": "캘린더 로드 실패",
+    "stateType": "load-error",
+    "outputFile": "screenshots/user/calendar-load-error.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "캘린더 전체 로드 실패 상태"
+  },
+  {
+    "scenarioId": "calendar-empty",
+    "route": "/app/calendar",
+    "screenTitle": "캘린더 빈 상태",
+    "stateType": "empty",
+    "outputFile": "screenshots/user/calendar-empty.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "일정이 없는 캘린더 상태"
+  },
+  {
+    "scenarioId": "calendar-sync-error",
+    "route": "/app/calendar",
+    "screenTitle": "캘린더 동기화 오류",
+    "stateType": "disconnected",
+    "outputFile": "screenshots/user/calendar-sync-error.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "Google Calendar 동기화 실패 상태"
+  },
+  {
+    "scenarioId": "calendar-create-error",
+    "route": "/app/calendar",
+    "screenTitle": "캘린더 일정 저장 실패",
+    "stateType": "action-error",
+    "outputFile": "screenshots/user/calendar-create-error.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "일정 추가 다이얼로그 저장 실패 상태"
+  },
+  {
+    "scenarioId": "templates-load-error",
+    "route": "/app/templates",
+    "screenTitle": "템플릿 목록 로드 실패",
+    "stateType": "load-error",
+    "outputFile": "screenshots/user/templates-load-error.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "템플릿 라이브러리 전체 로드 실패 상태"
+  },
+  {
+    "scenarioId": "templates-empty",
+    "route": "/app/templates",
+    "screenTitle": "템플릿 빈 상태",
+    "stateType": "empty",
+    "outputFile": "screenshots/user/templates-empty.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "템플릿 결과 없음 상태"
+  },
+  {
+    "scenarioId": "templates-save-error",
+    "route": "/app/templates",
+    "screenTitle": "템플릿 저장 실패",
+    "stateType": "action-error",
+    "outputFile": "screenshots/user/templates-save-error.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "템플릿 편집 다이얼로그 저장 실패 상태"
+  },
+  {
+    "scenarioId": "profile-save-error",
+    "route": "/app/profile",
+    "screenTitle": "비즈니스 프로필 저장 실패",
+    "stateType": "action-error",
+    "outputFile": "screenshots/user/profile-save-error.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "프로필 저장 실패 상태"
+  },
+  {
+    "scenarioId": "profile-upload-error",
+    "route": "/app/profile",
+    "screenTitle": "비즈니스 자료 업로드 실패",
+    "stateType": "action-error",
+    "outputFile": "screenshots/user/profile-upload-error.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "파일 업로드 실패 상태"
+  },
+  {
+    "scenarioId": "profile-faq-save-error",
+    "route": "/app/profile",
+    "screenTitle": "FAQ 저장 실패",
+    "stateType": "action-error",
+    "outputFile": "screenshots/user/profile-faq-save-error.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "FAQ 다이얼로그 저장 실패 상태"
+  },
+  {
+    "scenarioId": "profile-regenerate-error",
+    "route": "/app/profile",
+    "screenTitle": "템플릿 재생성 실패",
+    "stateType": "action-error",
+    "outputFile": "screenshots/user/profile-regenerate-error.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "비즈니스 자료 변경 후 재생성 실패 상태"
+  },
+  {
+    "scenarioId": "automation-load-error",
+    "route": "/app/automation",
+    "screenTitle": "자동화 설정 로드 실패",
+    "stateType": "load-error",
+    "outputFile": "screenshots/user/automation-load-error.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "자동화 설정 전체 로드 실패 상태"
+  },
+  {
+    "scenarioId": "automation-rule-save-error",
+    "route": "/app/automation",
+    "screenTitle": "카테고리 규칙 저장 실패",
+    "stateType": "action-error",
+    "outputFile": "screenshots/user/automation-rule-save-error.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "규칙 추가 다이얼로그 저장 실패 상태"
+  },
+  {
+    "scenarioId": "automation-calendar-disconnected",
+    "route": "/app/automation",
+    "screenTitle": "Google Calendar 연결 끊김",
+    "stateType": "disconnected",
+    "outputFile": "screenshots/user/automation-calendar-disconnected.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "캘린더 연동 해제 상태"
+  },
+  {
+    "scenarioId": "settings-account-save-error",
+    "route": "/app/settings?tab=account",
+    "screenTitle": "계정 정보 저장 실패",
+    "stateType": "action-error",
+    "outputFile": "screenshots/user/settings-account-save-error.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "계정 탭 저장 실패 상태"
+  },
+  {
+    "scenarioId": "settings-password-validation-error",
+    "route": "/app/settings?tab=account",
+    "screenTitle": "비밀번호 변경 유효성 오류",
+    "stateType": "validation",
+    "outputFile": "screenshots/user/settings-password-validation-error.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "비밀번호 변경 입력 오류 상태"
+  },
+  {
+    "scenarioId": "settings-email-oauth-error",
+    "route": "/app/settings?tab=email",
+    "screenTitle": "이메일 OAuth 확인 실패",
+    "stateType": "action-error",
+    "outputFile": "screenshots/user/settings-email-oauth-error.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "Google OAuth 복귀 후 계정 확인 실패 상태"
+  },
+  {
+    "scenarioId": "settings-support-submit-error",
+    "route": "/app/settings?tab=support",
+    "screenTitle": "관리자 문의 등록 실패",
+    "stateType": "action-error",
+    "outputFile": "screenshots/user/settings-support-submit-error.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "문의 등록 다이얼로그 저장 실패 상태"
+  },
+  {
+    "scenarioId": "global-session-expired",
+    "route": "/app",
+    "screenTitle": "세션 만료",
+    "stateType": "permission",
+    "outputFile": "screenshots/user/global-session-expired.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "세션 만료 전면 상태"
+  },
+  {
+    "scenarioId": "global-service-unavailable",
+    "route": "/app",
+    "screenTitle": "서비스 일시 장애",
+    "stateType": "load-error",
+    "outputFile": "screenshots/user/global-service-unavailable.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "서비스 전체 장애 전면 상태"
+  },
+  {
+    "scenarioId": "global-unexpected-error",
+    "route": "/app",
+    "screenTitle": "예기치 않은 오류",
+    "stateType": "unexpected",
+    "outputFile": "screenshots/user/global-unexpected-error.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "예상하지 못한 오류 전면 상태"
+  },
+  {
+    "scenarioId": "global-not-found",
+    "route": "/missing-page",
+    "screenTitle": "사용자 앱 404",
+    "stateType": "not-found",
+    "outputFile": "screenshots/user/global-not-found.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "사용자 앱 잘못된 경로 상태"
+  }
+]

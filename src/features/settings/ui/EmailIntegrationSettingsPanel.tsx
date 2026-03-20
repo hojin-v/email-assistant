@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router";
 import type { EmailAccount } from "../../../shared/types";
 import { toast } from "sonner";
 import { SectionCard } from "../../../shared/ui/primitives/SectionCard";
+import { StateBanner } from "../../../shared/ui/primitives/StateBanner";
 import {
   Dialog,
   DialogContent,
@@ -54,6 +55,7 @@ function AccountProviderIcon({ provider }: AccountProviderIconProps) {
 
 interface EmailIntegrationSettingsPanelProps {
   accounts: EmailAccount[];
+  scenarioId?: string | null;
 }
 
 function buildGmailAccount(email: string): EmailAccount {
@@ -86,8 +88,12 @@ function deriveAdditionalGmailEmail(baseEmail: string, existingEmails: string[])
 
 export function EmailIntegrationSettingsPanel({
   accounts,
+  scenarioId,
 }: EmailIntegrationSettingsPanelProps) {
   const session = getAppSession();
+  const oauthVerifyNormalScenario =
+    scenarioId === "settings-email-oauth-verify-normal";
+  const oauthErrorScenario = scenarioId === "settings-email-oauth-error";
   const [searchParams, setSearchParams] = useSearchParams();
   const [items, setItems] = useState<EmailAccount[]>(() => {
     if (session.connectedEmails.length) {
@@ -137,6 +143,11 @@ export function EmailIntegrationSettingsPanel({
   };
 
   const handleConfirmOAuth = () => {
+    if (oauthErrorScenario) {
+      toast.error("Google 인증 응답을 확인하지 못했습니다.");
+      return;
+    }
+
     syncConnectedAccounts((current) => {
       if (current.some((item) => item.email === verificationEmail)) {
         return current;
@@ -186,9 +197,39 @@ export function EmailIntegrationSettingsPanel({
     setVerificationEmail(pendingEmail);
   }, [searchParams, verificationReady]);
 
+  useEffect(() => {
+    if (oauthVerifyNormalScenario) {
+      setVerificationDialogOpen(true);
+      setVerificationReady(true);
+      setVerificationEmail(
+        deriveAdditionalGmailEmail(
+          session.userEmail,
+          items.map((item) => item.email),
+        ),
+      );
+      return;
+    }
+
+    if (!oauthErrorScenario) {
+      return;
+    }
+
+    setVerificationDialogOpen(true);
+    setVerificationReady(true);
+    setVerificationEmail(items[0]?.email ?? deriveGoogleIntegrationEmail(session.userEmail));
+  }, [items, oauthErrorScenario, oauthVerifyNormalScenario, session.userEmail]);
+
   return (
     <>
       <SectionCard title="연결된 이메일 계정">
+        {oauthErrorScenario ? (
+          <StateBanner
+            title="Google 인증 확인을 완료하지 못했습니다"
+            description="OAuth 복귀 응답을 검증하지 못했습니다. 계정 추가를 다시 시도해 주세요."
+            tone="error"
+            className="mb-5"
+          />
+        ) : null}
         <div className="mt-6 space-y-3">
           {items.map((account: EmailAccount) => (
             <div
@@ -254,14 +295,32 @@ export function EmailIntegrationSettingsPanel({
             </DialogHeader>
 
           <div className="flex flex-col items-center gap-4 py-3 text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#2DD4BF]/10 dark:bg-[#0F766E]/20">
-              <CheckCircle2 className="h-8 w-8 text-[#0F766E] dark:text-[#5EEAD4]" />
+            <div
+              className={`flex h-16 w-16 items-center justify-center rounded-full ${
+                oauthErrorScenario
+                  ? "bg-[#FECACA]/30 dark:bg-[#3F1D24]"
+                  : "bg-[#2DD4BF]/10 dark:bg-[#0F766E]/20"
+              }`}
+            >
+              <CheckCircle2
+                className={`h-8 w-8 ${
+                  oauthErrorScenario
+                    ? "text-[#DC2626] dark:text-[#FCA5A5]"
+                    : "text-[#0F766E] dark:text-[#5EEAD4]"
+                }`}
+              />
             </div>
             <div className="space-y-1">
               <p className="text-sm font-semibold text-foreground">{verificationEmail}</p>
-              <p className="text-sm text-muted-foreground">
-                인증이 완료되면 이 Gmail 계정이 이메일 연동 목록에 추가됩니다.
-              </p>
+              {oauthErrorScenario ? (
+                <p className="text-sm text-muted-foreground">
+                  Google 인증 결과를 확인하지 못했습니다. OAuth를 다시 진행한 뒤 다시 시도해 주세요.
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  인증이 완료되면 이 Gmail 계정이 이메일 연동 목록에 추가됩니다.
+                </p>
+              )}
             </div>
           </div>
 

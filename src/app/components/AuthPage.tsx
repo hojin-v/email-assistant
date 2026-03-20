@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import {
   ArrowRight,
@@ -16,8 +16,9 @@ import {
   deriveNameFromEmail,
 } from "../../shared/lib/app-session";
 import { AuthOnboardingLayout } from "../../shared/ui/AuthOnboardingLayout";
+import { StateBanner } from "../../shared/ui/primitives/StateBanner";
 
-type AuthMode = "login" | "signup";
+type AuthMode = "login" | "signup" | "reset";
 
 type LoginForm = {
   email: string;
@@ -25,6 +26,13 @@ type LoginForm = {
 };
 
 type SignupForm = {
+  name: string;
+  email: string;
+  password: string;
+  passwordConfirm: string;
+};
+
+type ResetForm = {
   name: string;
   email: string;
   password: string;
@@ -39,6 +47,10 @@ const leftPanelContent: Record<AuthMode, { title: string; subtitle: string }> = 
   signup: {
     title: "몇 단계만 거치면\n준비가 끝납니다",
     subtitle: "회원가입 후 온보딩에서 이메일 연결과\n업무 설정을 한 번에 완료할 수 있습니다",
+  },
+  reset: {
+    title: "비밀번호를 다시 만들고\n바로 복귀하세요",
+    subtitle: "이름과 이메일을 확인한 뒤\n새 비밀번호를 직접 설정할 수 있습니다",
   },
 };
 
@@ -57,7 +69,11 @@ const footerItems = [
   },
 ];
 
-export function AuthPage() {
+interface AuthPageProps {
+  scenarioId?: string | null;
+}
+
+export function AuthPage({ scenarioId }: AuthPageProps) {
   const navigate = useNavigate();
   const [mode, setMode] = useState<AuthMode>("login");
   const [loginForm, setLoginForm] = useState<LoginForm>({
@@ -70,15 +86,138 @@ export function AuthPage() {
     password: "",
     passwordConfirm: "",
   });
+  const [resetForm, setResetForm] = useState<ResetForm>({
+    name: "",
+    email: "",
+    password: "",
+    passwordConfirm: "",
+  });
+  const [resetCompleted, setResetCompleted] = useState(false);
 
   const isLogin = mode === "login";
+  const isReset = mode === "reset";
   const panelText = leftPanelContent[mode];
+  const signupModeScenario = scenarioId === "auth-signup-normal";
+  const resetModeScenario = scenarioId === "auth-reset-normal";
+  const resetCompleteScenario = scenarioId === "auth-reset-complete-normal";
+  const loginValidationScenario = scenarioId === "auth-login-validation";
+  const signupValidationScenario = scenarioId === "auth-signup-validation";
+  const loginServiceErrorScenario = scenarioId === "auth-login-service-error";
+
+  useEffect(() => {
+    if (signupModeScenario) {
+      setMode("signup");
+      setResetCompleted(false);
+      setSignupForm({
+        name: "김호진",
+        email: "hojin@company.com",
+        password: "",
+        passwordConfirm: "",
+      });
+      return;
+    }
+
+    if (signupValidationScenario) {
+      setMode("signup");
+      setResetCompleted(false);
+      setSignupForm({
+        name: "김호진",
+        email: "hojin@company.com",
+        password: "password123",
+        passwordConfirm: "password124",
+      });
+      return;
+    }
+
+    if (loginValidationScenario) {
+      setMode("login");
+      setResetCompleted(false);
+      setLoginForm({
+        email: "hojin@company.com",
+        password: "",
+      });
+      return;
+    }
+
+    if (loginServiceErrorScenario) {
+      setMode("login");
+      setResetCompleted(false);
+      setLoginForm({
+        email: "hojin@company.com",
+        password: "password123",
+      });
+      return;
+    }
+
+    if (resetModeScenario) {
+      setMode("reset");
+      setResetForm({
+        name: "김호진",
+        email: "hojin@company.com",
+        password: "",
+        passwordConfirm: "",
+      });
+      setResetCompleted(false);
+      return;
+    }
+
+    if (resetCompleteScenario) {
+      setMode("reset");
+      setResetForm({
+        name: "김호진",
+        email: "hojin@company.com",
+        password: "newPassword123!",
+        passwordConfirm: "newPassword123!",
+      });
+      setResetCompleted(true);
+    }
+  }, [
+    loginServiceErrorScenario,
+    loginValidationScenario,
+    resetCompleteScenario,
+    resetModeScenario,
+    signupModeScenario,
+    signupValidationScenario,
+  ]);
+
+  const bannerContent = useMemo(() => {
+    if (loginValidationScenario) {
+      return {
+        tone: "warning" as const,
+        title: "로그인 정보를 모두 입력해 주세요",
+        description: "문서 캡처용 유효성 오류 상태입니다. 비밀번호가 비어 있어 제출할 수 없습니다.",
+      };
+    }
+
+    if (signupValidationScenario) {
+      return {
+        tone: "warning" as const,
+        title: "회원가입 정보를 다시 확인해 주세요",
+        description: "비밀번호와 비밀번호 확인이 일치하지 않아 계정을 만들 수 없습니다.",
+      };
+    }
+
+    if (loginServiceErrorScenario) {
+      return {
+        tone: "error" as const,
+        title: "로그인 처리 중 문제가 발생했습니다",
+        description: "현재 인증 서버 응답을 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.",
+      };
+    }
+
+    return null;
+  }, [loginServiceErrorScenario, loginValidationScenario, signupValidationScenario]);
 
   const handleLoginSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!loginForm.email.trim() || !loginForm.password.trim()) {
       toast.error("이메일과 비밀번호를 입력해주세요.");
+      return;
+    }
+
+    if (loginServiceErrorScenario) {
+      toast.error("로그인 요청을 완료하지 못했습니다.");
       return;
     }
 
@@ -116,6 +255,37 @@ export function AuthPage() {
 
     toast.success("회원가입이 완료되었습니다. 온보딩으로 이동합니다.");
     navigate("/onboarding");
+  };
+
+  const handleResetSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (
+      !resetForm.name.trim() ||
+      !resetForm.email.trim() ||
+      !resetForm.password.trim() ||
+      !resetForm.passwordConfirm.trim()
+    ) {
+      toast.error("이름, 이메일, 새 비밀번호를 모두 입력해주세요.");
+      return;
+    }
+
+    if (resetForm.password !== resetForm.passwordConfirm) {
+      toast.error("새 비밀번호와 비밀번호 확인이 일치하지 않습니다.");
+      return;
+    }
+
+    if (resetForm.password.trim().length < 8) {
+      toast.error("새 비밀번호는 8자 이상으로 입력해주세요.");
+      return;
+    }
+
+    setLoginForm({
+      email: resetForm.email.trim(),
+      password: "",
+    });
+    setResetCompleted(true);
+    toast.success("새 비밀번호를 설정했습니다.");
   };
 
   return (
@@ -158,39 +328,69 @@ export function AuthPage() {
 
         <div className="mb-8 mx-auto max-w-[460px] text-center">
           <h2 className="mb-2 text-[20px] text-[#1E2A3A] dark:text-foreground">
-            {isLogin ? "계정에 로그인하세요" : "새 계정을 만들어 시작하세요"}
+            {isLogin
+              ? "계정에 로그인하세요"
+              : isReset
+              ? "비밀번호를 다시 생성하세요"
+              : "새 계정을 만들어 시작하세요"}
           </h2>
           <p className="text-[14px] text-[#94A3B8] dark:text-muted-foreground">
             {isLogin
               ? "로그인 후 온보딩에서 이메일 연결과 초기 설정을 진행합니다"
+              : isReset
+              ? "이름과 이메일을 확인하면 임시 비밀번호를 새로 만들 수 있습니다"
               : "회원가입 후 온보딩에서 이메일 연동과 비즈니스 설정을 완료합니다"}
           </p>
         </div>
 
-        <div className="mb-6 flex rounded-xl bg-[#F8FAFC] p-1 dark:bg-[#111827]">
-                <button
-                  type="button"
-                  onClick={() => setMode("login")}
-                  className={`flex-1 rounded-lg px-4 py-2.5 text-[13px] font-medium transition-colors ${
-                    isLogin
-                      ? "bg-white text-[#1E2A3A] shadow-sm dark:bg-[#18263A] dark:text-foreground"
-                      : "text-[#64748B] hover:text-[#1E2A3A] dark:text-muted-foreground dark:hover:text-foreground"
-                  }`}
-                >
-                  로그인
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMode("signup")}
-                  className={`flex-1 rounded-lg px-4 py-2.5 text-[13px] font-medium transition-colors ${
-                    !isLogin
-                      ? "bg-white text-[#1E2A3A] shadow-sm dark:bg-[#18263A] dark:text-foreground"
-                      : "text-[#64748B] hover:text-[#1E2A3A] dark:text-muted-foreground dark:hover:text-foreground"
-                  }`}
-                >
-                  회원가입
-                </button>
-              </div>
+        {bannerContent ? (
+          <StateBanner
+            title={bannerContent.title}
+            description={bannerContent.description}
+            tone={bannerContent.tone}
+            className="mb-6"
+          />
+        ) : null}
+
+        {isReset ? (
+          <div className="mb-6">
+            <button
+              type="button"
+              onClick={() => {
+                setMode("login");
+                setResetCompleted(false);
+              }}
+              className="text-[13px] font-medium text-[#0F766E] transition-colors hover:text-[#115E59] dark:text-[#5EEAD4] dark:hover:text-[#99F6E4]"
+            >
+              로그인으로 돌아가기
+            </button>
+          </div>
+        ) : (
+          <div className="mb-6 flex rounded-xl bg-[#F8FAFC] p-1 dark:bg-[#111827]">
+            <button
+              type="button"
+              onClick={() => setMode("login")}
+              className={`flex-1 rounded-lg px-4 py-2.5 text-[13px] font-medium transition-colors ${
+                isLogin
+                  ? "bg-white text-[#1E2A3A] shadow-sm dark:bg-[#18263A] dark:text-foreground"
+                  : "text-[#64748B] hover:text-[#1E2A3A] dark:text-muted-foreground dark:hover:text-foreground"
+              }`}
+            >
+              로그인
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("signup")}
+              className={`flex-1 rounded-lg px-4 py-2.5 text-[13px] font-medium transition-colors ${
+                mode === "signup"
+                  ? "bg-white text-[#1E2A3A] shadow-sm dark:bg-[#18263A] dark:text-foreground"
+                  : "text-[#64748B] hover:text-[#1E2A3A] dark:text-muted-foreground dark:hover:text-foreground"
+              }`}
+            >
+              회원가입
+            </button>
+          </div>
+        )}
 
         {isLogin ? (
           <form className="space-y-4" onSubmit={handleLoginSubmit}>
@@ -211,6 +411,11 @@ export function AuthPage() {
                   className="w-full bg-transparent text-[14px] text-[#1E2A3A] outline-none placeholder:text-[#94A3B8] dark:text-foreground dark:placeholder:text-muted-foreground"
                 />
               </div>
+              {loginValidationScenario ? (
+                <p className="mt-2 text-[12px] text-[#B45309] dark:text-[#E7C18A]">
+                  이메일과 비밀번호를 모두 입력해야 로그인할 수 있습니다.
+                </p>
+              ) : null}
             </label>
 
             <label className="mb-2 block text-[13px] text-[#1E2A3A] dark:text-foreground">
@@ -230,6 +435,11 @@ export function AuthPage() {
                   className="w-full bg-transparent text-[14px] text-[#1E2A3A] outline-none placeholder:text-[#94A3B8] dark:text-foreground dark:placeholder:text-muted-foreground"
                 />
               </div>
+              {loginValidationScenario ? (
+                <p className="mt-2 text-[12px] text-[#B45309] dark:text-[#E7C18A]">
+                  비밀번호 입력이 누락되었습니다.
+                </p>
+              ) : null}
             </label>
 
             <button
@@ -239,6 +449,134 @@ export function AuthPage() {
               로그인하고 계속하기
               <ArrowRight className="w-4 h-4" />
             </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setMode("reset");
+                setResetForm({
+                  name: "",
+                  email: loginForm.email,
+                  password: "",
+                  passwordConfirm: "",
+                });
+                setResetCompleted(false);
+              }}
+              className="w-full text-center text-[13px] font-medium text-[#0F766E] transition-colors hover:text-[#115E59] dark:text-[#5EEAD4] dark:hover:text-[#99F6E4]"
+            >
+              비밀번호를 잊으셨나요?
+            </button>
+          </form>
+        ) : isReset ? (
+          <form className="space-y-4" onSubmit={handleResetSubmit}>
+            {!resetCompleted ? (
+              <>
+                <label className="mb-2 block text-[13px] text-[#1E2A3A] dark:text-foreground">
+                  이름
+                  <div className="app-input-shell mt-2 flex items-center gap-3 px-4 py-3">
+                    <UserRound className="h-4 w-4 text-[#94A3B8] dark:text-muted-foreground" />
+                    <input
+                      type="text"
+                      value={resetForm.name}
+                      onChange={(event) =>
+                        setResetForm((current) => ({
+                          ...current,
+                          name: event.target.value,
+                        }))
+                      }
+                      placeholder="이름을 입력하세요"
+                      className="w-full bg-transparent text-[14px] text-[#1E2A3A] outline-none placeholder:text-[#94A3B8] dark:text-foreground dark:placeholder:text-muted-foreground"
+                    />
+                  </div>
+                </label>
+
+                <label className="mb-2 block text-[13px] text-[#1E2A3A] dark:text-foreground">
+                  이메일
+                  <div className="app-input-shell mt-2 flex items-center gap-3 px-4 py-3">
+                    <Mail className="h-4 w-4 text-[#94A3B8] dark:text-muted-foreground" />
+                    <input
+                      type="email"
+                      value={resetForm.email}
+                      onChange={(event) =>
+                        setResetForm((current) => ({
+                          ...current,
+                          email: event.target.value,
+                        }))
+                      }
+                      placeholder="name@company.com"
+                      className="w-full bg-transparent text-[14px] text-[#1E2A3A] outline-none placeholder:text-[#94A3B8] dark:text-foreground dark:placeholder:text-muted-foreground"
+                    />
+                  </div>
+                </label>
+
+                <label className="mb-2 block text-[13px] text-[#1E2A3A] dark:text-foreground">
+                  새 비밀번호
+                  <div className="app-input-shell mt-2 flex items-center gap-3 px-4 py-3">
+                    <Lock className="h-4 w-4 text-[#94A3B8] dark:text-muted-foreground" />
+                    <input
+                      type="password"
+                      value={resetForm.password}
+                      onChange={(event) =>
+                        setResetForm((current) => ({
+                          ...current,
+                          password: event.target.value,
+                        }))
+                      }
+                      placeholder="8자 이상 새 비밀번호를 입력하세요"
+                      className="w-full bg-transparent text-[14px] text-[#1E2A3A] outline-none placeholder:text-[#94A3B8] dark:text-foreground dark:placeholder:text-muted-foreground"
+                    />
+                  </div>
+                </label>
+
+                <label className="mb-2 block text-[13px] text-[#1E2A3A] dark:text-foreground">
+                  새 비밀번호 확인
+                  <div className="app-input-shell mt-2 flex items-center gap-3 px-4 py-3">
+                    <CheckCircle2 className="h-4 w-4 text-[#94A3B8] dark:text-muted-foreground" />
+                    <input
+                      type="password"
+                      value={resetForm.passwordConfirm}
+                      onChange={(event) =>
+                        setResetForm((current) => ({
+                          ...current,
+                          passwordConfirm: event.target.value,
+                        }))
+                      }
+                      placeholder="새 비밀번호를 다시 입력하세요"
+                      className="w-full bg-transparent text-[14px] text-[#1E2A3A] outline-none placeholder:text-[#94A3B8] dark:text-foreground dark:placeholder:text-muted-foreground"
+                    />
+                  </div>
+                </label>
+
+                <button
+                  type="submit"
+                  className="app-cta-primary flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3.5"
+                >
+                  새 비밀번호로 변경하기
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </>
+            ) : (
+              <div className="rounded-2xl border border-[#CFE8E2] bg-[#F4FBF8] p-5 dark:border-[#1F4B46] dark:bg-[#0F1F1E]">
+                <div className="mb-3 flex items-center gap-2 text-[#0F766E] dark:text-[#5EEAD4]">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <p className="text-[13px] font-semibold">비밀번호를 다시 설정했습니다</p>
+                </div>
+                <p className="mb-4 text-[12px] leading-6 text-[#64748B] dark:text-muted-foreground">
+                  새 비밀번호가 정상적으로 저장되었습니다. 로그인 화면으로 돌아가 새 비밀번호로 다시 로그인해 주세요.
+                </p>
+                <button
+                  type="button"
+                  className="app-cta-primary flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3.5"
+                  onClick={() => {
+                    setMode("login");
+                    setResetCompleted(false);
+                  }}
+                >
+                  로그인으로 돌아가기
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </form>
         ) : (
           <form className="space-y-4" onSubmit={handleSignupSubmit}>
@@ -316,6 +654,11 @@ export function AuthPage() {
                         className="w-full bg-transparent text-[14px] text-[#1E2A3A] outline-none placeholder:text-[#94A3B8] dark:text-foreground dark:placeholder:text-muted-foreground"
                       />
                     </div>
+                    {signupValidationScenario ? (
+                      <p className="mt-2 text-[12px] text-[#B45309] dark:text-[#E7C18A]">
+                        비밀번호와 비밀번호 확인이 서로 다릅니다.
+                      </p>
+                    ) : null}
                   </label>
 
                   <button
