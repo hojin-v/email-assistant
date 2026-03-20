@@ -1,5 +1,8 @@
+import { useSearchParams } from "react-router";
 import { Calendar } from "../../app/components/Calendar";
 
 export function CalendarPage() {
-  return <Calendar />;
+  const [searchParams] = useSearchParams();
+
+  return <Calendar scenarioId={searchParams.get("scenario")} />;
 }

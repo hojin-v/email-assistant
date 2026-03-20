@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Plus,
   Pencil,
@@ -26,6 +26,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "./ui/alert-dialog";
+import { AppStatePage } from "../../shared/ui/primitives/AppStatePage";
+import { StateBanner } from "../../shared/ui/primitives/StateBanner";
 
 interface CategoryRule {
   id: string;
@@ -105,7 +107,19 @@ const emptyRuleDraft: RuleDraft = {
   color: colorOptions[0],
 };
 
-export function AutomationSettings() {
+interface AutomationSettingsProps {
+  scenarioId?: string | null;
+}
+
+export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
+  const loadErrorScenario = scenarioId === "automation-load-error";
+  const ruleDialogNormalScenario = scenarioId === "automation-rule-dialog-normal";
+  const ruleEditNormalScenario = scenarioId === "automation-rule-edit-normal";
+  const ruleDeleteNormalScenario = scenarioId === "automation-rule-delete-normal";
+  const calendarCategoryNormalScenario =
+    scenarioId === "automation-calendar-category-normal";
+  const ruleSaveErrorScenario = scenarioId === "automation-rule-save-error";
+  const calendarDisconnectedScenario = scenarioId === "automation-calendar-disconnected";
   const [rules, setRules] = useState<CategoryRule[]>(initialRules);
   const [autoCalendar, setAutoCalendar] = useState(true);
   const [googleCalendarConnected, setGoogleCalendarConnected] = useState(true);
@@ -115,6 +129,69 @@ export function AutomationSettings() {
   const [deleteTarget, setDeleteTarget] = useState<CategoryRule | null>(null);
   const [autoCalendarCategories, setAutoCalendarCategories] = useState<string[]>(["미팅요청"]);
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+
+  useEffect(() => {
+    if (ruleDialogNormalScenario) {
+      setEditingRuleId(null);
+      setRuleDraft({
+        name: "세금계산서 요청",
+        keywordsText: "세금계산서, 청구서, 발행, 사업자등록증",
+        template: "세금계산서 안내 템플릿",
+        autoSend: false,
+        color: "#3B82F6",
+      });
+      setRuleDialogOpen(true);
+      return;
+    }
+
+    if (ruleEditNormalScenario) {
+      const targetRule = initialRules[1];
+      setEditingRuleId(targetRule.id);
+      setRuleDraft({
+        name: targetRule.name,
+        keywordsText: targetRule.keywords.join(", "),
+        template: targetRule.template,
+        autoSend: targetRule.autoSend,
+        color: targetRule.color,
+      });
+      setRuleDialogOpen(true);
+      return;
+    }
+
+    if (ruleDeleteNormalScenario) {
+      setDeleteTarget(initialRules[1]);
+      return;
+    }
+
+    if (calendarCategoryNormalScenario) {
+      setCategoryDialogOpen(true);
+      return;
+    }
+
+    if (calendarDisconnectedScenario) {
+      setGoogleCalendarConnected(false);
+      setAutoCalendar(false);
+    }
+
+    if (ruleSaveErrorScenario) {
+      setEditingRuleId("1");
+      setRuleDraft({
+        name: "불만접수",
+        keywordsText: "불만, 지연, 오류, 보상",
+        template: "불만 대응 템플릿",
+        autoSend: false,
+        color: "#EF4444",
+      });
+      setRuleDialogOpen(true);
+    }
+  }, [
+    calendarCategoryNormalScenario,
+    calendarDisconnectedScenario,
+    ruleDeleteNormalScenario,
+    ruleEditNormalScenario,
+    ruleDialogNormalScenario,
+    ruleSaveErrorScenario,
+  ]);
 
   const availableCategories = useMemo(
     () => rules.map((rule) => rule.name),
@@ -153,6 +230,11 @@ export function AutomationSettings() {
 
     if (!ruleDraft.name.trim() || !ruleDraft.template.trim() || !keywords.length) {
       toast.error("카테고리명, 키워드, 템플릿을 모두 입력하세요.");
+      return;
+    }
+
+    if (ruleSaveErrorScenario) {
+      toast.error("카테고리 규칙을 저장하지 못했습니다.");
       return;
     }
 
@@ -221,9 +303,36 @@ export function AutomationSettings() {
     toast.success("자동 등록 카테고리를 업데이트했습니다.");
   };
 
+  if (loadErrorScenario) {
+    return (
+      <AppStatePage
+        title="자동화 설정을 불러오지 못했습니다"
+        description="규칙 목록과 캘린더 연동 상태를 가져오는 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요."
+      />
+    );
+  }
+
   return (
     <>
       <div className="mx-auto max-w-[1200px] p-4 lg:p-8">
+        {ruleSaveErrorScenario ? (
+          <StateBanner
+            title="카테고리 규칙을 저장하지 못했습니다"
+            description="편집한 규칙 내용은 유지되었지만 저장 응답이 지연되고 있습니다. 다시 시도해 주세요."
+            tone="error"
+            className="mb-6"
+          />
+        ) : null}
+
+        {calendarDisconnectedScenario ? (
+          <StateBanner
+            title="Google Calendar 연결이 해제되었습니다"
+            description="캘린더 자동 등록 기능을 다시 사용하려면 Google Calendar를 다시 연결해 주세요."
+            tone="warning"
+            className="mb-6"
+          />
+        ) : null}
+
         <div className="mb-8">
           <h1 className="mb-1 text-[#1E2A3A] dark:text-foreground">자동화 설정</h1>
           <p className="text-[14px] text-[#64748B] dark:text-muted-foreground">
@@ -525,6 +634,14 @@ export function AutomationSettings() {
               이메일 분류와 템플릿 자동 연결 규칙을 설정합니다.
             </DialogDescription>
           </DialogHeader>
+
+          {ruleSaveErrorScenario ? (
+            <StateBanner
+              title="카테고리 규칙 저장을 완료하지 못했습니다"
+              description="입력한 규칙 내용은 유지됩니다. 다시 저장해 주세요."
+              tone="error"
+            />
+          ) : null}
 
           <div className="space-y-4">
             <label className="block space-y-2 text-sm text-foreground">

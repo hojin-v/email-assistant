@@ -42,6 +42,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
+import { AppStatePage } from "../../shared/ui/primitives/AppStatePage";
+import { StateBanner } from "../../shared/ui/primitives/StateBanner";
 
 interface Template {
   id: string;
@@ -160,9 +162,20 @@ function isRecentlyUpdated(updatedAt: string) {
   return updatedAt.includes("시간") || updatedAt.includes("방금");
 }
 
-export function TemplateLibrary() {
+interface TemplateLibraryProps {
+  scenarioId?: string | null;
+}
+
+export function TemplateLibrary({ scenarioId }: TemplateLibraryProps) {
   const location = useLocation();
   const navigate = useNavigate();
+  const createNormalScenario = scenarioId === "templates-create-normal";
+  const previewNormalScenario = scenarioId === "templates-preview-normal";
+  const editNormalScenario = scenarioId === "templates-edit-normal";
+  const deleteNormalScenario = scenarioId === "templates-delete-normal";
+  const loadErrorScenario = scenarioId === "templates-load-error";
+  const emptyScenario = scenarioId === "templates-empty";
+  const saveErrorScenario = scenarioId === "templates-save-error";
   const [templates, setTemplates] = useState<Template[]>(initialTemplates);
   const [activeCategory, setActiveCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -208,6 +221,77 @@ export function TemplateLibrary() {
 
     navigate(location.pathname, { replace: true, state: null });
   }, [location.pathname, location.state, navigate, templates]);
+
+  useEffect(() => {
+    if (!emptyScenario) {
+      return;
+    }
+
+    setSearchQuery("없는 템플릿");
+    setActiveCategory("all");
+    setMinimumConfidence(0);
+    setRecentOnly(false);
+    setPreviewTemplate(null);
+  }, [emptyScenario]);
+
+  useEffect(() => {
+    if (createNormalScenario) {
+      setActiveCategory("all");
+      setSearchQuery("");
+      setPreviewTemplate(null);
+      setEditingTemplateId(null);
+      setDraft({
+        subject: "도입 상담 미팅 제안 템플릿",
+        body: "안녕하세요, {{고객명}}님. 요청하신 도입 상담을 위해 가능한 일정을 제안드립니다.",
+        category: "미팅요청",
+      });
+      setEditorOpen(true);
+      return;
+    }
+
+    if (previewNormalScenario) {
+      setActiveCategory("all");
+      setSearchQuery("");
+      setPreviewTemplate(initialTemplates[0]);
+      setEditorOpen(false);
+      return;
+    }
+
+    if (editNormalScenario) {
+      setActiveCategory("all");
+      setSearchQuery("");
+      setPreviewTemplate(null);
+      setEditingTemplateId("1");
+      setDraft({
+        subject: "가격 안내 드립니다 - {{제품명}} 관련",
+        body: "안녕하세요, {{고객명}}님. 문의하신 {{제품명}}의 가격 정보를 안내드립니다. 현재 기본 플랜은 월 49,000원부터 시작하며...",
+        category: "가격문의",
+      });
+      setEditorOpen(true);
+      return;
+    }
+
+    if (deleteNormalScenario) {
+      setActiveCategory("all");
+      setSearchQuery("");
+      setPreviewTemplate(null);
+      setEditorOpen(false);
+      setDeleteTarget(initialTemplates[1]);
+      return;
+    }
+
+    if (!saveErrorScenario) {
+      return;
+    }
+
+    setEditingTemplateId("1");
+    setDraft({
+      subject: "불만 접수 1차 응답 템플릿",
+      body: "안녕하세요, {{고객명}}님. 접수해 주신 내용을 확인 중입니다.",
+      category: "불만접수",
+    });
+    setEditorOpen(true);
+  }, [createNormalScenario, deleteNormalScenario, editNormalScenario, previewNormalScenario, saveErrorScenario]);
 
   const categories = useMemo(
     () => [
@@ -280,6 +364,11 @@ export function TemplateLibrary() {
       return;
     }
 
+    if (saveErrorScenario) {
+      toast.error("템플릿을 저장하지 못했습니다.");
+      return;
+    }
+
     if (editingTemplateId) {
       setTemplates((current) =>
         current.map((template) =>
@@ -336,6 +425,15 @@ export function TemplateLibrary() {
     }, 600);
   };
 
+  if (loadErrorScenario) {
+    return (
+      <AppStatePage
+        title="템플릿 라이브러리를 불러오지 못했습니다"
+        description="템플릿 목록과 카테고리 집계를 가져오는 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요."
+      />
+    );
+  }
+
   return (
     <>
       <div className="flex h-full w-full min-h-0 min-w-0 overflow-hidden bg-background">
@@ -370,6 +468,15 @@ export function TemplateLibrary() {
         </div>
 
         <div className="scrollbar-none min-h-0 flex-1 overflow-y-auto p-4 lg:p-6">
+          {saveErrorScenario ? (
+            <StateBanner
+              title="템플릿 저장을 완료하지 못했습니다"
+              description="편집 내용은 유지되었지만 저장 응답이 지연되고 있습니다. 다시 시도해 주세요."
+              tone="error"
+              className="mb-5"
+            />
+          ) : null}
+
           <div className="mb-6 flex flex-wrap items-center gap-3">
             <div className="relative min-w-[200px] flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8] dark:text-muted-foreground" />
@@ -615,6 +722,14 @@ export function TemplateLibrary() {
               카테고리와 제목, 본문을 입력하면 템플릿 라이브러리에 즉시 반영됩니다.
             </DialogDescription>
           </DialogHeader>
+
+          {saveErrorScenario ? (
+            <StateBanner
+              title="템플릿 저장을 완료하지 못했습니다"
+              description="입력한 내용은 그대로 유지됩니다. 네트워크 상태를 확인한 뒤 다시 저장해 주세요."
+              tone="error"
+            />
+          ) : null}
 
           <div className="space-y-4">
             <label className="block space-y-2 text-sm text-foreground">

@@ -41,6 +41,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
+import { StateBanner } from "../../shared/ui/primitives/StateBanner";
 
 const mainSteps = [
   { id: 1, label: "이메일 연동" },
@@ -113,7 +114,11 @@ const footerItems = [
   },
 ];
 
-export function Onboarding() {
+interface OnboardingProps {
+  scenarioId?: string | null;
+}
+
+export function Onboarding({ scenarioId }: OnboardingProps) {
   const session = getAppSession();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -145,6 +150,19 @@ export function Onboarding() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStep, setGenerationStep] = useState(0);
   const [templateProgress, setTemplateProgress] = useState(0);
+  const profileNormalScenario = scenarioId === "onboarding-profile-normal";
+  const knowledgeNormalScenario = scenarioId === "onboarding-knowledge-normal";
+  const categoriesNormalScenario = scenarioId === "onboarding-categories-normal";
+  const categoriesDropdownNormalScenario =
+    scenarioId === "onboarding-categories-dropdown-normal";
+  const categoriesCustomNormalScenario =
+    scenarioId === "onboarding-categories-custom-normal";
+  const generatingNormalScenario = scenarioId === "onboarding-generating-normal";
+  const completeNormalScenario = scenarioId === "onboarding-complete-normal";
+  const oauthErrorScenario = scenarioId === "onboarding-google-oauth-error";
+  const uploadErrorScenario = scenarioId === "onboarding-upload-error";
+  const templateGenerationErrorScenario =
+    scenarioId === "onboarding-template-generation-error";
 
   const clearGenerationTimeouts = () => {
     generationTimeoutsRef.current.forEach((timeoutId) => {
@@ -156,10 +174,267 @@ export function Onboarding() {
   useEffect(() => clearGenerationTimeouts, []);
 
   useEffect(() => {
+    clearGenerationTimeouts();
+
+    if (oauthErrorScenario) {
+      setCurrentMainStep(1);
+      setCurrentSubStep(0);
+      setEmailConnected(false);
+      setConnectedEmail("");
+      setIsGenerating(false);
+      setGenerationStep(0);
+      setTemplateProgress(0);
+      return;
+    }
+
+    if (uploadErrorScenario) {
+      setCurrentMainStep(2);
+      setCurrentSubStep(1);
+      setEmailConnected(true);
+      setConnectedEmail(initialConnectedEmail || "user@gmail.com");
+      setBusinessType("Sales");
+      setDescription(
+        "비즈니스 이메일 자동화 SaaS 플랫폼으로, AI 기반 이메일 응답과 일정 자동화를 지원합니다.",
+      );
+      setUploadedFile("고객응대_매뉴얼.pdf");
+      setFaqItems([
+        {
+          id: "faq-1",
+          question: "환불 정책은 어떻게 되나요?",
+          answer: "14일 이내에는 사용량과 무관하게 전액 환불 가능합니다.",
+        },
+      ]);
+      setFaqComposerOpen(false);
+      setIsGenerating(false);
+      setGenerationStep(0);
+      setTemplateProgress(0);
+      return;
+    }
+
+    if (templateGenerationErrorScenario) {
+      setCurrentMainStep(3);
+      setCurrentSubStep(2);
+      setEmailConnected(true);
+      setConnectedEmail(initialConnectedEmail || "user@gmail.com");
+      setBusinessType("Sales");
+      setDescription(
+        "비즈니스 이메일 자동화 SaaS 플랫폼으로, AI 기반 이메일 응답과 일정 자동화를 지원합니다.",
+      );
+      setIsGenerating(true);
+      setGenerationStep(2);
+      setTemplateProgress(4);
+      setFaqComposerOpen(false);
+      return;
+    }
+
+    if (profileNormalScenario) {
+      setCurrentMainStep(2);
+      setCurrentSubStep(0);
+      setEmailConnected(true);
+      setConnectedEmail(initialConnectedEmail || "user@gmail.com");
+      setBusinessType("Sales");
+      setDescription(
+        "비즈니스 이메일 자동화 SaaS 플랫폼으로, AI 기반 이메일 응답과 일정 자동화를 지원합니다.",
+      );
+      setUploadedFile(null);
+      setFaqItems([]);
+      setFaqDraft({ question: "", answer: "" });
+      setFaqComposerOpen(true);
+      setIsGenerating(false);
+      setGenerationStep(0);
+      setTemplateProgress(0);
+      return;
+    }
+
+    if (knowledgeNormalScenario) {
+      setCurrentMainStep(2);
+      setCurrentSubStep(1);
+      setEmailConnected(true);
+      setConnectedEmail(initialConnectedEmail || "user@gmail.com");
+      setBusinessType("Sales");
+      setDescription(
+        "비즈니스 이메일 자동화 SaaS 플랫폼으로, AI 기반 이메일 응답과 일정 자동화를 지원합니다.",
+      );
+      setUploadedFile("고객응대_매뉴얼.pdf");
+      setFaqItems([
+        {
+          id: "faq-1",
+          question: "도입 상담은 어느 채널로 진행되나요?",
+          answer: "기본적으로 이메일 응답 후 미팅 링크를 함께 안내합니다.",
+        },
+        {
+          id: "faq-2",
+          question: "환불 정책은 어떻게 되나요?",
+          answer: "14일 이내에는 사용량과 무관하게 전액 환불 가능합니다.",
+        },
+      ]);
+      setFaqComposerOpen(false);
+      setIsGenerating(false);
+      setGenerationStep(0);
+      setTemplateProgress(0);
+      return;
+    }
+
+    if (categoriesNormalScenario) {
+      setCurrentMainStep(2);
+      setCurrentSubStep(2);
+      setEmailConnected(true);
+      setConnectedEmail(initialConnectedEmail || "user@gmail.com");
+      setBusinessType("Sales");
+      setDescription(
+        "비즈니스 이메일 자동화 SaaS 플랫폼으로, AI 기반 이메일 응답과 일정 자동화를 지원합니다.",
+      );
+      setUploadedFile("고객응대_매뉴얼.pdf");
+      setFaqItems([
+        {
+          id: "faq-1",
+          question: "도입 상담은 어느 채널로 진행되나요?",
+          answer: "기본적으로 이메일 응답 후 미팅 링크를 함께 안내합니다.",
+        },
+      ]);
+      setFaqComposerOpen(false);
+      setIsGenerating(false);
+      setGenerationStep(0);
+      setTemplateProgress(0);
+      return;
+    }
+
+    if (categoriesDropdownNormalScenario) {
+      setCurrentMainStep(2);
+      setCurrentSubStep(2);
+      setEmailConnected(true);
+      setConnectedEmail(initialConnectedEmail || "user@gmail.com");
+      setBusinessType("Sales");
+      setDescription(
+        "비즈니스 이메일 자동화 SaaS 플랫폼으로, AI 기반 이메일 응답과 일정 자동화를 지원합니다.",
+      );
+      setUploadedFile("고객응대_매뉴얼.pdf");
+      setFaqItems([
+        {
+          id: "faq-1",
+          question: "도입 상담은 어느 채널로 진행되나요?",
+          answer: "기본적으로 이메일 응답 후 미팅 링크를 함께 안내합니다.",
+        },
+      ]);
+      setCategories(getRecommendedCategoriesForDomain("Sales").slice(0, 3));
+      setNewCategory("미");
+      setCategoryDropdownOpen(true);
+      setFaqComposerOpen(false);
+      setIsGenerating(false);
+      setGenerationStep(0);
+      setTemplateProgress(0);
+      return;
+    }
+
+    if (categoriesCustomNormalScenario) {
+      setCurrentMainStep(2);
+      setCurrentSubStep(2);
+      setEmailConnected(true);
+      setConnectedEmail(initialConnectedEmail || "user@gmail.com");
+      setBusinessType("Sales");
+      setDescription(
+        "비즈니스 이메일 자동화 SaaS 플랫폼으로, AI 기반 이메일 응답과 일정 자동화를 지원합니다.",
+      );
+      setUploadedFile("고객응대_매뉴얼.pdf");
+      setFaqItems([
+        {
+          id: "faq-1",
+          question: "도입 상담은 어느 채널로 진행되나요?",
+          answer: "기본적으로 이메일 응답 후 미팅 링크를 함께 안내합니다.",
+        },
+      ]);
+      setCategories([
+        ...getRecommendedCategoriesForDomain("Sales").slice(0, 3),
+        {
+          id: "custom-category-1",
+          name: "파트너십 제안",
+          domain: "Sales",
+          color: categoryColorPalette[0],
+        },
+      ]);
+      setNewCategory("");
+      setCategoryDropdownOpen(false);
+      setFaqComposerOpen(false);
+      setIsGenerating(false);
+      setGenerationStep(0);
+      setTemplateProgress(0);
+      return;
+    }
+
+    if (generatingNormalScenario) {
+      setCurrentMainStep(3);
+      setCurrentSubStep(2);
+      setEmailConnected(true);
+      setConnectedEmail(initialConnectedEmail || "user@gmail.com");
+      setBusinessType("Sales");
+      setDescription(
+        "비즈니스 이메일 자동화 SaaS 플랫폼으로, AI 기반 이메일 응답과 일정 자동화를 지원합니다.",
+      );
+      setUploadedFile("고객응대_매뉴얼.pdf");
+      setFaqItems([
+        {
+          id: "faq-1",
+          question: "도입 상담은 어느 채널로 진행되나요?",
+          answer: "기본적으로 이메일 응답 후 미팅 링크를 함께 안내합니다.",
+        },
+      ]);
+      setFaqComposerOpen(false);
+      setIsGenerating(true);
+      setGenerationStep(2);
+      setTemplateProgress(4);
+      return;
+    }
+
+    if (completeNormalScenario) {
+      setCurrentMainStep(4);
+      setCurrentSubStep(2);
+      setEmailConnected(true);
+      setConnectedEmail(initialConnectedEmail || "user@gmail.com");
+      setBusinessType("Sales");
+      setDescription(
+        "비즈니스 이메일 자동화 SaaS 플랫폼으로, AI 기반 이메일 응답과 일정 자동화를 지원합니다.",
+      );
+      setUploadedFile("고객응대_매뉴얼.pdf");
+      setFaqItems([
+        {
+          id: "faq-1",
+          question: "도입 상담은 어느 채널로 진행되나요?",
+          answer: "기본적으로 이메일 응답 후 미팅 링크를 함께 안내합니다.",
+        },
+      ]);
+      setFaqComposerOpen(false);
+      setIsGenerating(false);
+      setGenerationStep(0);
+      setTemplateProgress(5);
+      return;
+    }
+
+    setIsGenerating(false);
+    setGenerationStep(0);
+    setTemplateProgress(0);
+  }, [
+    categoriesNormalScenario,
+    categoriesCustomNormalScenario,
+    categoriesDropdownNormalScenario,
+    completeNormalScenario,
+    generatingNormalScenario,
+    initialConnectedEmail,
+    knowledgeNormalScenario,
+    oauthErrorScenario,
+    profileNormalScenario,
+    templateGenerationErrorScenario,
+    uploadErrorScenario,
+  ]);
+
+  useEffect(() => {
+    if (categoriesDropdownNormalScenario || categoriesCustomNormalScenario) {
+      return;
+    }
+
     setCategories(getRecommendedCategoriesForDomain(businessType));
     setNewCategory("");
     setCategoryDropdownOpen(false);
-  }, [businessType]);
+  }, [businessType, categoriesCustomNormalScenario, categoriesDropdownNormalScenario]);
 
   useEffect(() => {
     const handleOutsideClick = (event: MouseEvent) => {
@@ -190,6 +465,11 @@ export function Onboarding() {
   );
 
   const handleEmailConnect = () => {
+    if (oauthErrorScenario) {
+      toast.error("Google OAuth 인증을 확인하지 못했습니다.");
+      return;
+    }
+
     const nextConnectedEmail = deriveGoogleIntegrationEmail(session.userEmail);
 
     setConnectedEmail(nextConnectedEmail);
@@ -205,11 +485,26 @@ export function Onboarding() {
       return;
     }
 
+    if (uploadErrorScenario) {
+      toast.error("업로드 중 문제가 발생했습니다. 파일 크기와 형식을 다시 확인해 주세요.");
+      return;
+    }
+
     setUploadedFile(nextFile.name);
     toast.success(`${nextFile.name} 파일을 추가했습니다.`);
   };
 
   const startTemplateGeneration = () => {
+    if (templateGenerationErrorScenario) {
+      clearGenerationTimeouts();
+      setCurrentMainStep(3);
+      setIsGenerating(true);
+      setGenerationStep(2);
+      setTemplateProgress(4);
+      toast.error("템플릿 생성 작업을 완료하지 못했습니다.");
+      return;
+    }
+
     clearGenerationTimeouts();
     setCurrentMainStep(3);
     setIsGenerating(true);
@@ -399,6 +694,15 @@ export function Onboarding() {
                   </p>
                 </div>
 
+                {oauthErrorScenario ? (
+                  <StateBanner
+                    title="Google 계정 인증을 완료하지 못했습니다"
+                    description="권한 동의가 중단되었거나 인증 세션이 만료되었습니다. 다시 연결을 시도해 주세요."
+                    tone="error"
+                    className="mb-6"
+                  />
+                ) : null}
+
                 {!emailConnected ? (
                   <>
                     {/* Email Provider Selection */}
@@ -553,6 +857,14 @@ export function Onboarding() {
                           응답을 생성합니다
                         </p>
                       </div>
+
+                      {uploadErrorScenario ? (
+                        <StateBanner
+                          title="자료 업로드를 완료하지 못했습니다"
+                          description="파일 용량 제한을 초과했거나 업로드 응답을 확인하지 못했습니다. 다시 시도하거나 FAQ 입력으로 진행할 수 있습니다."
+                          tone="error"
+                        />
+                      ) : null}
 
                       <div
                         onDragOver={(e) => {
@@ -954,6 +1266,15 @@ export function Onboarding() {
                   입력하신 비즈니스 정보를 분석하여 카테고리별 템플릿을 만들고
                   있습니다
                 </p>
+
+                {templateGenerationErrorScenario ? (
+                  <StateBanner
+                    title="맞춤 템플릿 생성을 완료하지 못했습니다"
+                    description="비즈니스 자료 분석은 끝났지만 템플릿 생성 응답이 지연되고 있습니다. 잠시 후 다시 시도해 주세요."
+                    tone="error"
+                    className="mb-6"
+                  />
+                ) : null}
 
                 <div className="space-y-4 mb-8">
                   <div className="flex items-start gap-3">
