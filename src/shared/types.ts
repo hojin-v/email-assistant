@@ -48,10 +48,12 @@ export interface EmailItem {
   company: string;
   subject: string;
   preview: string;
+  summary: string;
   body: string;
   time: string;
   receivedDate: string;
   category: string;
+  confidence: number;
   status: EmailStatus;
   sentTime: string;
   schedule: EmailSchedule;
