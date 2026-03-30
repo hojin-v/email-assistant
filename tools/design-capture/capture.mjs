@@ -152,6 +152,25 @@ async function ensureDir(dirPath) {
   await fs.mkdir(dirPath, { recursive: true });
 }
 
+async function createCombinedScreenshotViews(outputRoot, manifest) {
+  const combinedRoot = path.join(outputRoot, "screenshots", "combined");
+  const orderDigits = String(manifest.length).length;
+
+  await fs.rm(combinedRoot, { recursive: true, force: true });
+
+  const appDirectories = [...new Set(manifest.map((item) => path.join(combinedRoot, item.app)))];
+  await Promise.all(appDirectories.map((dirPath) => ensureDir(dirPath)));
+
+  for (const item of manifest) {
+    const sourcePath = path.join(outputRoot, item.outputFile);
+    const originalName = path.basename(item.outputFile);
+    const normalizedPrefix = String(Number(item.orderNumber)).padStart(orderDigits, "0");
+    const targetName = originalName.replace(/^\d+\./, `${normalizedPrefix}.`);
+    const targetPath = path.join(combinedRoot, item.app, targetName);
+    await fs.copyFile(sourcePath, targetPath);
+  }
+}
+
 async function captureScreens() {
   const { outputRoot } = await generateDesignArtifacts();
   await fs.rm(path.join(outputRoot, "screenshots"), { recursive: true, force: true });
@@ -192,6 +211,8 @@ async function captureScreens() {
       });
       await context.close();
     }
+
+    await createCombinedScreenshotViews(outputRoot, manifest);
   } finally {
     if (browser) {
       await browser.close();

@@ -1912,36 +1912,187 @@ Intent 모델은 Domain별로 ROC를 별도 계산하는 것이 적절하다.
 
 **확정 정보**
 
-물리 경로가 아니라 논리 모듈 구조를 기준으로 다음과 같이 설계한다.
+현재 정식 런타임 프론트엔드는 `frontend/App` 단일 앱이며, 사용자 화면과 관리자 화면을 같은 앱 안의 라우트로 분리한다.
+최종 산출물도 이 원칙을 유지하되, 프로토타입 전용 목업 데이터와 화면 캡처용 시나리오 폴더는 런타임 소스에서 분리한다.
+프론트엔드 물리 구조는 기능 중심 구조를 유지하고, MVC 책임은 아래처럼 매핑한다.
+
+| MVC 역할   | 대응 디렉터리                                                                                 | 책임 |
+| ---------- | --------------------------------------------------------------------------------------------- | ---- |
+| Model      | `src/entities`, `src/shared/api`, `src/shared/types`, `src/features/*/model`, `src/admin/features/*/model` | 도메인 타입, DTO, 상태 모델, 서버 응답 매핑, 쿼리 키, 검증 스키마 |
+| View       | `src/pages`, `src/features/*/ui`, `src/admin/pages`, `src/admin/features/*/ui`, `src/shared/ui` | 라우트 화면, 기능 UI, 공용 프리미티브, 상태 화면 |
+| Controller | `src/app/router`, `src/app/providers`, `src/processes`, `src/features/*/controller`, `src/admin/features/*/controller` | 라우트 가드, 인증/온보딩 흐름 제어, 사용자 액션 오케스트레이션, API 호출 트리거 |
+
+즉, 최종 디렉터리 구조는 고전적인 `models`, `views`, `controllers` 최상위 폴더를 직접 두기보다, 기능 중심 디렉터리 안에 MVC 역할을 분산 배치하는 방식으로 설계한다.
+
+**임시 작성**
+
+최종 산출물 기준 권장 소스 디렉터리 구조는 아래와 같다.
 
 ```text
-User Frontend
-  Presentation
-  Pages
-  Features
-  Entities
-  Shared
-Admin Frontend
-  Dashboard
-  Members
-  Templates
-  Inquiries
-Backend API
-  Auth & Integration
-  Inbox & Reply
-  Calendar
-  Templates & Automation
-  Profile & Resources
-AI Service
-  Classification
-  RAG Indexing
-  Draft Generation
-  Evaluation & Monitoring
-Documentation
-  Architecture
-  Agent Context
-  Conflict Review
+frontend/
+└─ App/
+   ├─ src/
+   │  ├─ app/
+   │  │  ├─ providers/        # QueryClient, auth provider, theme provider
+   │  │  ├─ router/           # route table, guard, lazy loading
+   │  │  ├─ layouts/          # AppShell, AdminRootLayout
+   │  │  └─ store/            # UI 전용 전역 상태
+   │  ├─ processes/
+   │  │  ├─ auth/             # 로그인, 세션 복구, 권한 판별
+   │  │  ├─ onboarding/       # 이메일 연동, 초기 설정 흐름
+   │  │  └─ admin-access/     # 관리자 접근 제어, VPN/IP 정책 처리
+   │  ├─ pages/
+   │  │  ├─ auth/
+   │  │  ├─ onboarding/
+   │  │  ├─ dashboard/
+   │  │  ├─ inbox/
+   │  │  ├─ calendar/
+   │  │  ├─ template-library/
+   │  │  ├─ business-profile/
+   │  │  ├─ automation-settings/
+   │  │  ├─ settings/
+   │  │  └─ not-found/
+   │  ├─ features/
+   │  │  ├─ inbox/
+   │  │  │  ├─ api/
+   │  │  │  ├─ model/
+   │  │  │  ├─ controller/
+   │  │  │  ├─ ui/
+   │  │  │  └─ lib/
+   │  │  ├─ reply-draft/
+   │  │  ├─ calendar-event/
+   │  │  ├─ template-management/
+   │  │  ├─ automation-rule/
+   │  │  └─ settings/
+   │  ├─ entities/
+   │  │  ├─ email/
+   │  │  │  ├─ api/
+   │  │  │  ├─ model/
+   │  │  │  ├─ ui/
+   │  │  │  └─ lib/
+   │  │  ├─ calendar/
+   │  │  ├─ template/
+   │  │  ├─ business-profile/
+   │  │  ├─ integration/
+   │  │  ├─ user/
+   │  │  └─ inquiry/
+   │  ├─ admin/
+   │  │  ├─ pages/
+   │  │  ├─ layouts/
+   │  │  ├─ features/
+   │  │  │  ├─ dashboard/
+   │  │  │  ├─ user-management/
+   │  │  │  ├─ template-automation/
+   │  │  │  ├─ inquiry-response/
+   │  │  │  └─ monitoring/
+   │  │  └─ shared/
+   │  ├─ shared/
+   │  │  ├─ api/
+   │  │  │  ├─ client/        # axios 인스턴스, interceptor, auth header
+   │  │  │  ├─ contracts/     # 공통 요청/응답 타입
+   │  │  │  ├─ adapters/      # API DTO -> UI 모델 변환
+   │  │  │  └─ errors/        # 공통 에러 정규화
+   │  │  ├─ config/
+   │  │  ├─ constants/
+   │  │  ├─ hooks/
+   │  │  ├─ lib/
+   │  │  ├─ types/
+   │  │  ├─ ui/
+   │  │  └─ assets/
+   │  ├─ testing/
+   │  │  ├─ fixtures/         # 목업 응답, 샘플 payload
+   │  │  ├─ factories/        # 테스트 데이터 생성기
+   │  │  └─ msw/              # API mocking, 시나리오 테스트
+   │  └─ styles/
+   ├─ public/
+   └─ package.json
 ```
+
+설계서 다이어그램 예시는 아래 Mermaid 기준으로 사용한다.
+
+```mermaid
+flowchart LR
+  subgraph FE["Web Front / frontend/App/src"]
+    direction TB
+    FEView["View<br/>pages/<br/>features/*/ui<br/>admin/pages/<br/>shared/ui"]
+    FEModel["Model<br/>entities/<br/>features/*/model<br/>shared/types"]
+    FEController["Controller<br/>app/router<br/>app/providers<br/>processes/<br/>features/*/controller"]
+    FETest["Testing Assets<br/>testing/fixtures<br/>testing/factories<br/>testing/msw"]
+    FEView -->|user action| FEController
+    FEController -->|state update| FEModel
+    FEModel -->|render data| FEView
+    FETest -. mock api .-> FEController
+  end
+
+  subgraph BE["Backend API"]
+    direction TB
+    BERouter["api/<br/>routers/<br/>dto/request<br/>dto/response"]
+    BEApp["application / services<br/>auth<br/>inbox<br/>calendar<br/>template<br/>automation<br/>admin"]
+    BEDomain["domain / entity / repository"]
+    BESecurity["security"]
+    BERouter --> BEApp --> BEDomain
+    BESecurity --> BERouter
+  end
+
+  subgraph AI["AI Service"]
+    direction TB
+    AIAPI["internal/ai or ai/api"]
+    AIPipeline["pipelines<br/>classify<br/>summarize<br/>draft<br/>schedule-detect"]
+    AIModels["models / artifacts<br/>SBERT<br/>classifier<br/>prompt templates"]
+    AIWorkers["workers<br/>indexing<br/>inference"]
+    AIAPI --> AIPipeline --> AIModels
+    AIWorkers --> AIPipeline
+  end
+
+  subgraph INFRA["Infra"]
+    direction TB
+    MQ["RabbitMQ"]
+    DB["MariaDB"]
+    VECTOR["FAISS / Pinecone"]
+    GOOGLE["Google OAuth / Gmail / Calendar API"]
+  end
+
+  FEController -->|HTTP /api| BERouter
+  BERouter -->|integration| GOOGLE
+  BEApp -->|read / write| DB
+  BEApp -->|RAG metadata| VECTOR
+  BEApp -->|async job| MQ
+  MQ --> AIWorkers
+  BEApp -->|internal ai call| AIAPI
+  AIPipeline -->|result| BEApp
+```
+
+백엔드 연동 이후 `api` 폴더는 사라지는 임시 폴더가 아니라 오히려 핵심 운영 계층이 된다.
+공통 HTTP 클라이언트는 `src/shared/api`에 두고, 도메인별 엔드포인트 래퍼는 `src/entities/*/api` 또는 `src/features/*/api`로 분리한다.
+
+현재 프로토타입 구조에서 최종 산출물로 전환할 때의 주요 폴더 변화는 아래와 같다.
+
+| 현재 위치 | 최종 상태 | 반영 기준 |
+| --------- | --------- | --------- |
+| `src/entities/*/model/*-data.js` | 제거 후 `src/entities/*/api`, `src/entities/*/model`로 분리 | 정적 목업 데이터 대신 서버 DTO, mapper, selector, status meta만 유지 |
+| `src/admin/shared/mock` | `src/testing/fixtures/admin`로 이동 | 관리자 화면 샘플 데이터는 테스트/스토리/캡처 전용으로 격리 |
+| `src/shared/scenarios`, `src/admin/shared/scenarios` | `src/testing/msw` 또는 `tools/design-capture`로 이동 | 시나리오 상태는 런타임 코드가 아니라 QA/설계 캡처 자산으로 관리 |
+| `src/app/components/ui` | `src/shared/ui` 또는 `src/shared/ui/primitives`로 이관 | 공용 UI 프리미티브는 앱 조립 계층이 아니라 shared 계층이 소유 |
+| `src/app/components/*.tsx` | `src/pages/*` 또는 `src/features/*/ui`로 재배치 | 페이지 조립 컴포넌트와 기능 UI를 분리 |
+| `src/app/components/figma` | 제거 | 초기 Figma 임포트 산출물 정리 후 운영 UI 계층으로 흡수 |
+| `frontend/Admin-Web` | 최종 산출물 제외 | 관리자 콘솔은 `frontend/App/src/admin` 기준으로 단일화 |
+
+백엔드 연동 시 새로 생기거나 명확히 분리해야 하는 폴더는 아래와 같다.
+
+| 폴더 | 목적 |
+| ---- | ---- |
+| `src/shared/api/client` | axios 인스턴스, interceptor, 인증 토큰 주입, 공통 에러 처리 |
+| `src/shared/api/contracts` | API 공통 응답 형식, 페이지네이션, 에러 스키마 정의 |
+| `src/processes` | 로그인, 온보딩, 관리자 접근, Google 연동 같은 다단계 흐름 제어 |
+| `src/features/*/controller` | 사용자 이벤트와 서버 액션을 연결하는 use case 계층 |
+| `src/testing/msw` | 개발/테스트 단계에서 실제 API 계약을 흉내 내는 mock server |
+| `src/testing/factories` | 테스트/스토리북/시나리오 캡처용 데이터 생성 규칙 |
+
+**추가 정보 필요**
+
+- 관리자 콘솔을 최종 운영에서도 `frontend/App` 단일 배포 아티팩트로 유지할지, 별도 배포 단위로 분리할지
+- `testing` 하위에 Storybook/시각 회귀 테스트 자산까지 함께 둘지, 별도 문서화 디렉터리로 분리할지
+- React Query 캐시와 Zustand UI store의 책임 경계를 팀 표준으로 추가 명문화할지
 
 ### 10.3 명칭 표준안 (변수, 함수, 파일명 등)
 

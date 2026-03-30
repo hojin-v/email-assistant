@@ -739,6 +739,7 @@ export async function generateDesignArtifacts() {
         "- 기본 출력 경로: `/home/hojin/Projects/email-assistant-artifacts/design-doc/`",
         "- 스크린샷 기준 뷰포트: `1440 x 1024`",
         "- 정상 화면은 `screenshots/normal/...`, 에러/빈 상태/예외 화면은 `screenshots/error/...`에 분리 저장됩니다.",
+        "- 추가로 `screenshots/combined/user`, `screenshots/combined/admin` 폴더를 생성해 정상과 오류 화면을 한 곳에서 순서대로 확인할 수 있습니다.",
         "- 스크린샷 제목과 파일명 앞에는 설계서 삽입 순서 기준의 전체 순서 번호를 유지합니다. 예: `01. 로그인 화면(기본) - 화면번호 A01.png`",
         "- `capture/manifest.json`은 자동 캡처와 문서 링크의 기준 파일입니다.",
         "- `capture/design-doc-order.md`는 설계서 본문에 삽입할 권장 순서를 안내합니다.",
