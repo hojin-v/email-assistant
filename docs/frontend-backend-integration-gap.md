@@ -31,7 +31,6 @@
   - `PATCH /api/notifications/read-all`
 - 설정 > 계정:
   - `GET /api/users/me`
-  - `PATCH /api/users/me`
   - `DELETE /api/users/me`
   - `PATCH /api/users/me/password`
 - 설정 > 이메일 연동:
