@@ -279,6 +279,15 @@
     "description": "비밀번호 변경 입력 오류 상태"
   },
   {
+    "scenarioId": "settings-account-delete-dialog-normal",
+    "route": "/app/settings?tab=account&scenario=settings-account-delete-dialog-normal",
+    "screenTitle": "회원 탈퇴 확인 다이얼로그",
+    "stateType": "dialog",
+    "outputFile": "screenshots/user/settings-account-delete-dialog-normal.png",
+    "viewport": { "width": 1440, "height": 1024 },
+    "description": "계정 탭에서 회원 탈퇴 확인 다이얼로그가 열린 상태"
+  },
+  {
     "scenarioId": "settings-email-oauth-error",
     "route": "/app/settings?tab=email",
     "screenTitle": "이메일 OAuth 확인 실패",
