@@ -42,92 +42,50 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
+import {
+  BusinessCategorySnapshot,
+  getBusinessCategories,
+} from "../../shared/api/business";
+import { getErrorMessage } from "../../shared/api/http";
+import {
+  createTemplate,
+  deleteTemplate,
+  getTemplateLibrary,
+  TemplateSnapshot,
+  updateTemplate,
+} from "../../shared/api/templates";
 import { AppStatePage } from "../../shared/ui/primitives/AppStatePage";
 import { StateBanner } from "../../shared/ui/primitives/StateBanner";
+import {
+  formatRelativeTimeLabel,
+  isRecentlyUpdatedLabel,
+} from "./template-library.helpers";
 
 interface Template {
   id: string;
+  templateId?: number;
+  title: string;
   subject: string;
   body: string;
   confidence: number;
   category: string;
+  categoryId: string;
   updatedAt: string;
 }
 
-interface TemplateDraft {
-  subject: string;
-  body: string;
-  category: string;
+interface CategoryOption {
+  id: string;
+  name: string;
 }
 
-const initialTemplates: Template[] = [
-  {
-    id: "1",
-    subject: "가격 안내 드립니다 - {{제품명}} 관련",
-    body: "안녕하세요, {{고객명}}님. 문의하신 {{제품명}}의 가격 정보를 안내드립니다. 현재 기본 플랜은 월 49,000원부터 시작하며...",
-    confidence: 96,
-    category: "가격문의",
-    updatedAt: "2시간 전",
-  },
-  {
-    id: "2",
-    subject: "가격표 및 할인 조건 안내",
-    body: "안녕하세요, {{고객명}}님. 요청하신 가격표를 첨부하여 보내드립니다. 연간 결제 시 20% 할인이 적용되며...",
-    confidence: 92,
-    category: "가격문의",
-    updatedAt: "1일 전",
-  },
-  {
-    id: "3",
-    subject: "불편을 드려 죄송합니다 - {{이슈번호}} 관련",
-    body: "안녕하세요, {{고객명}}님. 말씀하신 불편 사항에 대해 진심으로 사과드립니다. 담당 부서에서 즉시 확인 후...",
-    confidence: 94,
-    category: "불만접수",
-    updatedAt: "3시간 전",
-  },
-  {
-    id: "4",
-    subject: "미팅 일정 확인 - {{날짜}} {{시간}}",
-    body: "안녕하세요, {{고객명}}님. 요청하신 미팅 일정을 아래와 같이 확인드립니다. 일시: {{날짜}} {{시간}}...",
-    confidence: 89,
-    category: "미팅요청",
-    updatedAt: "5시간 전",
-  },
-  {
-    id: "5",
-    subject: "기술 지원 요청 접수 완료 - 티켓 #{{티켓번호}}",
-    body: "안녕하세요, {{고객명}}님. 기술 지원 요청이 정상적으로 접수되었습니다. 담당 엔지니어가 배정되어 24시간 이내에...",
-    confidence: 91,
-    category: "기술지원",
-    updatedAt: "1일 전",
-  },
-  {
-    id: "6",
-    subject: "계약 조건 검토 결과 안내",
-    body: "안녕하세요, {{고객명}}님. 요청하신 계약 조건 검토가 완료되었습니다. 주요 변경 사항은 아래와 같습니다...",
-    confidence: 87,
-    category: "계약문의",
-    updatedAt: "2일 전",
-  },
-  {
-    id: "7",
-    subject: "배송 현황 안내 - 주문번호 {{주문번호}}",
-    body: "안녕하세요, {{고객명}}님. 주문하신 상품의 배송 현황을 안내드립니다. 현재 배송 중이며 {{예상일자}}에...",
-    confidence: 93,
-    category: "배송문의",
-    updatedAt: "4시간 전",
-  },
-  {
-    id: "8",
-    subject: "환불 처리 완료 안내",
-    body: "안녕하세요, {{고객명}}님. 요청하신 환불 처리가 완료되었습니다. 환불 금액은 {{금액}}원이며, 영업일 기준 3-5일...",
-    confidence: 95,
-    category: "환불요청",
-    updatedAt: "6시간 전",
-  },
-];
+interface TemplateDraft {
+  title: string;
+  subject: string;
+  body: string;
+  categoryId: string;
+}
 
-const categoryOptions = [
+const demoCategoryOptions: CategoryOption[] = [
   { id: "price", name: "가격문의" },
   { id: "complaint", name: "불만접수" },
   { id: "meeting", name: "미팅요청" },
@@ -137,15 +95,100 @@ const categoryOptions = [
   { id: "refund", name: "환불요청" },
 ];
 
+const initialTemplates: Template[] = [
+  {
+    id: "1",
+    title: "가격 안내 템플릿",
+    subject: "가격 안내 드립니다 - {{제품명}} 관련",
+    body: "안녕하세요, {{고객명}}님. 문의하신 {{제품명}}의 가격 정보를 안내드립니다. 현재 기본 플랜은 월 49,000원부터 시작하며...",
+    confidence: 96,
+    category: "가격문의",
+    categoryId: "price",
+    updatedAt: "2시간 전",
+  },
+  {
+    id: "2",
+    title: "가격표 및 할인 안내 템플릿",
+    subject: "가격표 및 할인 조건 안내",
+    body: "안녕하세요, {{고객명}}님. 요청하신 가격표를 첨부하여 보내드립니다. 연간 결제 시 20% 할인이 적용되며...",
+    confidence: 92,
+    category: "가격문의",
+    categoryId: "price",
+    updatedAt: "1일 전",
+  },
+  {
+    id: "3",
+    title: "불만 접수 1차 응답 템플릿",
+    subject: "불편을 드려 죄송합니다 - {{이슈번호}} 관련",
+    body: "안녕하세요, {{고객명}}님. 말씀하신 불편 사항에 대해 진심으로 사과드립니다. 담당 부서에서 즉시 확인 후...",
+    confidence: 94,
+    category: "불만접수",
+    categoryId: "complaint",
+    updatedAt: "3시간 전",
+  },
+  {
+    id: "4",
+    title: "미팅 일정 확인 템플릿",
+    subject: "미팅 일정 확인 - {{날짜}} {{시간}}",
+    body: "안녕하세요, {{고객명}}님. 요청하신 미팅 일정을 아래와 같이 확인드립니다. 일시: {{날짜}} {{시간}}...",
+    confidence: 89,
+    category: "미팅요청",
+    categoryId: "meeting",
+    updatedAt: "5시간 전",
+  },
+  {
+    id: "5",
+    title: "기술 지원 접수 템플릿",
+    subject: "기술 지원 요청 접수 완료 - 티켓 #{{티켓번호}}",
+    body: "안녕하세요, {{고객명}}님. 기술 지원 요청이 정상적으로 접수되었습니다. 담당 엔지니어가 배정되어 24시간 이내에...",
+    confidence: 91,
+    category: "기술지원",
+    categoryId: "tech",
+    updatedAt: "1일 전",
+  },
+  {
+    id: "6",
+    title: "계약 검토 안내 템플릿",
+    subject: "계약 조건 검토 결과 안내",
+    body: "안녕하세요, {{고객명}}님. 요청하신 계약 조건 검토가 완료되었습니다. 주요 변경 사항은 아래와 같습니다...",
+    confidence: 87,
+    category: "계약문의",
+    categoryId: "contract",
+    updatedAt: "2일 전",
+  },
+  {
+    id: "7",
+    title: "배송 현황 안내 템플릿",
+    subject: "배송 현황 안내 - 주문번호 {{주문번호}}",
+    body: "안녕하세요, {{고객명}}님. 주문하신 상품의 배송 현황을 안내드립니다. 현재 배송 중이며 {{예상일자}}에...",
+    confidence: 93,
+    category: "배송문의",
+    categoryId: "shipping",
+    updatedAt: "4시간 전",
+  },
+  {
+    id: "8",
+    title: "환불 완료 안내 템플릿",
+    subject: "환불 처리 완료 안내",
+    body: "안녕하세요, {{고객명}}님. 요청하신 환불 처리가 완료되었습니다. 환불 금액은 {{금액}}원이며, 영업일 기준 3-5일...",
+    confidence: 95,
+    category: "환불요청",
+    categoryId: "refund",
+    updatedAt: "6시간 전",
+  },
+];
+
 const emptyDraft: TemplateDraft = {
+  title: "",
   subject: "",
   body: "",
-  category: categoryOptions[0].name,
+  categoryId: "",
 };
 
 const SkeletonCard = () => (
   <div className="animate-pulse rounded-xl border border-[#E2E8F0] bg-card p-5 dark:border-border">
     <div className="mb-3 h-4 w-3/4 rounded bg-[#F1F5F9] dark:bg-[#1E293B]" />
+    <div className="mb-2 h-3 w-1/2 rounded bg-[#F1F5F9] dark:bg-[#1E293B]" />
     <div className="mb-2 h-3 w-full rounded bg-[#F1F5F9] dark:bg-[#1E293B]" />
     <div className="mb-4 h-3 w-2/3 rounded bg-[#F1F5F9] dark:bg-[#1E293B]" />
     <div className="flex items-center justify-between">
@@ -158,8 +201,47 @@ const SkeletonCard = () => (
   </div>
 );
 
-function isRecentlyUpdated(updatedAt: string) {
-  return updatedAt.includes("시간") || updatedAt.includes("방금");
+function mapCategorySnapshot(snapshot: BusinessCategorySnapshot): CategoryOption {
+  return {
+    id: String(snapshot.categoryId),
+    name: snapshot.categoryName,
+  };
+}
+
+function mapTemplateSnapshot(snapshot: TemplateSnapshot): Template {
+  return {
+    id: String(snapshot.templateId),
+    templateId: snapshot.templateId,
+    title: snapshot.title,
+    subject: snapshot.subjectTemplate,
+    body: snapshot.bodyTemplate,
+    confidence: snapshot.accuracyScore ? Number(snapshot.accuracyScore) : 0,
+    category: snapshot.categoryName,
+    categoryId: String(snapshot.categoryId),
+    updatedAt: formatRelativeTimeLabel(snapshot.createdAt),
+  };
+}
+
+function buildCategoryOptions(
+  categories: CategoryOption[],
+  templates: Template[],
+) {
+  if (categories.length > 0) {
+    return categories;
+  }
+
+  const categoryMap = new Map<string, CategoryOption>();
+
+  templates.forEach((template) => {
+    if (!categoryMap.has(template.categoryId)) {
+      categoryMap.set(template.categoryId, {
+        id: template.categoryId,
+        name: template.category,
+      });
+    }
+  });
+
+  return Array.from(categoryMap.values());
 }
 
 interface TemplateLibraryProps {
@@ -176,10 +258,15 @@ export function TemplateLibrary({ scenarioId }: TemplateLibraryProps) {
   const loadErrorScenario = scenarioId === "templates-load-error";
   const emptyScenario = scenarioId === "templates-empty";
   const saveErrorScenario = scenarioId === "templates-save-error";
-  const [templates, setTemplates] = useState<Template[]>(initialTemplates);
+  const useDemoDataMode = Boolean(scenarioId?.startsWith("templates-"));
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [categoryOptions, setCategoryOptions] = useState<CategoryOption[]>(demoCategoryOptions);
   const [activeCategory, setActiveCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(!useDemoDataMode);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [minimumConfidence, setMinimumConfidence] = useState(0);
   const [recentOnly, setRecentOnly] = useState(false);
   const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
@@ -188,7 +275,52 @@ export function TemplateLibrary({ scenarioId }: TemplateLibraryProps) {
   const [draft, setDraft] = useState<TemplateDraft>(emptyDraft);
   const [deleteTarget, setDeleteTarget] = useState<Template | null>(null);
 
+  async function loadTemplateLibrary() {
+    if (useDemoDataMode) {
+      return;
+    }
+
+    setIsLoading(true);
+    setLoadError(null);
+
+    try {
+      const [templateSnapshots, categorySnapshots] = await Promise.all([
+        getTemplateLibrary(),
+        getBusinessCategories(),
+      ]);
+
+      const nextTemplates = templateSnapshots.map(mapTemplateSnapshot);
+      const nextCategories = buildCategoryOptions(
+        categorySnapshots.map(mapCategorySnapshot),
+        nextTemplates,
+      );
+
+      setTemplates(nextTemplates);
+      setCategoryOptions(nextCategories);
+    } catch (error) {
+      setLoadError(getErrorMessage(error, "템플릿 라이브러리를 불러오지 못했습니다."));
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   useEffect(() => {
+    if (useDemoDataMode) {
+      setTemplates(initialTemplates);
+      setCategoryOptions(demoCategoryOptions);
+      setIsLoading(false);
+      setLoadError(null);
+      return;
+    }
+
+    void loadTemplateLibrary();
+  }, [useDemoDataMode]);
+
+  useEffect(() => {
+    if (!useDemoDataMode) {
+      return;
+    }
+
     const state = location.state as
       | { templateName?: string; emailCategory?: string }
       | null;
@@ -201,7 +333,7 @@ export function TemplateLibrary({ scenarioId }: TemplateLibraryProps) {
 
     if (state.emailCategory) {
       const matchedCategory = categoryOptions.find(
-        (category) => category.name === state.emailCategory
+        (category) => category.name === state.emailCategory,
       );
       if (matchedCategory) {
         setActiveCategory(matchedCategory.id);
@@ -209,8 +341,8 @@ export function TemplateLibrary({ scenarioId }: TemplateLibraryProps) {
     }
 
     const targetTemplateName = state.templateName;
-
     const matchedTemplate =
+      templates.find((template) => template.title.includes(targetTemplateName)) ||
       templates.find((template) => template.subject.includes(targetTemplateName)) ||
       templates.find((template) => template.category === state.emailCategory) ||
       null;
@@ -220,9 +352,13 @@ export function TemplateLibrary({ scenarioId }: TemplateLibraryProps) {
     }
 
     navigate(location.pathname, { replace: true, state: null });
-  }, [location.pathname, location.state, navigate, templates]);
+  }, [categoryOptions, location.pathname, location.state, navigate, templates, useDemoDataMode]);
 
   useEffect(() => {
+    if (!useDemoDataMode) {
+      return;
+    }
+
     if (!emptyScenario) {
       return;
     }
@@ -232,18 +368,23 @@ export function TemplateLibrary({ scenarioId }: TemplateLibraryProps) {
     setMinimumConfidence(0);
     setRecentOnly(false);
     setPreviewTemplate(null);
-  }, [emptyScenario]);
+  }, [emptyScenario, useDemoDataMode]);
 
   useEffect(() => {
+    if (!useDemoDataMode) {
+      return;
+    }
+
     if (createNormalScenario) {
       setActiveCategory("all");
       setSearchQuery("");
       setPreviewTemplate(null);
       setEditingTemplateId(null);
       setDraft({
-        subject: "도입 상담 미팅 제안 템플릿",
+        title: "도입 상담 미팅 제안 템플릿",
+        subject: "도입 상담 미팅 일정 제안",
         body: "안녕하세요, {{고객명}}님. 요청하신 도입 상담을 위해 가능한 일정을 제안드립니다.",
-        category: "미팅요청",
+        categoryId: "meeting",
       });
       setEditorOpen(true);
       return;
@@ -263,9 +404,10 @@ export function TemplateLibrary({ scenarioId }: TemplateLibraryProps) {
       setPreviewTemplate(null);
       setEditingTemplateId("1");
       setDraft({
+        title: "가격 안내 템플릿",
         subject: "가격 안내 드립니다 - {{제품명}} 관련",
         body: "안녕하세요, {{고객명}}님. 문의하신 {{제품명}}의 가격 정보를 안내드립니다. 현재 기본 플랜은 월 49,000원부터 시작하며...",
-        category: "가격문의",
+        categoryId: "price",
       });
       setEditorOpen(true);
       return;
@@ -284,52 +426,58 @@ export function TemplateLibrary({ scenarioId }: TemplateLibraryProps) {
       return;
     }
 
-    setEditingTemplateId("1");
+    setEditingTemplateId("3");
     setDraft({
-      subject: "불만 접수 1차 응답 템플릿",
+      title: "불만 접수 1차 응답 템플릿",
+      subject: "불만 접수 확인 안내",
       body: "안녕하세요, {{고객명}}님. 접수해 주신 내용을 확인 중입니다.",
-      category: "불만접수",
+      categoryId: "complaint",
     });
     setEditorOpen(true);
-  }, [createNormalScenario, deleteNormalScenario, editNormalScenario, previewNormalScenario, saveErrorScenario]);
+  }, [
+    createNormalScenario,
+    deleteNormalScenario,
+    editNormalScenario,
+    previewNormalScenario,
+    saveErrorScenario,
+    useDemoDataMode,
+  ]);
 
   const categories = useMemo(
     () => [
       { id: "all", name: "전체", count: templates.length },
       ...categoryOptions.map((category) => ({
         ...category,
-        count: templates.filter((template) => template.category === category.name).length,
+        count: templates.filter((template) => template.categoryId === category.id).length,
       })),
     ],
-    [templates]
+    [categoryOptions, templates],
   );
 
   const filteredTemplates = useMemo(
     () =>
       templates.filter((template) => {
         const matchedCategory =
-          activeCategory === "all" ||
-          template.category ===
-            categories.find((category) => category.id === activeCategory)?.name;
+          activeCategory === "all" || template.categoryId === activeCategory;
         const matchedSearch =
           !searchQuery ||
+          template.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
           template.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
           template.body.toLowerCase().includes(searchQuery.toLowerCase()) ||
           template.category.toLowerCase().includes(searchQuery.toLowerCase());
         const matchedConfidence = template.confidence >= minimumConfidence;
-        const matchedRecency = !recentOnly || isRecentlyUpdated(template.updatedAt);
+        const matchedRecency = !recentOnly || isRecentlyUpdatedLabel(template.updatedAt);
 
-        return (
-          matchedCategory &&
-          matchedSearch &&
-          matchedConfidence &&
-          matchedRecency
-        );
+        return matchedCategory && matchedSearch && matchedConfidence && matchedRecency;
       }),
-    [activeCategory, categories, minimumConfidence, recentOnly, searchQuery, templates]
+    [activeCategory, minimumConfidence, recentOnly, searchQuery, templates],
   );
 
-  const showEmpty = !isLoading && filteredTemplates.length === 0;
+  const showEmpty = !isLoading && !loadError && filteredTemplates.length === 0;
+  const selectedCategoryLabel =
+    categoryOptions.find((category) => category.id === draft.categoryId)?.name ||
+    "카테고리를 선택하세요";
+  const isCategoryLocked = Boolean(editingTemplateId) && !useDemoDataMode;
 
   const getConfidenceColor = (score: number) => {
     if (score >= 95) {
@@ -349,18 +497,27 @@ export function TemplateLibrary({ scenarioId }: TemplateLibraryProps) {
     setDraft(
       template
         ? {
+            title: template.title,
             subject: template.subject,
             body: template.body,
-            category: template.category,
+            categoryId: template.categoryId,
           }
-        : emptyDraft
+        : {
+            ...emptyDraft,
+            categoryId: categoryOptions[0]?.id || "",
+          },
     );
     setEditorOpen(true);
   };
 
-  const handleSaveTemplate = () => {
-    if (!draft.subject.trim() || !draft.body.trim()) {
-      toast.error("제목과 본문을 입력하세요.");
+  const handleSaveTemplate = async () => {
+    if (!draft.title.trim() || !draft.subject.trim() || !draft.body.trim()) {
+      toast.error("템플릿 이름과 메일 제목, 본문을 입력하세요.");
+      return;
+    }
+
+    if (!draft.categoryId) {
+      toast.error("카테고리를 선택하세요.");
       return;
     }
 
@@ -369,60 +526,152 @@ export function TemplateLibrary({ scenarioId }: TemplateLibraryProps) {
       return;
     }
 
-    if (editingTemplateId) {
-      setTemplates((current) =>
-        current.map((template) =>
-          template.id === editingTemplateId
-            ? {
-                ...template,
-                subject: draft.subject.trim(),
-                body: draft.body.trim(),
-                category: draft.category,
-                updatedAt: "방금 전",
-              }
-            : template
-        )
-      );
-      toast.success("템플릿을 수정했습니다.");
-    } else {
-      const newTemplate: Template = {
-        id: String(Date.now()),
-        subject: draft.subject.trim(),
-        body: draft.body.trim(),
-        category: draft.category,
-        confidence: 90,
-        updatedAt: "방금 전",
-      };
-      setTemplates((current) => [newTemplate, ...current]);
-      setPreviewTemplate(newTemplate);
-      setActiveCategory("all");
-      toast.success("새 템플릿을 생성했습니다.");
+    const selectedCategory = categoryOptions.find(
+      (category) => category.id === draft.categoryId,
+    );
+
+    if (!selectedCategory) {
+      toast.error("유효한 카테고리를 선택하세요.");
+      return;
     }
 
-    setEditorOpen(false);
+    setIsSaving(true);
+
+    try {
+      if (useDemoDataMode) {
+        if (editingTemplateId) {
+          const nextTemplate = {
+            id: editingTemplateId,
+            title: draft.title.trim(),
+            subject: draft.subject.trim(),
+            body: draft.body.trim(),
+            category: selectedCategory.name,
+            categoryId: selectedCategory.id,
+            confidence:
+              templates.find((template) => template.id === editingTemplateId)?.confidence || 90,
+            updatedAt: "방금 전",
+          } satisfies Template;
+
+          setTemplates((current) =>
+            current.map((template) =>
+              template.id === editingTemplateId ? nextTemplate : template,
+            ),
+          );
+          if (previewTemplate?.id === editingTemplateId) {
+            setPreviewTemplate(nextTemplate);
+          }
+          toast.success("템플릿을 수정했습니다.");
+        } else {
+          const newTemplate: Template = {
+            id: String(Date.now()),
+            title: draft.title.trim(),
+            subject: draft.subject.trim(),
+            body: draft.body.trim(),
+            category: selectedCategory.name,
+            categoryId: selectedCategory.id,
+            confidence: 90,
+            updatedAt: "방금 전",
+          };
+          setTemplates((current) => [newTemplate, ...current]);
+          setPreviewTemplate(newTemplate);
+          setActiveCategory("all");
+          toast.success("새 템플릿을 생성했습니다.");
+        }
+      } else if (editingTemplateId) {
+        const savedTemplate = await updateTemplate(Number(editingTemplateId), {
+          title: draft.title.trim(),
+          subjectTemplate: draft.subject.trim(),
+          bodyTemplate: draft.body.trim(),
+        });
+        const nextTemplate = mapTemplateSnapshot(savedTemplate);
+
+        setTemplates((current) =>
+          current.map((template) =>
+            template.id === editingTemplateId ? nextTemplate : template,
+          ),
+        );
+        if (previewTemplate?.id === editingTemplateId) {
+          setPreviewTemplate(nextTemplate);
+        }
+        toast.success("템플릿을 수정했습니다.");
+      } else {
+        const savedTemplate = await createTemplate({
+          categoryId: Number(draft.categoryId),
+          title: draft.title.trim(),
+          subjectTemplate: draft.subject.trim(),
+          bodyTemplate: draft.body.trim(),
+        });
+        const nextTemplate = mapTemplateSnapshot(savedTemplate);
+
+        setTemplates((current) => [nextTemplate, ...current]);
+        setPreviewTemplate(nextTemplate);
+        setActiveCategory("all");
+        toast.success("새 템플릿을 생성했습니다.");
+      }
+
+      setEditorOpen(false);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "템플릿을 저장하지 못했습니다."));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleDeleteTemplate = () => {
+  const handleDeleteTemplate = async () => {
     if (!deleteTarget) {
       return;
     }
 
-    setTemplates((current) =>
-      current.filter((template) => template.id !== deleteTarget.id)
-    );
-    if (previewTemplate?.id === deleteTarget.id) {
-      setPreviewTemplate(null);
+    if (useDemoDataMode) {
+      setTemplates((current) =>
+        current.filter((template) => template.id !== deleteTarget.id),
+      );
+      if (previewTemplate?.id === deleteTarget.id) {
+        setPreviewTemplate(null);
+      }
+      toast.success("템플릿을 삭제했습니다.");
+      setDeleteTarget(null);
+      return;
     }
-    toast.success("템플릿을 삭제했습니다.");
-    setDeleteTarget(null);
+
+    if (!deleteTarget.templateId) {
+      toast.error("삭제할 템플릿 정보를 찾지 못했습니다.");
+      return;
+    }
+
+    setIsDeleting(true);
+
+    try {
+      await deleteTemplate(deleteTarget.templateId);
+      setTemplates((current) =>
+        current.filter((template) => template.id !== deleteTarget.id),
+      );
+      if (previewTemplate?.id === deleteTarget.id) {
+        setPreviewTemplate(null);
+      }
+      toast.success("템플릿을 삭제했습니다.");
+      setDeleteTarget(null);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "템플릿을 삭제하지 못했습니다."));
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const runRefresh = () => {
-    setIsLoading(true);
-    window.setTimeout(() => {
-      setIsLoading(false);
-      toast.success("필터를 적용했습니다.");
-    }, 600);
+    if (useDemoDataMode) {
+      setIsLoading(true);
+      window.setTimeout(() => {
+        setIsLoading(false);
+        toast.success("필터를 적용했습니다.");
+      }, 600);
+      return;
+    }
+
+    void (async () => {
+      await loadTemplateLibrary();
+      toast.success("템플릿 목록을 새로고침했습니다.");
+    })();
   };
 
   if (loadErrorScenario) {
@@ -430,6 +679,24 @@ export function TemplateLibrary({ scenarioId }: TemplateLibraryProps) {
       <AppStatePage
         title="템플릿 라이브러리를 불러오지 못했습니다"
         description="템플릿 목록과 카테고리 집계를 가져오는 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요."
+      />
+    );
+  }
+
+  if (loadError) {
+    return (
+      <AppStatePage
+        title="템플릿 라이브러리를 불러오지 못했습니다"
+        description={loadError}
+        action={
+          <button
+            type="button"
+            onClick={() => void loadTemplateLibrary()}
+            className="app-cta-primary inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm font-medium"
+          >
+            다시 시도
+          </button>
+        }
       />
     );
   }
@@ -468,11 +735,29 @@ export function TemplateLibrary({ scenarioId }: TemplateLibraryProps) {
         </div>
 
         <div className="scrollbar-none min-h-0 flex-1 overflow-y-auto p-4 lg:p-6">
+          {useDemoDataMode ? (
+            <StateBanner
+              title="데모 데이터 모드"
+              description="시나리오용 목업 데이터를 그대로 유지하고 있습니다. 실제 백엔드 연결 상태는 일반 진입 경로에서 확인할 수 있습니다."
+              tone="info"
+              className="mb-5"
+            />
+          ) : null}
+
           {saveErrorScenario ? (
             <StateBanner
               title="템플릿 저장을 완료하지 못했습니다"
               description="편집 내용은 유지되었지만 저장 응답이 지연되고 있습니다. 다시 시도해 주세요."
               tone="error"
+              className="mb-5"
+            />
+          ) : null}
+
+          {!useDemoDataMode && categoryOptions.length === 0 ? (
+            <StateBanner
+              title="등록된 카테고리가 없습니다"
+              description="템플릿을 새로 만들려면 비즈니스 프로필에서 카테고리를 먼저 등록해 주세요."
+              tone="warning"
               className="mb-5"
             />
           ) : null}
@@ -558,6 +843,7 @@ export function TemplateLibrary({ scenarioId }: TemplateLibraryProps) {
             <button
               onClick={() => openCreateDialog()}
               className="app-cta-accent flex items-center gap-2 rounded-lg px-4 py-2.5 shadow-sm"
+              disabled={!useDemoDataMode && categoryOptions.length === 0}
             >
               <Plus className="h-4 w-4" />
               <Sparkles className="h-3.5 w-3.5" />
@@ -602,10 +888,15 @@ export function TemplateLibrary({ scenarioId }: TemplateLibraryProps) {
                   onClick={() => setPreviewTemplate(template)}
                   className="group rounded-xl border border-[#E2E8F0] bg-card p-5 text-left transition-all hover:border-[#CBD5E1] hover:shadow-md dark:border-border dark:hover:bg-[#131D2F] dark:hover:border-[#475569]"
                 >
-                  <div className="mb-3 flex items-start justify-between">
-                    <span className="inline-flex rounded-full bg-[#F1F5F9] px-2 py-0.5 text-[11px] text-[#64748B] dark:bg-[#1E293B] dark:text-muted-foreground">
-                      {template.category}
-                    </span>
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="inline-flex rounded-full bg-[#1E2A3A] px-2 py-0.5 text-[11px] text-white dark:bg-[#E2E8F0] dark:text-[#111827]">
+                        ID {template.id}
+                      </span>
+                      <span className="inline-flex rounded-full bg-[#F1F5F9] px-2 py-0.5 text-[11px] text-[#64748B] dark:bg-[#1E293B] dark:text-muted-foreground">
+                        {template.category}
+                      </span>
+                    </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <button
@@ -617,9 +908,7 @@ export function TemplateLibrary({ scenarioId }: TemplateLibraryProps) {
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() => setPreviewTemplate(template)}
-                        >
+                        <DropdownMenuItem onClick={() => setPreviewTemplate(template)}>
                           미리보기
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => openCreateDialog(template)}>
@@ -636,8 +925,11 @@ export function TemplateLibrary({ scenarioId }: TemplateLibraryProps) {
                   </div>
 
                   <h4 className="mb-2 line-clamp-1 text-[14px] text-[#1E2A3A] dark:text-foreground">
-                    {template.subject}
+                    {template.title}
                   </h4>
+                  <p className="mb-2 line-clamp-1 text-[12px] text-[#64748B] dark:text-muted-foreground">
+                    메일 제목: {template.subject}
+                  </p>
                   <p className="mb-4 min-h-[36px] line-clamp-2 text-[12px] text-[#94A3B8] dark:text-muted-foreground">
                     {template.body}
                   </p>
@@ -645,7 +937,7 @@ export function TemplateLibrary({ scenarioId }: TemplateLibraryProps) {
                   <div className="flex items-center justify-between border-t border-[#F1F5F9] pt-3 dark:border-border">
                     <span
                       className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] ${getConfidenceColor(
-                        template.confidence
+                        template.confidence,
                       )}`}
                     >
                       {template.confidence}% 정확도
@@ -684,20 +976,32 @@ export function TemplateLibrary({ scenarioId }: TemplateLibraryProps) {
         </div>
       </div>
 
-      <Dialog open={Boolean(previewTemplate)} onOpenChange={(open) => !open && setPreviewTemplate(null)}>
+      <Dialog
+        open={Boolean(previewTemplate)}
+        onOpenChange={(open) => !open && setPreviewTemplate(null)}
+      >
         <DialogContent className="sm:max-w-[620px]">
           <DialogHeader>
-            <DialogTitle>{previewTemplate?.subject}</DialogTitle>
+            <DialogTitle>{previewTemplate?.title}</DialogTitle>
             <DialogDescription>
-              {previewTemplate?.category} · {previewTemplate?.confidence}% 정확도
+              ID {previewTemplate?.id} · {previewTemplate?.category} · {previewTemplate?.confidence}% 정확도
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="rounded-xl border border-border bg-muted/30 p-4 text-sm leading-7 text-foreground">
-              {previewTemplate?.body}
+              <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                메일 제목
+              </p>
+              <p>{previewTemplate?.subject}</p>
+            </div>
+            <div className="rounded-xl border border-border bg-muted/30 p-4 text-sm leading-7 text-foreground">
+              <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                본문 템플릿
+              </p>
+              <p>{previewTemplate?.body}</p>
             </div>
             <p className="text-xs text-muted-foreground">
-              마지막 수정: {previewTemplate?.updatedAt}
+              마지막 표시 시간: {previewTemplate?.updatedAt}
             </p>
           </div>
           <DialogFooter>
@@ -719,7 +1023,7 @@ export function TemplateLibrary({ scenarioId }: TemplateLibraryProps) {
               {editingTemplateId ? "템플릿 수정" : "새 템플릿 생성"}
             </DialogTitle>
             <DialogDescription>
-              카테고리와 제목, 본문을 입력하면 템플릿 라이브러리에 즉시 반영됩니다.
+              템플릿 이름과 메일 제목, 본문을 입력하면 라이브러리에 즉시 반영됩니다.
             </DialogDescription>
           </DialogHeader>
 
@@ -735,22 +1039,23 @@ export function TemplateLibrary({ scenarioId }: TemplateLibraryProps) {
             <label className="block space-y-2 text-sm text-foreground">
               <span>카테고리</span>
               <Select
-                value={draft.category}
+                disabled={isCategoryLocked}
+                value={draft.categoryId}
                 onValueChange={(value) =>
                   setDraft((current) => ({
                     ...current,
-                    category: value,
+                    categoryId: value,
                   }))
                 }
               >
                 <SelectTrigger className="app-form-input h-11 w-full rounded-xl px-4 text-sm">
-                  <SelectValue />
+                  <SelectValue placeholder={selectedCategoryLabel} />
                 </SelectTrigger>
                 <SelectContent className="app-select-content rounded-2xl p-1">
                   {categoryOptions.map((category) => (
                     <SelectItem
                       key={category.id}
-                      value={category.name}
+                      value={category.id}
                       className="app-select-item rounded-xl px-3 py-2.5 text-sm"
                     >
                       {category.name}
@@ -758,10 +1063,29 @@ export function TemplateLibrary({ scenarioId }: TemplateLibraryProps) {
                   ))}
                 </SelectContent>
               </Select>
+              {isCategoryLocked ? (
+                <p className="text-xs text-muted-foreground">
+                  기존 템플릿의 카테고리 변경은 아직 지원되지 않습니다. 다른 카테고리로 만들려면 새 템플릿으로 등록해 주세요.
+                </p>
+              ) : null}
             </label>
 
             <label className="block space-y-2 text-sm text-foreground">
-              <span>제목</span>
+              <span>템플릿 이름</span>
+              <input
+                value={draft.title}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    title: event.target.value,
+                  }))
+                }
+                className="app-form-input h-11 w-full rounded-xl px-4 text-sm"
+              />
+            </label>
+
+            <label className="block space-y-2 text-sm text-foreground">
+              <span>메일 제목</span>
               <input
                 value={draft.subject}
                 onChange={(event) =>
@@ -795,32 +1119,37 @@ export function TemplateLibrary({ scenarioId }: TemplateLibraryProps) {
               type="button"
               className="rounded-xl border border-border px-4 py-2 text-sm text-muted-foreground"
               onClick={() => setEditorOpen(false)}
+              disabled={isSaving}
             >
               취소
             </button>
             <button
               type="button"
               className="app-cta-primary rounded-xl px-4 py-2 text-sm"
-              onClick={handleSaveTemplate}
+              onClick={() => void handleSaveTemplate()}
+              disabled={isSaving}
             >
-              저장
+              {isSaving ? "저장 중..." : "저장"}
             </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+      <AlertDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>템플릿을 삭제할까요?</AlertDialogTitle>
             <AlertDialogDescription>
-              "{deleteTarget?.subject}" 템플릿은 라이브러리에서 제거됩니다.
+              "{deleteTarget?.title}" 템플릿은 라이브러리에서 제거됩니다.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>취소</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteTemplate}>
-              삭제
+            <AlertDialogCancel disabled={isDeleting}>취소</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void handleDeleteTemplate()} disabled={isDeleting}>
+              {isDeleting ? "삭제 중..." : "삭제"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

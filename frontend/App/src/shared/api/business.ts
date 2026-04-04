@@ -37,6 +37,16 @@ type TemplateListApiResponse = {
   templates: TemplateApiResponse[];
 };
 
+type CategoryApiResponse = {
+  category_id: number;
+  category_name: string;
+  color: string | null;
+};
+
+type CategoryListApiResponse = {
+  categories: CategoryApiResponse[];
+};
+
 type TemplateRegenerateApiResponse = {
   status: string;
   processing_count: number;
@@ -65,6 +75,12 @@ export type FaqSnapshot = {
 export type TemplateSummarySnapshot = {
   templateId: number;
   title: string;
+};
+
+export type BusinessCategorySnapshot = {
+  categoryId: number;
+  categoryName: string;
+  color: string | null;
 };
 
 export async function getBusinessProfile() {
@@ -179,6 +195,16 @@ export async function getTemplates() {
     templateId: template.template_id,
     title: template.title,
   })) satisfies TemplateSummarySnapshot[];
+}
+
+export async function getBusinessCategories() {
+  const response = await api.get<CategoryListApiResponse>("/api/business/categories");
+
+  return response.data.categories.map((category) => ({
+    categoryId: category.category_id,
+    categoryName: category.category_name,
+    color: category.color,
+  })) satisfies BusinessCategorySnapshot[];
 }
 
 export async function regenerateBusinessTemplates(payload: {
