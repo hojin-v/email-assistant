@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import {
   Calendar,
   Check,
+  ChevronDown,
   ExternalLink,
   Loader2,
   Pencil,
@@ -35,6 +36,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "./ui/collapsible";
 import {
   createAutomationRule,
   deleteAutomationRule,
@@ -252,6 +258,7 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
     null,
   );
   const [deletingCategoryKey, setDeletingCategoryKey] = useState<string | null>(null);
+  const [expandedGroupKeys, setExpandedGroupKeys] = useState<string[]>([]);
   const [googleCalendarConnected, setGoogleCalendarConnected] = useState(
     !calendarDisconnectedScenario,
   );
@@ -278,6 +285,20 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
       categories.find((category) => category.categoryId === categoryId) ?? null
     );
   }, [categories, dialogState.categoryId]);
+
+  useEffect(() => {
+    setExpandedGroupKeys((current) =>
+      current.filter((groupKey) => groups.some((group) => group.key === groupKey)),
+    );
+  }, [groups]);
+
+  const toggleGroupExpanded = (groupKey: string) => {
+    setExpandedGroupKeys((current) =>
+      current.includes(groupKey)
+        ? current.filter((key) => key !== groupKey)
+        : [...current, groupKey],
+    );
+  };
 
   useEffect(() => {
     if (scenarioMode) {
@@ -799,6 +820,7 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
                   (template) => template.hasRule,
                 ).length;
                 const deleting = deletingCategoryKey === group.key;
+                const isExpanded = expandedGroupKeys.includes(group.key);
 
                 return (
                   <section
@@ -847,74 +869,104 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
                       </div>
                     </div>
 
-                    <div className="divide-y divide-[#F1F5F9] dark:divide-border">
-                      {group.templates.map((template) => {
-                        const templateKey =
-                          template.templateId === null
-                            ? `${group.key}:unknown`
-                            : `${group.key}:${template.templateId}`;
-                        const isBusy = busyTemplateKey === templateKey;
-
-                        return (
-                          <div
-                            key={templateKey}
-                            className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between"
-                          >
-                            <div className="min-w-0 flex-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="rounded-md bg-[#EEF2FF] px-2 py-1 text-[11px] font-medium text-[#4F46E5] dark:bg-[#1E1B4B] dark:text-[#C7D2FE]">
-                                  {template.templateId === null
-                                    ? "ID 미지정"
-                                    : `ID ${template.templateId}`}
-                                </span>
-                                <span className="text-[14px] text-[#1E2A3A] dark:text-foreground">
-                                  {template.title}
-                                </span>
-                                {template.hasRule ? (
-                                  <span className="rounded-full bg-[#DCFCE7] px-2 py-0.5 text-[10px] text-[#166534] dark:bg-[#052E16] dark:text-[#86EFAC]">
-                                    저장됨
-                                  </span>
-                                ) : (
-                                  <span className="rounded-full bg-[#FEF3C7] px-2 py-0.5 text-[10px] text-[#92400E] dark:bg-[#422006] dark:text-[#FCD34D]">
-                                    새 템플릿
-                                  </span>
-                                )}
-                              </div>
-                              <p className="mt-2 text-[12px] text-[#94A3B8] dark:text-muted-foreground">
-                                {template.hasRule
-                                  ? "현재 규칙에 저장된 템플릿입니다."
-                                  : "카테고리에는 포함되지만 아직 자동화 규칙이 저장되지 않았습니다."}
-                              </p>
-                            </div>
-
-                            <button
-                              onClick={() =>
-                                template.templateId !== null
-                                  ? handleAutoSendToggle(group, template.templateId)
-                                  : undefined
-                              }
-                              disabled={isBusy || template.templateId === null}
-                              className={`relative h-5.5 w-10 rounded-full transition-colors ${
-                                template.autoSend
-                                  ? "bg-[#2DD4BF] dark:bg-[#0F766E]"
-                                  : "bg-[#CBD5E1] dark:bg-[#334155]"
-                              } disabled:cursor-not-allowed disabled:opacity-60`}
-                              aria-label={`${group.categoryName} ${template.title} 자동 발송`}
-                            >
-                              {isBusy ? (
-                                <Loader2 className="absolute left-3 top-1 h-3.5 w-3.5 animate-spin text-white" />
-                              ) : (
-                                <span
-                                  className={`absolute top-0.5 h-4.5 w-4.5 rounded-full bg-white shadow-sm transition-transform ${
-                                    template.autoSend ? "left-5" : "left-0.5"
-                                  }`}
-                                />
-                              )}
-                            </button>
+                    <Collapsible
+                      open={isExpanded}
+                      onOpenChange={() => toggleGroupExpanded(group.key)}
+                    >
+                      <div className="border-t border-[#F1F5F9] bg-white px-5 py-3 dark:border-border dark:bg-card">
+                        <CollapsibleTrigger className="group flex w-full items-center justify-between rounded-xl px-3 py-2 text-left transition-colors hover:bg-[#F8FAFC] dark:hover:bg-[#131D2F]">
+                          <div>
+                            <p className="text-[13px] text-[#1E2A3A] dark:text-foreground">
+                              템플릿 목록
+                            </p>
+                            <p className="mt-1 text-[11px] text-[#94A3B8] dark:text-muted-foreground">
+                              템플릿 {group.templates.length}개를 접어서 관리할 수 있습니다.
+                            </p>
                           </div>
-                        );
-                      })}
-                    </div>
+                          <div className="flex items-center gap-3">
+                            <span className="rounded-full bg-[#F8FAFC] px-2.5 py-1 text-[11px] text-[#64748B] dark:bg-[#0F172A] dark:text-muted-foreground">
+                              {isExpanded ? "접기" : "펴기"}
+                            </span>
+                            <ChevronDown
+                              className={`h-4 w-4 text-[#94A3B8] transition-transform dark:text-muted-foreground ${
+                                isExpanded ? "rotate-180" : ""
+                              }`}
+                            />
+                          </div>
+                        </CollapsibleTrigger>
+                      </div>
+
+                      <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
+                        <div className="divide-y divide-[#F1F5F9] dark:divide-border">
+                          {group.templates.map((template) => {
+                            const templateKey =
+                              template.templateId === null
+                                ? `${group.key}:unknown`
+                                : `${group.key}:${template.templateId}`;
+                            const isBusy = busyTemplateKey === templateKey;
+
+                            return (
+                              <div
+                                key={templateKey}
+                                className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between"
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="rounded-md bg-[#EEF2FF] px-2 py-1 text-[11px] font-medium text-[#4F46E5] dark:bg-[#1E1B4B] dark:text-[#C7D2FE]">
+                                      {template.templateId === null
+                                        ? "ID 미지정"
+                                        : `ID ${template.templateId}`}
+                                    </span>
+                                    <span className="text-[14px] text-[#1E2A3A] dark:text-foreground">
+                                      {template.title}
+                                    </span>
+                                    {template.hasRule ? (
+                                      <span className="rounded-full bg-[#DCFCE7] px-2 py-0.5 text-[10px] text-[#166534] dark:bg-[#052E16] dark:text-[#86EFAC]">
+                                        저장됨
+                                      </span>
+                                    ) : (
+                                      <span className="rounded-full bg-[#FEF3C7] px-2 py-0.5 text-[10px] text-[#92400E] dark:bg-[#422006] dark:text-[#FCD34D]">
+                                        새 템플릿
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="mt-2 text-[12px] text-[#94A3B8] dark:text-muted-foreground">
+                                    {template.hasRule
+                                      ? "현재 규칙에 저장된 템플릿입니다."
+                                      : "카테고리에는 포함되지만 아직 자동화 규칙이 저장되지 않았습니다."}
+                                  </p>
+                                </div>
+
+                                <button
+                                  onClick={() =>
+                                    template.templateId !== null
+                                      ? handleAutoSendToggle(group, template.templateId)
+                                      : undefined
+                                  }
+                                  disabled={isBusy || template.templateId === null}
+                                  className={`relative h-5.5 w-10 rounded-full transition-colors ${
+                                    template.autoSend
+                                      ? "bg-[#2DD4BF] dark:bg-[#0F766E]"
+                                      : "bg-[#CBD5E1] dark:bg-[#334155]"
+                                  } disabled:cursor-not-allowed disabled:opacity-60`}
+                                  aria-label={`${group.categoryName} ${template.title} 자동 발송`}
+                                >
+                                  {isBusy ? (
+                                    <Loader2 className="absolute left-3 top-1 h-3.5 w-3.5 animate-spin text-white" />
+                                  ) : (
+                                    <span
+                                      className={`absolute top-0.5 h-4.5 w-4.5 rounded-full bg-white shadow-sm transition-transform ${
+                                        template.autoSend ? "left-5" : "left-0.5"
+                                      }`}
+                                    />
+                                  )}
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
                   </section>
                 );
               })}
