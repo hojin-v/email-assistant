@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router";
 import {
-  Plus,
-  Pencil,
-  Trash2,
+  Calendar,
   Check,
   ExternalLink,
-  Calendar,
+  Loader2,
+  Pencil,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -26,210 +28,442 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "./ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
+import {
+  createAutomationRule,
+  deleteAutomationRule,
+  getAutomationRules,
+  setAutomationRuleAutoSend,
+  type AutomationRuleSnapshot,
+} from "../../shared/api/automations";
+import {
+  getBusinessCategories,
+  type BusinessCategorySnapshot,
+} from "../../shared/api/business";
+import { getErrorMessage } from "../../shared/api/http";
+import {
+  getGoogleAuthorizationUrl,
+  getMyIntegrationSafe,
+} from "../../shared/api/integrations";
+import {
+  getTemplateLibrary,
+  type TemplateSnapshot,
+} from "../../shared/api/templates";
 import { AppStatePage } from "../../shared/ui/primitives/AppStatePage";
 import { StateBanner } from "../../shared/ui/primitives/StateBanner";
+import {
+  buildAutomationCategoryGroups,
+  buildAutomationDialogTemplateDrafts,
+  buildAvailableAutomationCategories,
+  getAutomationCategoryKey,
+  type AutomationCategoryCatalogItem,
+  type AutomationCategoryGroup,
+  type AutomationDialogTemplateDraft,
+  type AutomationTemplateCatalogItem,
+} from "./automation-settings.helpers";
 
-interface CategoryRule {
-  id: string;
-  name: string;
-  keywords: string[];
-  template: string;
-  autoSend: boolean;
-  color: string;
-}
+type DialogMode = "create" | "edit";
 
-interface RuleDraft {
-  name: string;
-  keywordsText: string;
-  template: string;
-  autoSend: boolean;
-  color: string;
-}
+type DialogState = {
+  mode: DialogMode;
+  categoryId: string;
+  templates: AutomationDialogTemplateDraft[];
+};
 
-const initialRules: CategoryRule[] = [
+const demoCategories: AutomationCategoryCatalogItem[] = [
+  { categoryId: 1, categoryName: "가격문의", color: "#3B82F6" },
+  { categoryId: 2, categoryName: "불만접수", color: "#EF4444" },
+  { categoryId: 3, categoryName: "미팅요청", color: "#8B5CF6" },
+  { categoryId: 4, categoryName: "기술지원", color: "#F59E0B" },
+  { categoryId: 5, categoryName: "계약문의", color: "#10B981" },
+  { categoryId: 6, categoryName: "배송문의", color: "#EC4899" },
+];
+
+const demoTemplateCatalog: AutomationTemplateCatalogItem[] = [
   {
-    id: "1",
-    name: "가격문의",
-    keywords: ["가격", "요금", "플랜", "할인", "견적"],
-    template: "가격 안내 템플릿",
-    autoSend: false,
+    categoryId: 1,
+    categoryName: "가격문의",
     color: "#3B82F6",
+    templateId: 1,
+    title: "가격 안내 템플릿",
   },
   {
-    id: "2",
-    name: "불만접수",
-    keywords: ["불만", "지연", "오류", "불편", "사과"],
-    template: "불만 대응 템플릿",
-    autoSend: false,
+    categoryId: 1,
+    categoryName: "가격문의",
+    color: "#3B82F6",
+    templateId: 2,
+    title: "가격표 및 할인 안내 템플릿",
+  },
+  {
+    categoryId: 2,
+    categoryName: "불만접수",
     color: "#EF4444",
+    templateId: 3,
+    title: "불만 접수 1차 응답 템플릿",
   },
   {
-    id: "3",
-    name: "미팅요청",
-    keywords: ["미팅", "회의", "일정", "약속", "화상"],
-    template: "미팅 일정 확인 템플릿",
-    autoSend: true,
+    categoryId: 2,
+    categoryName: "불만접수",
+    color: "#EF4444",
+    templateId: 8,
+    title: "불만 보상 후속 안내 템플릿",
+  },
+  {
+    categoryId: 3,
+    categoryName: "미팅요청",
     color: "#8B5CF6",
+    templateId: 4,
+    title: "미팅 일정 확인 템플릿",
   },
   {
-    id: "4",
-    name: "기술지원",
-    keywords: ["기술", "버그", "오류", "설치", "연동"],
-    template: "기술 지원 접수 템플릿",
-    autoSend: false,
+    categoryId: 4,
+    categoryName: "기술지원",
     color: "#F59E0B",
+    templateId: 5,
+    title: "기술 지원 접수 템플릿",
   },
   {
-    id: "5",
-    name: "계약문의",
-    keywords: ["계약", "서명", "갱신", "해지", "조건"],
-    template: "계약 안내 템플릿",
-    autoSend: false,
+    categoryId: 5,
+    categoryName: "계약문의",
     color: "#10B981",
+    templateId: 6,
+    title: "계약 검토 안내 템플릿",
   },
   {
-    id: "6",
-    name: "배송문의",
-    keywords: ["배송", "주문", "택배", "도착", "추적"],
-    template: "배송 현황 안내 템플릿",
-    autoSend: true,
+    categoryId: 6,
+    categoryName: "배송문의",
     color: "#EC4899",
+    templateId: 7,
+    title: "배송 현황 안내 템플릿",
   },
 ];
 
-const colorOptions = ["#3B82F6", "#EF4444", "#8B5CF6", "#F59E0B", "#10B981", "#EC4899"];
+const initialRules: AutomationRuleSnapshot[] = [
+  {
+    ruleId: 1,
+    categoryId: 1,
+    categoryName: "가격문의",
+    color: "#3B82F6",
+    templateId: 1,
+    templateTitle: "가격 안내 템플릿",
+    autoSendEnabled: false,
+    autoCalendarEnabled: false,
+  },
+  {
+    ruleId: 2,
+    categoryId: 1,
+    categoryName: "가격문의",
+    color: "#3B82F6",
+    templateId: 2,
+    templateTitle: "가격표 및 할인 안내 템플릿",
+    autoSendEnabled: true,
+    autoCalendarEnabled: false,
+  },
+  {
+    ruleId: 3,
+    categoryId: 2,
+    categoryName: "불만접수",
+    color: "#EF4444",
+    templateId: 3,
+    templateTitle: "불만 접수 1차 응답 템플릿",
+    autoSendEnabled: false,
+    autoCalendarEnabled: false,
+  },
+  {
+    ruleId: 4,
+    categoryId: 3,
+    categoryName: "미팅요청",
+    color: "#8B5CF6",
+    templateId: 4,
+    templateTitle: "미팅 일정 확인 템플릿",
+    autoSendEnabled: true,
+    autoCalendarEnabled: true,
+  },
+];
 
-const emptyRuleDraft: RuleDraft = {
-  name: "",
-  keywordsText: "",
-  template: "",
-  autoSend: false,
-  color: colorOptions[0],
+const emptyDialogState: DialogState = {
+  mode: "create",
+  categoryId: "",
+  templates: [],
 };
 
 interface AutomationSettingsProps {
   scenarioId?: string | null;
 }
 
+function mapCategoryCatalog(
+  categories: BusinessCategorySnapshot[],
+): AutomationCategoryCatalogItem[] {
+  return categories.map((category) => ({
+    categoryId: category.categoryId,
+    categoryName: category.categoryName,
+    color: category.color,
+  }));
+}
+
+function mapTemplateCatalog(
+  templates: TemplateSnapshot[],
+  categories: AutomationCategoryCatalogItem[],
+): AutomationTemplateCatalogItem[] {
+  const colorByCategoryId = new Map(
+    categories.map((category) => [category.categoryId, category.color]),
+  );
+
+  return templates.map((template) => ({
+    categoryId: template.categoryId,
+    categoryName: template.categoryName,
+    color: colorByCategoryId.get(template.categoryId) ?? null,
+    templateId: template.templateId,
+    title: template.title,
+  }));
+}
+
 export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
+  const navigate = useNavigate();
+  const scenarioMode = Boolean(scenarioId);
   const loadErrorScenario = scenarioId === "automation-load-error";
   const ruleDialogNormalScenario = scenarioId === "automation-rule-dialog-normal";
   const ruleEditNormalScenario = scenarioId === "automation-rule-edit-normal";
   const ruleDeleteNormalScenario = scenarioId === "automation-rule-delete-normal";
-  const calendarCategoryNormalScenario =
-    scenarioId === "automation-calendar-category-normal";
   const ruleSaveErrorScenario = scenarioId === "automation-rule-save-error";
   const calendarDisconnectedScenario = scenarioId === "automation-calendar-disconnected";
-  const [rules, setRules] = useState<CategoryRule[]>(initialRules);
-  const [autoCalendar, setAutoCalendar] = useState(true);
-  const [googleCalendarConnected, setGoogleCalendarConnected] = useState(true);
+  const [rules, setRules] = useState<AutomationRuleSnapshot[]>(
+    scenarioMode ? initialRules : [],
+  );
+  const [categories, setCategories] = useState<AutomationCategoryCatalogItem[]>(
+    scenarioMode ? demoCategories : [],
+  );
+  const [templateCatalog, setTemplateCatalog] = useState<
+    AutomationTemplateCatalogItem[]
+  >(scenarioMode ? demoTemplateCatalog : []);
+  const [isLoading, setIsLoading] = useState(!scenarioMode);
+  const [loadError, setLoadError] = useState(false);
   const [ruleDialogOpen, setRuleDialogOpen] = useState(false);
-  const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
-  const [ruleDraft, setRuleDraft] = useState<RuleDraft>(emptyRuleDraft);
-  const [deleteTarget, setDeleteTarget] = useState<CategoryRule | null>(null);
-  const [autoCalendarCategories, setAutoCalendarCategories] = useState<string[]>(["미팅요청"]);
-  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  const [dialogState, setDialogState] = useState<DialogState>(emptyDialogState);
+  const [saving, setSaving] = useState(false);
+  const [busyTemplateKey, setBusyTemplateKey] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AutomationCategoryGroup | null>(
+    null,
+  );
+  const [deletingCategoryKey, setDeletingCategoryKey] = useState<string | null>(null);
+  const [googleCalendarConnected, setGoogleCalendarConnected] = useState(
+    !calendarDisconnectedScenario,
+  );
+  const [connectedCalendarEmail, setConnectedCalendarEmail] = useState(
+    scenarioMode && !calendarDisconnectedScenario
+      ? "calendar@mycompany.co.kr"
+      : "",
+  );
+
+  const groups = useMemo(
+    () => buildAutomationCategoryGroups(rules, templateCatalog),
+    [rules, templateCatalog],
+  );
+
+  const availableCategories = useMemo(
+    () => buildAvailableAutomationCategories(categories, templateCatalog, groups),
+    [categories, templateCatalog, groups],
+  );
+
+  const selectedDialogCategory = useMemo(() => {
+    const categoryId = Number(dialogState.categoryId);
+
+    return (
+      categories.find((category) => category.categoryId === categoryId) ?? null
+    );
+  }, [categories, dialogState.categoryId]);
 
   useEffect(() => {
+    if (scenarioMode) {
+      return;
+    }
+
+    let active = true;
+
+    async function loadAutomationData() {
+      setIsLoading(true);
+      setLoadError(false);
+
+      try {
+        const [
+          nextRules,
+          nextBusinessCategories,
+          nextTemplates,
+          integration,
+        ] = await Promise.all([
+          getAutomationRules(),
+          getBusinessCategories(),
+          getTemplateLibrary(),
+          getMyIntegrationSafe(),
+        ]);
+
+        if (!active) {
+          return;
+        }
+
+        const nextCategoryCatalog = mapCategoryCatalog(nextBusinessCategories);
+
+        setRules(nextRules);
+        setCategories(nextCategoryCatalog);
+        setTemplateCatalog(mapTemplateCatalog(nextTemplates, nextCategoryCatalog));
+        setGoogleCalendarConnected(Boolean(integration?.isCalendarConnected));
+        setConnectedCalendarEmail(integration?.connectedEmail ?? "");
+      } catch (error) {
+        if (!active) {
+          return;
+        }
+
+        setLoadError(true);
+        toast.error(getErrorMessage(error, "자동화 설정을 불러오지 못했습니다."));
+      } finally {
+        if (active) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void loadAutomationData();
+
+    return () => {
+      active = false;
+    };
+  }, [scenarioMode]);
+
+  useEffect(() => {
+    if (!scenarioMode) {
+      return;
+    }
+
+    if (calendarDisconnectedScenario) {
+      setGoogleCalendarConnected(false);
+      setConnectedCalendarEmail("");
+    }
+
     if (ruleDialogNormalScenario) {
-      setEditingRuleId(null);
-      setRuleDraft({
-        name: "세금계산서 요청",
-        keywordsText: "세금계산서, 청구서, 발행, 사업자등록증",
-        template: "세금계산서 안내 템플릿",
-        autoSend: false,
-        color: "#3B82F6",
+      const firstCategory = availableCategories[0];
+
+      if (!firstCategory) {
+        return;
+      }
+
+      setDialogState({
+        mode: "create",
+        categoryId: String(firstCategory.categoryId),
+        templates: buildAutomationDialogTemplateDrafts(
+          firstCategory.categoryId,
+          templateCatalog,
+        ),
       });
       setRuleDialogOpen(true);
       return;
     }
 
     if (ruleEditNormalScenario) {
-      const targetRule = initialRules[1];
-      setEditingRuleId(targetRule.id);
-      setRuleDraft({
-        name: targetRule.name,
-        keywordsText: targetRule.keywords.join(", "),
-        template: targetRule.template,
-        autoSend: targetRule.autoSend,
-        color: targetRule.color,
+      const targetGroup = groups[0];
+
+      if (!targetGroup?.categoryId) {
+        return;
+      }
+
+      setDialogState({
+        mode: "edit",
+        categoryId: String(targetGroup.categoryId),
+        templates: buildAutomationDialogTemplateDrafts(
+          targetGroup.categoryId,
+          templateCatalog,
+          targetGroup.templates,
+        ),
       });
       setRuleDialogOpen(true);
       return;
     }
 
     if (ruleDeleteNormalScenario) {
-      setDeleteTarget(initialRules[1]);
-      return;
-    }
-
-    if (calendarCategoryNormalScenario) {
-      setCategoryDialogOpen(true);
-      return;
-    }
-
-    if (calendarDisconnectedScenario) {
-      setGoogleCalendarConnected(false);
-      setAutoCalendar(false);
-    }
-
-    if (ruleSaveErrorScenario) {
-      setEditingRuleId("1");
-      setRuleDraft({
-        name: "불만접수",
-        keywordsText: "불만, 지연, 오류, 보상",
-        template: "불만 대응 템플릿",
-        autoSend: false,
-        color: "#EF4444",
-      });
-      setRuleDialogOpen(true);
+      setDeleteTarget(groups[0] ?? null);
     }
   }, [
-    calendarCategoryNormalScenario,
+    availableCategories,
     calendarDisconnectedScenario,
+    groups,
     ruleDeleteNormalScenario,
-    ruleEditNormalScenario,
     ruleDialogNormalScenario,
-    ruleSaveErrorScenario,
+    ruleEditNormalScenario,
+    scenarioMode,
+    templateCatalog,
   ]);
 
-  const availableCategories = useMemo(
-    () => rules.map((rule) => rule.name),
-    [rules]
-  );
+  const openCreateDialog = () => {
+    const targetCategory = availableCategories[0];
 
-  const toggleAutoSend = (id: string) => {
-    setRules((current) =>
-      current.map((rule) =>
-        rule.id === id ? { ...rule, autoSend: !rule.autoSend } : rule
-      )
-    );
-  };
+    if (!targetCategory) {
+      toast("추가할 수 있는 카테고리 자동화가 없습니다.");
+      return;
+    }
 
-  const openRuleDialog = (rule?: CategoryRule) => {
-    setEditingRuleId(rule?.id || null);
-    setRuleDraft(
-      rule
-        ? {
-            name: rule.name,
-            keywordsText: rule.keywords.join(", "),
-            template: rule.template,
-            autoSend: rule.autoSend,
-            color: rule.color,
-          }
-        : emptyRuleDraft
-    );
+    setDialogState({
+      mode: "create",
+      categoryId: String(targetCategory.categoryId),
+      templates: buildAutomationDialogTemplateDrafts(
+        targetCategory.categoryId,
+        templateCatalog,
+      ),
+    });
     setRuleDialogOpen(true);
   };
 
-  const handleSaveRule = () => {
-    const keywords = ruleDraft.keywordsText
-      .split(",")
-      .map((keyword) => keyword.trim())
-      .filter(Boolean);
+  const openEditDialog = (group: AutomationCategoryGroup) => {
+    if (!group.categoryId) {
+      toast.error("카테고리 정보를 확인할 수 없습니다.");
+      return;
+    }
 
-    if (!ruleDraft.name.trim() || !ruleDraft.template.trim() || !keywords.length) {
-      toast.error("카테고리명, 키워드, 템플릿을 모두 입력하세요.");
+    setDialogState({
+      mode: "edit",
+      categoryId: String(group.categoryId),
+      templates: buildAutomationDialogTemplateDrafts(
+        group.categoryId,
+        templateCatalog,
+        group.templates,
+      ),
+    });
+    setRuleDialogOpen(true);
+  };
+
+  const handleDialogCategoryChange = (value: string) => {
+    const categoryId = Number(value);
+
+    setDialogState((current) => ({
+      ...current,
+      categoryId: value,
+      templates: buildAutomationDialogTemplateDrafts(categoryId, templateCatalog),
+    }));
+  };
+
+  const handleDialogTemplateToggle = (templateId: number) => {
+    setDialogState((current) => ({
+      ...current,
+      templates: current.templates.map((template) =>
+        template.templateId === templateId
+          ? { ...template, autoSend: !template.autoSend }
+          : template,
+      ),
+    }));
+  };
+
+  const handleSaveRuleGroup = async () => {
+    if (!selectedDialogCategory) {
+      toast.error("카테고리를 선택해 주세요.");
+      return;
+    }
+
+    if (dialogState.templates.length === 0) {
+      toast.error("이 카테고리에는 연결할 템플릿이 없습니다.");
       return;
     }
 
@@ -238,72 +472,241 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
       return;
     }
 
-    if (editingRuleId) {
-      setRules((current) =>
-        current.map((rule) =>
-          rule.id === editingRuleId
-            ? {
-                ...rule,
-                name: ruleDraft.name.trim(),
-                keywords,
-                template: ruleDraft.template.trim(),
-                autoSend: ruleDraft.autoSend,
-                color: ruleDraft.color,
-              }
-            : rule
-        )
-      );
-      toast.success("카테고리 규칙을 수정했습니다.");
-    } else {
-      setRules((current) => [
-        ...current,
-        {
-          id: String(Date.now()),
-          name: ruleDraft.name.trim(),
-          keywords,
-          template: ruleDraft.template.trim(),
-          autoSend: ruleDraft.autoSend,
-          color: ruleDraft.color,
-        },
-      ]);
-      toast.success("새 카테고리 규칙을 추가했습니다.");
-    }
+    setSaving(true);
 
-    setRuleDialogOpen(false);
+    try {
+      if (scenarioMode) {
+        if (dialogState.mode === "create") {
+          const nextRuleStartId =
+            rules.reduce((maxRuleId, rule) => Math.max(maxRuleId, rule.ruleId), 0) + 1;
+
+          const createdRules = dialogState.templates.map((template, index) => ({
+            ruleId: nextRuleStartId + index,
+            categoryId: selectedDialogCategory.categoryId,
+            categoryName: selectedDialogCategory.categoryName,
+            color: selectedDialogCategory.color,
+            templateId: template.templateId,
+            templateTitle: template.title,
+            autoSendEnabled: template.autoSend,
+            autoCalendarEnabled: false,
+          })) satisfies AutomationRuleSnapshot[];
+
+          setRules((current) => [...current, ...createdRules]);
+          toast.success("카테고리 자동화를 추가했습니다.");
+        } else {
+          const currentCategoryId = selectedDialogCategory.categoryId;
+          const nextTemplateMap = new Map(
+            dialogState.templates.map((template) => [template.templateId, template]),
+          );
+
+          setRules((current) =>
+            current.map((rule) => {
+              if (rule.categoryId !== currentCategoryId || rule.templateId === null) {
+                return rule;
+              }
+
+              const nextTemplate = nextTemplateMap.get(rule.templateId);
+
+              if (!nextTemplate) {
+                return rule;
+              }
+
+              return {
+                ...rule,
+                autoSendEnabled: nextTemplate.autoSend,
+              };
+            }),
+          );
+          toast.success("카테고리 자동화를 수정했습니다.");
+        }
+
+        setRuleDialogOpen(false);
+        return;
+      }
+
+      if (dialogState.mode === "create") {
+        const createdRules = await Promise.all(
+          dialogState.templates.map((template) =>
+            createAutomationRule({
+              categoryName: selectedDialogCategory.categoryName,
+              color: selectedDialogCategory.color,
+              templateId: template.templateId,
+              autoSendEnabled: template.autoSend,
+            }),
+          ),
+        );
+
+        setRules((current) => [...current, ...createdRules]);
+        toast.success("카테고리 자동화를 추가했습니다.");
+      } else {
+        const currentCategoryKey = getAutomationCategoryKey(
+          selectedDialogCategory.categoryId,
+          selectedDialogCategory.categoryName,
+        );
+        const currentGroup = groups.find((group) => group.key === currentCategoryKey);
+
+        if (!currentGroup) {
+          toast.error("수정할 카테고리 규칙을 찾을 수 없습니다.");
+          return;
+        }
+
+        const nextRules = [...rules];
+
+        for (const template of dialogState.templates) {
+          const existingTemplate = currentGroup.templates.find(
+            (item) => item.templateId === template.templateId,
+          );
+
+          if (existingTemplate?.ruleId) {
+            if (existingTemplate.autoSend === template.autoSend) {
+              continue;
+            }
+
+            const updatedRule = await setAutomationRuleAutoSend(
+              existingTemplate.ruleId,
+              template.autoSend,
+            );
+            const ruleIndex = nextRules.findIndex(
+              (rule) => rule.ruleId === updatedRule.ruleId,
+            );
+
+            if (ruleIndex >= 0) {
+              nextRules.splice(ruleIndex, 1, updatedRule);
+            }
+            continue;
+          }
+
+          const createdRule = await createAutomationRule({
+            categoryName: selectedDialogCategory.categoryName,
+            color: selectedDialogCategory.color,
+            templateId: template.templateId,
+            autoSendEnabled: template.autoSend,
+          });
+
+          nextRules.push(createdRule);
+        }
+
+        setRules(nextRules);
+        toast.success("카테고리 자동화를 수정했습니다.");
+      }
+
+      setRuleDialogOpen(false);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "카테고리 규칙을 저장하지 못했습니다."));
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDeleteRule = () => {
+  const handleDeleteRuleGroup = async () => {
     if (!deleteTarget) {
       return;
     }
 
-    setRules((current) =>
-      current.filter((rule) => rule.id !== deleteTarget.id)
+    setDeletingCategoryKey(deleteTarget.key);
+
+    try {
+      if (scenarioMode) {
+        setRules((current) =>
+          current.filter((rule) =>
+            getAutomationCategoryKey(rule.categoryId, rule.categoryName) !==
+            deleteTarget.key,
+          ),
+        );
+        toast.success("카테고리 자동화를 삭제했습니다.");
+        return;
+      }
+
+      const ruleIds = deleteTarget.templates
+        .map((template) => template.ruleId)
+        .filter((ruleId): ruleId is number => ruleId !== null);
+
+      await Promise.all(ruleIds.map((ruleId) => deleteAutomationRule(ruleId)));
+
+      setRules((current) =>
+        current.filter((rule) =>
+          getAutomationCategoryKey(rule.categoryId, rule.categoryName) !==
+          deleteTarget.key,
+        ),
+      );
+      toast.success("카테고리 자동화를 삭제했습니다.");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "카테고리 규칙을 삭제하지 못했습니다."));
+    } finally {
+      setDeletingCategoryKey(null);
+      setDeleteTarget(null);
+    }
+  };
+
+  const handleAutoSendToggle = async (
+    group: AutomationCategoryGroup,
+    templateId: number,
+  ) => {
+    const targetTemplate = group.templates.find(
+      (template) => template.templateId === templateId,
     );
-    setAutoCalendarCategories((current) =>
-      current.filter((category) => category !== deleteTarget.name)
-    );
-    setDeleteTarget(null);
-    toast.success("카테고리 규칙을 삭제했습니다.");
+
+    if (!targetTemplate || !group.categoryId) {
+      return;
+    }
+
+    const nextAutoSend = !targetTemplate.autoSend;
+    const busyKey = `${group.key}:${templateId}`;
+    setBusyTemplateKey(busyKey);
+
+    try {
+      if (scenarioMode) {
+        setRules((current) =>
+          current.map((rule) =>
+            rule.ruleId === targetTemplate.ruleId
+              ? { ...rule, autoSendEnabled: nextAutoSend }
+              : rule,
+          ),
+        );
+        return;
+      }
+
+      if (targetTemplate.ruleId) {
+        const updatedRule = await setAutomationRuleAutoSend(
+          targetTemplate.ruleId,
+          nextAutoSend,
+        );
+
+        setRules((current) =>
+          current.map((rule) =>
+            rule.ruleId === updatedRule.ruleId ? updatedRule : rule,
+          ),
+        );
+        return;
+      }
+
+      const createdRule = await createAutomationRule({
+        categoryName: group.categoryName,
+        color: group.color,
+        templateId,
+        autoSendEnabled: nextAutoSend,
+      });
+
+      setRules((current) => [...current, createdRule]);
+      toast.success("새 템플릿 규칙을 추가했습니다.");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "자동 발송 상태를 변경하지 못했습니다."));
+    } finally {
+      setBusyTemplateKey(null);
+    }
   };
 
-  const handleConnectCalendar = () => {
-    setGoogleCalendarConnected(true);
-    toast.success("Google 캘린더를 연결했습니다.");
+  const handleConnectCalendar = async () => {
+    try {
+      const authorizationUrl = await getGoogleAuthorizationUrl();
+      window.open(authorizationUrl, "_blank", "noopener,noreferrer");
+      toast("연동이 완료되면 설정 또는 이 화면을 새로고침해 상태를 확인해 주세요.");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Google 캘린더 연결을 시작하지 못했습니다."));
+    }
   };
 
-  const handleDisconnectCalendar = () => {
-    setGoogleCalendarConnected(false);
-    setAutoCalendar(false);
-    toast("Google 캘린더 연결을 해제했습니다.");
-  };
-
-  const handleApplyCalendarCategories = () => {
-    setCategoryDialogOpen(false);
-    toast.success("자동 등록 카테고리를 업데이트했습니다.");
-  };
-
-  if (loadErrorScenario) {
+  if (loadErrorScenario || loadError) {
     return (
       <AppStatePage
         title="자동화 설정을 불러오지 못했습니다"
@@ -327,7 +730,7 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
         {calendarDisconnectedScenario ? (
           <StateBanner
             title="Google Calendar 연결이 해제되었습니다"
-            description="캘린더 자동 등록 기능을 다시 사용하려면 Google Calendar를 다시 연결해 주세요."
+            description="캘린더 자동 등록 관련 상태만 확인 가능하며, 연결 자체는 설정 화면에서 다시 진행해 주세요."
             tone="warning"
             className="mb-6"
           />
@@ -336,172 +739,197 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
         <div className="mb-8">
           <h1 className="mb-1 text-[#1E2A3A] dark:text-foreground">자동화 설정</h1>
           <p className="text-[14px] text-[#64748B] dark:text-muted-foreground">
-            이메일 자동화의 동작 방식과 연결 계정을 관리합니다
+            카테고리별 템플릿 ID 규칙을 관리하고, 각 템플릿마다 자동 발송 여부를 설정합니다.
           </p>
         </div>
 
         <div className="overflow-hidden rounded-xl border border-[#E2E8F0] bg-white shadow-sm dark:border-border dark:bg-card">
           <div className="flex items-center justify-between border-b border-[#E2E8F0] p-6 dark:border-border">
-            <h3 className="text-[#1E2A3A] dark:text-foreground">카테고리 규칙</h3>
+            <div>
+              <h3 className="text-[#1E2A3A] dark:text-foreground">카테고리 자동화</h3>
+              <p className="mt-1 text-[12px] text-[#94A3B8] dark:text-muted-foreground">
+                카테고리에 속한 템플릿 ID를 기본 포함하고, 템플릿별 자동 발송을 개별로 켤 수 있습니다.
+              </p>
+            </div>
             <button
-              onClick={() => openRuleDialog()}
-              className="app-cta-primary flex items-center gap-2 rounded-lg px-4 py-2 text-[13px]"
+              onClick={openCreateDialog}
+              disabled={availableCategories.length === 0}
+              className="app-cta-primary flex items-center gap-2 rounded-lg px-4 py-2 text-[13px] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Plus className="h-4 w-4" />
-              규칙 추가
+              카테고리 추가
             </button>
           </div>
 
-          <div className="hidden overflow-x-auto md:block">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-[#F8FAFC] dark:bg-[#111A28]">
-                  <th className="px-6 py-3 text-left text-[11px] uppercase tracking-wider text-[#94A3B8] dark:text-muted-foreground">
-                    카테고리
-                  </th>
-                  <th className="px-6 py-3 text-left text-[11px] uppercase tracking-wider text-[#94A3B8] dark:text-muted-foreground">
-                    매칭 키워드
-                  </th>
-                  <th className="px-6 py-3 text-left text-[11px] uppercase tracking-wider text-[#94A3B8] dark:text-muted-foreground">
-                    지정 템플릿
-                  </th>
-                  <th className="px-6 py-3 text-center text-[11px] uppercase tracking-wider text-[#94A3B8] dark:text-muted-foreground">
-                    자동 발송
-                  </th>
-                  <th className="px-6 py-3 text-right text-[11px] uppercase tracking-wider text-[#94A3B8] dark:text-muted-foreground">
-                    작업
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#F1F5F9] dark:divide-border">
-                {rules.map((rule) => (
-                  <tr
-                    key={rule.id}
-                    className="transition-colors hover:bg-[#FAFBFC] dark:hover:bg-[#131D2F]"
+          {isLoading ? (
+            <div className="space-y-4 p-6">
+              {[0, 1].map((index) => (
+                <div
+                  key={index}
+                  className="animate-pulse rounded-xl border border-[#E2E8F0] p-5 dark:border-border"
+                >
+                  <div className="mb-3 h-4 w-48 rounded bg-[#F1F5F9] dark:bg-[#1E293B]" />
+                  <div className="h-20 rounded bg-[#F8FAFC] dark:bg-[#131D2F]" />
+                </div>
+              ))}
+            </div>
+          ) : groups.length === 0 ? (
+            <div className="p-8">
+              <div className="rounded-2xl border border-dashed border-[#CBD5E1] bg-[#F8FAFC] p-6 text-center dark:border-border dark:bg-[#131D2F]">
+                <p className="text-[15px] text-[#1E2A3A] dark:text-foreground">
+                  아직 설정된 카테고리 자동화가 없습니다
+                </p>
+                <p className="mt-2 text-[13px] text-[#94A3B8] dark:text-muted-foreground">
+                  카테고리를 추가하면 해당 카테고리에 속한 템플릿 ID가 기본 포함됩니다.
+                </p>
+                <button
+                  onClick={openCreateDialog}
+                  disabled={availableCategories.length === 0}
+                  className="app-cta-primary mt-4 inline-flex items-center gap-2 rounded-lg px-4 py-2 text-[13px] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Plus className="h-4 w-4" />
+                  첫 카테고리 추가
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4 p-6">
+              {groups.map((group) => {
+                const configuredTemplates = group.templates.filter(
+                  (template) => template.hasRule,
+                ).length;
+                const deleting = deletingCategoryKey === group.key;
+
+                return (
+                  <section
+                    key={group.key}
+                    className="overflow-hidden rounded-2xl border border-[#E2E8F0] dark:border-border"
                   >
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="h-2.5 w-2.5 rounded-full"
-                          style={{ backgroundColor: rule.color }}
-                        />
-                        <span className="text-[13px] text-[#1E2A3A] dark:text-foreground">
-                          {rule.name}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-wrap gap-1">
-                        {rule.keywords.map((keyword) => (
+                    <div className="flex flex-col gap-3 border-b border-[#E2E8F0] bg-[#F8FAFC] p-5 dark:border-border dark:bg-[#131D2F] md:flex-row md:items-center md:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
                           <span
-                            key={keyword}
-                            className="rounded bg-[#F1F5F9] px-2 py-0.5 text-[11px] text-[#64748B] dark:bg-[#1E293B] dark:text-muted-foreground"
-                          >
-                            {keyword}
+                            className="h-2.5 w-2.5 rounded-full"
+                            style={{ backgroundColor: group.color }}
+                          />
+                          <h4 className="text-[15px] text-[#1E2A3A] dark:text-foreground">
+                            {group.categoryName}
+                          </h4>
+                          <span className="rounded-full bg-white px-2.5 py-1 text-[11px] text-[#64748B] shadow-sm dark:bg-[#0F172A] dark:text-muted-foreground">
+                            {configuredTemplates}/{group.templates.length}개 규칙 저장됨
                           </span>
-                        ))}
+                        </div>
+                        <p className="mt-2 text-[12px] text-[#94A3B8] dark:text-muted-foreground">
+                          템플릿 ID는 카테고리 내부 기본 목록을 따르며, 새 템플릿은 편집 저장 시 함께 반영됩니다.
+                        </p>
                       </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-[13px] text-[#64748B] dark:text-muted-foreground">
-                        {rule.template}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <button
-                        onClick={() => toggleAutoSend(rule.id)}
-                        className={`relative h-5.5 w-10 rounded-full transition-colors ${
-                          rule.autoSend ? "bg-[#2DD4BF] dark:bg-[#0F766E]" : "bg-[#CBD5E1] dark:bg-[#334155]"
-                        }`}
-                      >
-                        <span
-                          className={`absolute top-0.5 h-4.5 w-4.5 rounded-full bg-white shadow-sm transition-transform ${
-                            rule.autoSend ? "left-5" : "left-0.5"
-                          }`}
-                        />
-                      </button>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-end gap-1">
+
+                      <div className="flex items-center gap-2 self-end md:self-auto">
                         <button
-                          onClick={() => openRuleDialog(rule)}
-                          className="rounded-md p-1.5 text-[#94A3B8] transition-colors hover:bg-[#F1F5F9] hover:text-[#1E2A3A] dark:text-muted-foreground dark:hover:bg-[#1E293B] dark:hover:text-foreground"
+                          onClick={() => openEditDialog(group)}
+                          className="app-secondary-button flex items-center gap-2 rounded-lg px-3 py-2 text-[12px]"
                         >
                           <Pencil className="h-3.5 w-3.5" />
+                          관리
                         </button>
                         <button
-                          onClick={() => setDeleteTarget(rule)}
-                          className="rounded-md p-1.5 text-[#94A3B8] transition-colors hover:bg-[#FEF2F2] hover:text-[#EF4444] dark:text-muted-foreground dark:hover:bg-[#3F1D24] dark:hover:text-[#FCA5A5]"
+                          onClick={() => setDeleteTarget(group)}
+                          disabled={deleting}
+                          className="app-danger-button flex items-center gap-2 rounded-lg px-3 py-2 text-[12px] disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
+                          {deleting ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-3.5 w-3.5" />
+                          )}
+                          삭제
                         </button>
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    </div>
 
-          <div className="divide-y divide-[#F1F5F9] dark:divide-border md:hidden">
-            {rules.map((rule) => (
-              <div key={rule.id} className="space-y-3 p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="h-2.5 w-2.5 rounded-full"
-                      style={{ backgroundColor: rule.color }}
-                    />
-                    <span className="text-[14px] text-[#1E2A3A] dark:text-foreground">{rule.name}</span>
-                  </div>
-                  <button
-                    onClick={() => toggleAutoSend(rule.id)}
-                    className={`relative h-5.5 w-10 rounded-full transition-colors ${
-                      rule.autoSend ? "bg-[#2DD4BF] dark:bg-[#0F766E]" : "bg-[#CBD5E1] dark:bg-[#334155]"
-                    }`}
-                  >
-                    <span
-                      className={`absolute top-0.5 h-4.5 w-4.5 rounded-full bg-white shadow-sm transition-transform ${
-                        rule.autoSend ? "left-5" : "left-0.5"
-                      }`}
-                    />
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {rule.keywords.map((keyword) => (
-                    <span
-                      key={keyword}
-                      className="rounded bg-[#F1F5F9] px-2 py-0.5 text-[11px] text-[#64748B] dark:bg-[#1E293B] dark:text-muted-foreground"
-                    >
-                      {keyword}
-                    </span>
-                  ))}
-                </div>
-                <p className="text-[12px] text-[#94A3B8] dark:text-muted-foreground">{rule.template}</p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => openRuleDialog(rule)}
-                    className="app-secondary-button flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-[12px]"
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                    편집
-                  </button>
-                  <button
-                    onClick={() => setDeleteTarget(rule)}
-                    className="app-danger-button flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-[12px]"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                    삭제
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+                    <div className="divide-y divide-[#F1F5F9] dark:divide-border">
+                      {group.templates.map((template) => {
+                        const templateKey =
+                          template.templateId === null
+                            ? `${group.key}:unknown`
+                            : `${group.key}:${template.templateId}`;
+                        const isBusy = busyTemplateKey === templateKey;
+
+                        return (
+                          <div
+                            key={templateKey}
+                            className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="rounded-md bg-[#EEF2FF] px-2 py-1 text-[11px] font-medium text-[#4F46E5] dark:bg-[#1E1B4B] dark:text-[#C7D2FE]">
+                                  {template.templateId === null
+                                    ? "ID 미지정"
+                                    : `ID ${template.templateId}`}
+                                </span>
+                                <span className="text-[14px] text-[#1E2A3A] dark:text-foreground">
+                                  {template.title}
+                                </span>
+                                {template.hasRule ? (
+                                  <span className="rounded-full bg-[#DCFCE7] px-2 py-0.5 text-[10px] text-[#166534] dark:bg-[#052E16] dark:text-[#86EFAC]">
+                                    저장됨
+                                  </span>
+                                ) : (
+                                  <span className="rounded-full bg-[#FEF3C7] px-2 py-0.5 text-[10px] text-[#92400E] dark:bg-[#422006] dark:text-[#FCD34D]">
+                                    새 템플릿
+                                  </span>
+                                )}
+                              </div>
+                              <p className="mt-2 text-[12px] text-[#94A3B8] dark:text-muted-foreground">
+                                {template.hasRule
+                                  ? "현재 규칙에 저장된 템플릿입니다."
+                                  : "카테고리에는 포함되지만 아직 자동화 규칙이 저장되지 않았습니다."}
+                              </p>
+                            </div>
+
+                            <button
+                              onClick={() =>
+                                template.templateId !== null
+                                  ? handleAutoSendToggle(group, template.templateId)
+                                  : undefined
+                              }
+                              disabled={isBusy || template.templateId === null}
+                              className={`relative h-5.5 w-10 rounded-full transition-colors ${
+                                template.autoSend
+                                  ? "bg-[#2DD4BF] dark:bg-[#0F766E]"
+                                  : "bg-[#CBD5E1] dark:bg-[#334155]"
+                              } disabled:cursor-not-allowed disabled:opacity-60`}
+                              aria-label={`${group.categoryName} ${template.title} 자동 발송`}
+                            >
+                              {isBusy ? (
+                                <Loader2 className="absolute left-3 top-1 h-3.5 w-3.5 animate-spin text-white" />
+                              ) : (
+                                <span
+                                  className={`absolute top-0.5 h-4.5 w-4.5 rounded-full bg-white shadow-sm transition-transform ${
+                                    template.autoSend ? "left-5" : "left-0.5"
+                                  }`}
+                                />
+                              )}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <div className="mt-6 rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-sm dark:border-border dark:bg-card">
           <div className="mb-5 flex items-center justify-between">
-            <h3 className="text-[#1E2A3A] dark:text-foreground">캘린더 연동</h3>
+            <div>
+              <h3 className="text-[#1E2A3A] dark:text-foreground">캘린더 연동</h3>
+              <p className="mt-1 text-[12px] text-[#94A3B8] dark:text-muted-foreground">
+                현재는 연동 상태 확인만 실제 API에 연결되어 있습니다.
+              </p>
+            </div>
             {!googleCalendarConnected ? (
               <button
                 onClick={handleConnectCalendar}
@@ -510,7 +938,14 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
                 <Plus className="h-4 w-4" />
                 Google 캘린더 연결
               </button>
-            ) : null}
+            ) : (
+              <button
+                onClick={() => navigate("/app/settings?tab=email")}
+                className="app-secondary-button rounded-lg px-4 py-2 text-[13px]"
+              >
+                연동 관리
+              </button>
+            )}
           </div>
 
           <div className="space-y-3">
@@ -529,29 +964,21 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
                     </span>
                   </div>
                   <p className="truncate text-[12px] text-[#94A3B8] dark:text-muted-foreground">
-                    calendar@mycompany.co.kr
+                    {connectedCalendarEmail || "연결된 계정 정보를 확인하는 중입니다."}
                   </p>
                 </div>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() =>
-                      window.open(
-                        "https://calendar.google.com",
-                        "_blank",
-                        "noopener,noreferrer"
-                      )
-                    }
-                    className="rounded-md p-2 text-[#94A3B8] transition-colors hover:bg-[#F1F5F9] hover:text-[#64748B] dark:text-muted-foreground dark:hover:bg-[#1E293B] dark:hover:text-foreground"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={handleDisconnectCalendar}
-                    className="app-secondary-button rounded-lg px-3 py-1.5 text-[12px]"
-                  >
-                    해제
-                  </button>
-                </div>
+                <button
+                  onClick={() =>
+                    window.open(
+                      "https://calendar.google.com",
+                      "_blank",
+                      "noopener,noreferrer",
+                    )
+                  }
+                  className="rounded-md p-2 text-[#94A3B8] transition-colors hover:bg-[#F1F5F9] hover:text-[#64748B] dark:text-muted-foreground dark:hover:bg-[#1E293B] dark:hover:text-foreground"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                </button>
               </div>
             ) : (
               <div className="flex items-center gap-4 rounded-xl border border-dashed border-[#E2E8F0] bg-[#F8FAFC] p-4 dark:border-border dark:bg-[#131D2F]">
@@ -563,75 +990,31 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
                     Google 캘린더를 연결하세요
                   </p>
                   <p className="text-[11px] text-[#CBD5E1] dark:text-[#64748B]">
-                    일정 자동 등록 기능을 사용하려면 캘린더 연동이 필요합니다
+                    일정 자동 등록 기능을 사용하려면 설정 화면에서 Google 연동이 필요합니다.
                   </p>
                 </div>
               </div>
             )}
 
-            {googleCalendarConnected ? (
-              <div className="border-t border-[#E2E8F0] pt-3 dark:border-border">
-                <div className="mb-4 flex items-center justify-between">
-                  <div>
-                    <h4 className="mb-1 text-[13px] text-[#1E2A3A] dark:text-foreground">
-                      일정 자동 등록
-                    </h4>
-                    <p className="text-[11px] text-[#94A3B8] dark:text-muted-foreground">
-                      미팅 요청 및 일정 관련 이메일을 자동으로 Google 캘린더에 등록합니다
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setAutoCalendar((current) => !current)}
-                    className={`relative h-5.5 w-10 rounded-full transition-colors ${
-                      autoCalendar ? "bg-[#2DD4BF] dark:bg-[#0F766E]" : "bg-[#CBD5E1] dark:bg-[#334155]"
-                    }`}
-                  >
-                    <span
-                      className={`absolute top-0.5 h-4.5 w-4.5 rounded-full bg-white shadow-sm transition-transform ${
-                        autoCalendar ? "left-5" : "left-0.5"
-                      }`}
-                    />
-                  </button>
-                </div>
-
-                {autoCalendar ? (
-                  <div className="mt-3 rounded-lg border border-[#E2E8F0] bg-white p-3 dark:border-border dark:bg-[#131D2F]">
-                    <p className="mb-2 text-[11px] uppercase tracking-wide text-[#64748B] dark:text-muted-foreground">
-                      자동 등록 카테고리
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {autoCalendarCategories.map((category) => (
-                        <span
-                          key={category}
-                          className="flex items-center gap-1.5 rounded-md bg-[#8B5CF6]/10 px-2.5 py-1 text-[11px] text-[#8B5CF6] dark:bg-[#1B1430] dark:text-[#C4B5FD]"
-                        >
-                          <Check className="h-3 w-3" />
-                          {category}
-                        </span>
-                      ))}
-                      <button
-                        onClick={() => setCategoryDialogOpen(true)}
-                        className="app-secondary-button rounded-md px-2.5 py-1 text-[11px]"
-                      >
-                        + 카테고리 추가
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
+            <StateBanner
+              title="전역 일정 자동 등록은 아직 실제 연결하지 않았습니다"
+              description="현재 백엔드는 규칙별 auto_calendar_enabled만 제공하고, 이 화면의 전역 토글/카테고리 묶음 UX와는 1:1로 맞지 않습니다. 필요한 API와 DB 보완 항목은 문서에 정리해 두었습니다."
+              tone="warning"
+            />
           </div>
         </div>
       </div>
 
       <Dialog open={ruleDialogOpen} onOpenChange={setRuleDialogOpen}>
-        <DialogContent className="sm:max-w-[560px]">
+        <DialogContent className="sm:max-w-[620px]">
           <DialogHeader>
             <DialogTitle>
-              {editingRuleId ? "카테고리 규칙 수정" : "카테고리 규칙 추가"}
+              {dialogState.mode === "edit"
+                ? "카테고리 자동화 수정"
+                : "카테고리 자동화 추가"}
             </DialogTitle>
             <DialogDescription>
-              이메일 분류와 템플릿 자동 연결 규칙을 설정합니다.
+              카테고리 안의 템플릿 ID를 기본 포함하고, 각 템플릿별 자동 발송 여부를 저장합니다.
             </DialogDescription>
           </DialogHeader>
 
@@ -644,88 +1027,97 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
           ) : null}
 
           <div className="space-y-4">
-            <label className="block space-y-2 text-sm text-foreground">
-              <span>카테고리명</span>
-              <input
-                value={ruleDraft.name}
-                onChange={(event) =>
-                  setRuleDraft((current) => ({
-                    ...current,
-                    name: event.target.value,
-                  }))
-                }
-                className="app-form-input h-11 w-full rounded-xl px-4 text-sm"
-              />
-            </label>
-
-            <label className="block space-y-2 text-sm text-foreground">
-              <span>매칭 키워드</span>
-              <input
-                value={ruleDraft.keywordsText}
-                onChange={(event) =>
-                  setRuleDraft((current) => ({
-                    ...current,
-                    keywordsText: event.target.value,
-                  }))
-                }
-                placeholder="쉼표로 구분하세요"
-                className="app-form-input h-11 w-full rounded-xl px-4 text-sm"
-              />
-            </label>
-
-            <label className="block space-y-2 text-sm text-foreground">
-              <span>지정 템플릿</span>
-              <input
-                value={ruleDraft.template}
-                onChange={(event) =>
-                  setRuleDraft((current) => ({
-                    ...current,
-                    template: event.target.value,
-                  }))
-                }
-                className="app-form-input h-11 w-full rounded-xl px-4 text-sm"
-              />
-            </label>
-
             <div className="space-y-2 text-sm text-foreground">
-              <span className="block">표시 색상</span>
-              <div className="flex gap-2">
-                {colorOptions.map((color) => (
-                  <button
-                    key={color}
-                    type="button"
-                    onClick={() =>
-                      setRuleDraft((current) => ({
-                        ...current,
-                        color,
-                      }))
-                    }
-                    className={`h-8 w-8 rounded-full border-2 ${
-                      ruleDraft.color === color ? "border-[#1E2A3A]" : "border-transparent"
-                    }`}
-                    style={{ backgroundColor: color }}
-                  />
-                ))}
-              </div>
+              <span className="block">카테고리</span>
+              {dialogState.mode === "edit" ? (
+                <div className="flex h-11 items-center rounded-xl border border-border bg-muted/40 px-4 text-sm text-foreground">
+                  {selectedDialogCategory?.categoryName ?? "카테고리 정보 없음"}
+                </div>
+              ) : (
+                <Select
+                  value={dialogState.categoryId}
+                  onValueChange={handleDialogCategoryChange}
+                >
+                  <SelectTrigger className="h-11 rounded-xl">
+                    <SelectValue placeholder="카테고리를 선택하세요" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableCategories.map((category) => (
+                      <SelectItem
+                        key={category.categoryId}
+                        value={String(category.categoryId)}
+                      >
+                        {category.categoryName} · 템플릿 {category.templateCount}개
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
 
-            <button
-              type="button"
-              onClick={() =>
-                setRuleDraft((current) => ({
-                  ...current,
-                  autoSend: !current.autoSend,
-                }))
-              }
-              className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-sm ${
-                ruleDraft.autoSend
-                  ? "border-[#2DD4BF] bg-[#2DD4BF]/5 text-[#0F766E]"
-                  : "border-border bg-background text-muted-foreground"
-              }`}
-            >
-              자동 발송 사용
-              <span>{ruleDraft.autoSend ? "ON" : "OFF"}</span>
-            </button>
+            <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4 dark:border-border dark:bg-[#131D2F]">
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <p className="text-[13px] text-[#1E2A3A] dark:text-foreground">
+                    지정 템플릿 ID
+                  </p>
+                  <p className="text-[11px] text-[#94A3B8] dark:text-muted-foreground">
+                    선택한 카테고리에 속한 템플릿 ID가 기본 포함됩니다.
+                  </p>
+                </div>
+                <span className="rounded-full bg-white px-2.5 py-1 text-[11px] text-[#64748B] shadow-sm dark:bg-[#0F172A] dark:text-muted-foreground">
+                  {dialogState.templates.length}개
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                {dialogState.templates.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-[#CBD5E1] bg-white px-4 py-3 text-[12px] text-[#94A3B8] dark:border-border dark:bg-[#0F172A] dark:text-muted-foreground">
+                    이 카테고리에는 사용할 수 있는 템플릿이 없습니다.
+                  </div>
+                ) : (
+                  dialogState.templates.map((template) => (
+                    <div
+                      key={template.templateId}
+                      className="flex items-center justify-between rounded-lg border border-white bg-white px-4 py-3 dark:border-[#1E293B] dark:bg-[#0F172A]"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-md bg-[#EEF2FF] px-2 py-1 text-[11px] font-medium text-[#4F46E5] dark:bg-[#1E1B4B] dark:text-[#C7D2FE]">
+                            ID {template.templateId}
+                          </span>
+                          <span className="text-[13px] text-[#1E2A3A] dark:text-foreground">
+                            {template.title}
+                          </span>
+                          {template.hasRule ? (
+                            <span className="rounded-full bg-[#DCFCE7] px-2 py-0.5 text-[10px] text-[#166534] dark:bg-[#052E16] dark:text-[#86EFAC]">
+                              저장됨
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDialogTemplateToggle(template.templateId)}
+                        className={`relative h-5.5 w-10 rounded-full transition-colors ${
+                          template.autoSend
+                            ? "bg-[#2DD4BF] dark:bg-[#0F766E]"
+                            : "bg-[#CBD5E1] dark:bg-[#334155]"
+                        }`}
+                        aria-label={`${template.title} 자동 발송`}
+                      >
+                        <span
+                          className={`absolute top-0.5 h-4.5 w-4.5 rounded-full bg-white shadow-sm transition-transform ${
+                            template.autoSend ? "left-5" : "left-0.5"
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
 
           <DialogFooter>
@@ -738,86 +1130,35 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
             </button>
             <button
               type="button"
-              className="rounded-xl bg-[#1E2A3A] px-4 py-2 text-sm text-white"
-              onClick={handleSaveRule}
+              className="rounded-xl bg-[#1E2A3A] px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={handleSaveRuleGroup}
+              disabled={saving || dialogState.templates.length === 0}
             >
-              저장
+              {saving ? "저장 중..." : "저장"}
             </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+      <AlertDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>규칙을 삭제할까요?</AlertDialogTitle>
+            <AlertDialogTitle>카테고리 자동화를 삭제할까요?</AlertDialogTitle>
             <AlertDialogDescription>
-              "{deleteTarget?.name}" 카테고리 규칙이 제거됩니다.
+              "{deleteTarget?.categoryName}"에 연결된 템플릿 자동화 규칙이 함께 제거됩니다.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>취소</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteRule}>
+            <AlertDialogAction onClick={handleDeleteRuleGroup}>
               삭제
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
-        <DialogContent className="sm:max-w-[520px]">
-          <DialogHeader>
-            <DialogTitle>자동 등록 카테고리 선택</DialogTitle>
-            <DialogDescription>
-              Google 캘린더에 자동으로 등록할 이메일 카테고리를 고르세요.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-2">
-            {availableCategories.map((category) => {
-              const selected = autoCalendarCategories.includes(category);
-              return (
-                <button
-                  key={category}
-                  type="button"
-                  onClick={() =>
-                    setAutoCalendarCategories((current) =>
-                      selected
-                        ? current.filter((item) => item !== category)
-                        : [...current, category]
-                    )
-                  }
-                  className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-sm transition ${
-                    selected
-                      ? "border-[#2DD4BF] bg-[#2DD4BF]/5 text-[#0F766E]"
-                      : "border-border bg-background text-foreground"
-                  }`}
-                >
-                  <span>{category}</span>
-                  <span>{selected ? "선택됨" : "선택"}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          <DialogFooter>
-            <button
-              type="button"
-              className="rounded-xl border border-border px-4 py-2 text-sm text-muted-foreground"
-              onClick={() => setCategoryDialogOpen(false)}
-            >
-              취소
-            </button>
-            <button
-              type="button"
-              className="rounded-xl bg-[#1E2A3A] px-4 py-2 text-sm text-white"
-              onClick={handleApplyCalendarCategories}
-            >
-              적용
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }
