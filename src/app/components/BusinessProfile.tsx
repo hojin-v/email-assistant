@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router";
 import {
   Building2,
   FileText,
@@ -8,10 +7,25 @@ import {
   Plus,
   AlertTriangle,
   Save,
-  ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { businessTypeOptions } from "../../shared/config/onboarding-options";
+import {
+  createBusinessFaq,
+  deleteBusinessFaq,
+  deleteBusinessFile,
+  FaqSnapshot,
+  getBusinessFaqs,
+  getBusinessProfile,
+  getBusinessResources,
+  getTemplates,
+  regenerateBusinessTemplates,
+  TemplateSummarySnapshot,
+  updateBusinessFaq,
+  uploadBusinessFile,
+  upsertBusinessProfile,
+} from "../../shared/api/business";
+import { getErrorMessage } from "../../shared/api/http";
 import {
   Dialog,
   DialogContent,
@@ -37,24 +51,29 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
+import { AppStatePage } from "../../shared/ui/primitives/AppStatePage";
 import { StateBanner } from "../../shared/ui/primitives/StateBanner";
 
 const toneOptions = [
   { id: "formal", label: "격식체" },
   { id: "neutral", label: "중립" },
   { id: "friendly", label: "친근한" },
-];
+] as const;
+
+type ToneId = (typeof toneOptions)[number]["id"];
 
 interface UploadedFile {
   id: string;
   name: string;
   uploadDate: string;
+  resourceId?: number;
 }
 
 interface FAQItem {
   id: string;
   question: string;
   answer: string;
+  faqId?: number;
 }
 
 interface FAQDraft {
@@ -62,11 +81,34 @@ interface FAQDraft {
   answer: string;
 }
 
-const impactedTemplates = [
-  "가격 안내 템플릿",
-  "미팅 일정 확인 템플릿",
-  "기술 지원 접수 템플릿",
-  "계약 안내 템플릿",
+interface TemplateSelectionItem {
+  id: string;
+  title: string;
+}
+
+const demoUploadedFiles: UploadedFile[] = [
+  { id: "1", name: "비즈니스_매뉴얼.pdf", uploadDate: "2025.01.15" },
+  { id: "2", name: "제품_가이드.docx", uploadDate: "2025.03.01" },
+];
+
+const demoFaqItems: FAQItem[] = [
+  {
+    id: "1",
+    question: "환불 정책은?",
+    answer: "14일 이내 전액 환불 가능합니다.",
+  },
+  {
+    id: "2",
+    question: "기술 지원 시간은?",
+    answer: "평일 09:00 ~ 18:00 (KST)",
+  },
+];
+
+const demoTemplates: TemplateSelectionItem[] = [
+  { id: "1", title: "가격 안내 템플릿" },
+  { id: "4", title: "미팅 일정 확인 템플릿" },
+  { id: "5", title: "기술 지원 접수 템플릿" },
+  { id: "6", title: "계약 안내 템플릿" },
 ];
 
 const emptyFaqDraft: FAQDraft = {
@@ -78,8 +120,53 @@ interface BusinessProfileProps {
   scenarioId?: string | null;
 }
 
+function formatDateLabel(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString("ko-KR").replace(/\.\s?/g, ".").replace(/\.$/, "");
+}
+
+function mapApiToneToUi(value: string | null | undefined): ToneId {
+  if (value === "FORMAL") {
+    return "formal";
+  }
+  if (value === "FRIENDLY") {
+    return "friendly";
+  }
+  return "neutral";
+}
+
+function mapUiToneToApi(value: ToneId): "FORMAL" | "NEUTRAL" | "FRIENDLY" {
+  if (value === "formal") {
+    return "FORMAL";
+  }
+  if (value === "friendly") {
+    return "FRIENDLY";
+  }
+  return "NEUTRAL";
+}
+
+function mapFaqSnapshot(snapshot: FaqSnapshot): FAQItem {
+  return {
+    id: String(snapshot.faqId),
+    faqId: snapshot.faqId,
+    question: snapshot.question,
+    answer: snapshot.answer,
+  };
+}
+
+function mapTemplateSnapshot(snapshot: TemplateSummarySnapshot): TemplateSelectionItem {
+  return {
+    id: String(snapshot.templateId),
+    title: snapshot.title,
+  };
+}
+
 export function BusinessProfile({ scenarioId }: BusinessProfileProps) {
-  const navigate = useNavigate();
   const faqDialogNormalScenario = scenarioId === "profile-faq-dialog-normal";
   const faqDeleteNormalScenario = scenarioId === "profile-faq-delete-normal";
   const regenerateBulkNormalScenario =
@@ -90,43 +177,100 @@ export function BusinessProfile({ scenarioId }: BusinessProfileProps) {
   const uploadErrorScenario = scenarioId === "profile-upload-error";
   const faqSaveErrorScenario = scenarioId === "profile-faq-save-error";
   const regenerateErrorScenario = scenarioId === "profile-regenerate-error";
+  const useDemoDataMode = Boolean(scenarioId?.startsWith("profile-"));
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [businessType, setBusinessType] = useState("Sales");
-  const [tone, setTone] = useState("neutral");
-  const [description, setDescription] = useState(
-    "비즈니스 이메일 자동화 SaaS 플랫폼으로, AI 기반 이메일 응답 및 템플릿 생성 기능을 제공합니다."
-  );
-  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([
-    { id: "1", name: "비즈니스_매뉴얼.pdf", uploadDate: "2025.01.15" },
-    { id: "2", name: "제품_가이드.docx", uploadDate: "2025.03.01" },
-  ]);
-  const [faqItems, setFAQItems] = useState<FAQItem[]>([
-    {
-      id: "1",
-      question: "환불 정책은?",
-      answer: "14일 이내 전액 환불 가능합니다.",
-    },
-    {
-      id: "2",
-      question: "기술 지원 시간은?",
-      answer: "평일 09:00 ~ 18:00 (KST)",
-    },
-  ]);
-  const [hasChanges, setHasChanges] = useState(true);
+  const [tone, setTone] = useState<ToneId>("neutral");
+  const [description, setDescription] = useState("");
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [faqItems, setFAQItems] = useState<FAQItem[]>([]);
+  const [templateOptions, setTemplateOptions] = useState<TemplateSelectionItem[]>([]);
+  const [hasChanges, setHasChanges] = useState(useDemoDataMode);
   const [faqDialogOpen, setFaqDialogOpen] = useState(false);
   const [editingFaqId, setEditingFaqId] = useState<string | null>(null);
   const [faqDraft, setFaqDraft] = useState<FAQDraft>(emptyFaqDraft);
   const [faqDeleteTarget, setFaqDeleteTarget] = useState<FAQItem | null>(null);
   const [regenerateMode, setRegenerateMode] = useState<"bulk" | "select" | null>(null);
-  const [selectedTemplates, setSelectedTemplates] = useState<string[]>([
-    impactedTemplates[0],
-    impactedTemplates[1],
-  ]);
+  const [selectedTemplates, setSelectedTemplates] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(!useDemoDataMode);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const impactedCount = useMemo(
-    () => impactedTemplates.length + uploadedFiles.length + faqItems.length - 2,
-    [faqItems.length, uploadedFiles.length]
-  );
+  const impactedCount = templateOptions.length;
+  const canRegenerate = impactedCount > 0;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (useDemoDataMode) {
+      setBusinessType("Sales");
+      setTone("neutral");
+      setDescription(
+        "비즈니스 이메일 자동화 SaaS 플랫폼으로, AI 기반 이메일 응답 및 템플릿 생성 기능을 제공합니다."
+      );
+      setUploadedFiles(demoUploadedFiles);
+      setFAQItems(demoFaqItems);
+      setTemplateOptions(demoTemplates);
+      setSelectedTemplates(demoTemplates.slice(0, 2).map((template) => template.id));
+      setHasChanges(true);
+      setIsLoading(false);
+      setLoadError(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    async function loadBusinessProfile() {
+      setIsLoading(true);
+      setLoadError(null);
+
+      try {
+        const [profile, resources, faqs, templates] = await Promise.all([
+          getBusinessProfile(),
+          getBusinessResources(),
+          getBusinessFaqs(),
+          getTemplates(),
+        ]);
+
+        if (cancelled) {
+          return;
+        }
+
+        setBusinessType(profile?.industryType || businessTypeOptions[0].value);
+        setTone(mapApiToneToUi(profile?.emailTone));
+        setDescription(profile?.companyDescription || "");
+        setUploadedFiles(
+          resources.map((resource) => ({
+            id: String(resource.resourceId),
+            resourceId: resource.resourceId,
+            name: resource.fileName,
+            uploadDate: formatDateLabel(resource.createdAt),
+          }))
+        );
+        setFAQItems(faqs.map(mapFaqSnapshot));
+        setTemplateOptions(templates.map(mapTemplateSnapshot));
+        setSelectedTemplates(templates.slice(0, 2).map((template) => String(template.templateId)));
+        setHasChanges(false);
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        setLoadError(getErrorMessage(error));
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void loadBusinessProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [useDemoDataMode]);
 
   useEffect(() => {
     if (faqDialogNormalScenario) {
@@ -140,11 +284,8 @@ export function BusinessProfile({ scenarioId }: BusinessProfileProps) {
     }
 
     if (faqDeleteNormalScenario) {
-      setFaqDeleteTarget({
-        id: "2",
-        question: "기술 지원 시간은?",
-        answer: "평일 09:00 ~ 18:00 (KST)",
-      });
+      const target = faqItems.find((item) => item.id === "2") || faqItems[0] || null;
+      setFaqDeleteTarget(target);
       return;
     }
 
@@ -159,10 +300,11 @@ export function BusinessProfile({ scenarioId }: BusinessProfileProps) {
     }
 
     if (faqSaveErrorScenario) {
+      const target = faqItems[0];
       setFaqDialogOpen(true);
-      setEditingFaqId("1");
+      setEditingFaqId(target?.id || null);
       setFaqDraft({
-        question: "환불 정책은?",
+        question: target?.question || "환불 정책은?",
         answer: "환불 정책 문구를 최신 기준으로 수정해 주세요.",
       });
       return;
@@ -172,8 +314,9 @@ export function BusinessProfile({ scenarioId }: BusinessProfileProps) {
       setRegenerateMode("bulk");
     }
   }, [
-    faqDialogNormalScenario,
     faqDeleteNormalScenario,
+    faqDialogNormalScenario,
+    faqItems,
     faqSaveErrorScenario,
     regenerateBulkNormalScenario,
     regenerateErrorScenario,
@@ -182,20 +325,58 @@ export function BusinessProfile({ scenarioId }: BusinessProfileProps) {
 
   const markChanged = () => setHasChanges(true);
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
     if (saveErrorScenario) {
       toast.error("비즈니스 프로필을 저장하지 못했습니다.");
       return;
     }
 
-    setHasChanges(false);
-    toast.success("비즈니스 프로필을 저장했습니다.");
+    if (useDemoDataMode) {
+      setHasChanges(false);
+      toast.success("비즈니스 프로필을 저장했습니다.");
+      return;
+    }
+
+    try {
+      setIsSavingProfile(true);
+      await upsertBusinessProfile({
+        industryType: businessType,
+        companyDescription: description,
+        emailTone: mapUiToneToApi(tone),
+      });
+      setHasChanges(false);
+      toast.success("비즈니스 프로필을 저장했습니다.");
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setIsSavingProfile(false);
+    }
   };
 
-  const handleRemoveFile = (id: string) => {
-    setUploadedFiles((current) => current.filter((file) => file.id !== id));
-    markChanged();
-    toast.success("파일을 제거했습니다.");
+  const handleRemoveFile = async (id: string) => {
+    const target = uploadedFiles.find((file) => file.id === id);
+
+    if (!target) {
+      return;
+    }
+
+    if (useDemoDataMode) {
+      setUploadedFiles((current) => current.filter((file) => file.id !== id));
+      markChanged();
+      toast.success("파일을 제거했습니다.");
+      return;
+    }
+
+    try {
+      if (target.resourceId) {
+        await deleteBusinessFile(target.resourceId);
+      }
+      setUploadedFiles((current) => current.filter((file) => file.id !== id));
+      markChanged();
+      toast.success("파일을 제거했습니다.");
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
   };
 
   const openFaqDialog = (item?: FAQItem) => {
@@ -208,7 +389,7 @@ export function BusinessProfile({ scenarioId }: BusinessProfileProps) {
     setFaqDialogOpen(true);
   };
 
-  const handleSaveFaq = () => {
+  const handleSaveFaq = async () => {
     if (!faqDraft.question.trim() || !faqDraft.answer.trim()) {
       toast.error("질문과 답변을 모두 입력하세요.");
       return;
@@ -219,49 +400,96 @@ export function BusinessProfile({ scenarioId }: BusinessProfileProps) {
       return;
     }
 
-    if (editingFaqId) {
-      setFAQItems((current: FAQItem[]) =>
-        current.map((item: FAQItem) =>
-          item.id === editingFaqId
-            ? {
-                ...item,
-                question: faqDraft.question.trim(),
-                answer: faqDraft.answer.trim(),
-              }
-            : item
-        )
-      );
-      toast.success("FAQ 항목을 수정했습니다.");
-    } else {
-      setFAQItems((current: FAQItem[]) => [
-        ...current,
-        {
-          id: String(Date.now()),
-          question: faqDraft.question.trim(),
-          answer: faqDraft.answer.trim(),
-        },
-      ]);
-      toast.success("FAQ 항목을 추가했습니다.");
+    if (useDemoDataMode) {
+      if (editingFaqId) {
+        setFAQItems((current) =>
+          current.map((item) =>
+            item.id === editingFaqId
+              ? {
+                  ...item,
+                  question: faqDraft.question.trim(),
+                  answer: faqDraft.answer.trim(),
+                }
+              : item
+          )
+        );
+        toast.success("FAQ 항목을 수정했습니다.");
+      } else {
+        setFAQItems((current) => [
+          ...current,
+          {
+            id: String(Date.now()),
+            question: faqDraft.question.trim(),
+            answer: faqDraft.answer.trim(),
+          },
+        ]);
+        toast.success("FAQ 항목을 추가했습니다.");
+      }
+
+      markChanged();
+      setFaqDialogOpen(false);
+      return;
     }
 
-    markChanged();
-    setFaqDialogOpen(false);
+    try {
+      if (editingFaqId) {
+        const updated = await updateBusinessFaq(Number(editingFaqId), {
+          question: faqDraft.question.trim(),
+          answer: faqDraft.answer.trim(),
+        });
+        setFAQItems((current) =>
+          current.map((item) =>
+            item.id === editingFaqId ? mapFaqSnapshot(updated) : item
+          )
+        );
+        toast.success("FAQ 항목을 수정했습니다.");
+      } else {
+        const created = await createBusinessFaq({
+          question: faqDraft.question.trim(),
+          answer: faqDraft.answer.trim(),
+        });
+        setFAQItems((current) => [...current, mapFaqSnapshot(created)]);
+        toast.success("FAQ 항목을 추가했습니다.");
+      }
+
+      markChanged();
+      setFaqDialogOpen(false);
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
   };
 
-  const handleDeleteFaq = () => {
+  const handleDeleteFaq = async () => {
     if (!faqDeleteTarget) {
       return;
     }
 
-    setFAQItems((current: FAQItem[]) =>
-      current.filter((item: FAQItem) => item.id !== faqDeleteTarget.id)
-    );
-    setFaqDeleteTarget(null);
-    markChanged();
-    toast.success("FAQ 항목을 삭제했습니다.");
+    if (useDemoDataMode) {
+      setFAQItems((current) =>
+        current.filter((item) => item.id !== faqDeleteTarget.id)
+      );
+      setFaqDeleteTarget(null);
+      markChanged();
+      toast.success("FAQ 항목을 삭제했습니다.");
+      return;
+    }
+
+    try {
+      if (faqDeleteTarget.faqId) {
+        await deleteBusinessFaq(faqDeleteTarget.faqId);
+      }
+      setFAQItems((current) =>
+        current.filter((item) => item.id !== faqDeleteTarget.id)
+      );
+      setFaqDeleteTarget(null);
+      markChanged();
+      toast.success("FAQ 항목을 삭제했습니다.");
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
   };
 
-  const handleFileSelection = (
+  const handleFileSelection = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
     const files = Array.from(event.target.files || []);
@@ -276,37 +504,111 @@ export function BusinessProfile({ scenarioId }: BusinessProfileProps) {
       return;
     }
 
-    const newFiles = files.map((file, index) => ({
-      id: `${Date.now()}-${index}`,
-      name: file.name,
-      uploadDate: "오늘",
-    }));
+    if (useDemoDataMode) {
+      const newFiles = files.map((file, index) => ({
+        id: `${Date.now()}-${index}`,
+        name: file.name,
+        uploadDate: "오늘",
+      }));
 
-    setUploadedFiles((current) => [...newFiles, ...current]);
-    markChanged();
-    toast.success(`${files.length}개 파일을 추가했습니다.`);
-    event.target.value = "";
+      setUploadedFiles((current) => [...newFiles, ...current]);
+      markChanged();
+      toast.success(`${files.length}개 파일을 추가했습니다.`);
+      event.target.value = "";
+      return;
+    }
+
+    try {
+      const uploaded = await Promise.all(files.map((file) => uploadBusinessFile(file)));
+      setUploadedFiles((current) => [
+        ...uploaded.map((file) => ({
+          id: String(file.resourceId),
+          resourceId: file.resourceId,
+          name: file.fileName,
+          uploadDate: formatDateLabel(file.createdAt),
+        })),
+        ...current,
+      ]);
+      markChanged();
+      toast.success(`${files.length}개 파일을 추가했습니다.`);
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      event.target.value = "";
+    }
   };
 
-  const handleRegenerateTemplates = () => {
-    const targetCount =
+  const handleRegenerateTemplates = async () => {
+    const selectedTemplateIds =
       regenerateMode === "bulk"
-        ? impactedCount
-        : selectedTemplates.length;
+        ? templateOptions.map((template) => Number(template.id))
+        : selectedTemplates.map((templateId) => Number(templateId));
 
     if (regenerateErrorScenario) {
       toast.error("템플릿 재생성을 완료하지 못했습니다.");
       return;
     }
 
-    setHasChanges(false);
-    setRegenerateMode(null);
-    toast.success(`템플릿 ${targetCount}개를 재생성했습니다.`);
+    if (!selectedTemplateIds.length) {
+      toast.error("재생성할 템플릿이 없습니다.");
+      return;
+    }
+
+    if (useDemoDataMode) {
+      const targetCount =
+        regenerateMode === "bulk" ? impactedCount : selectedTemplates.length;
+      setHasChanges(false);
+      setRegenerateMode(null);
+      toast.success(`템플릿 ${targetCount}개를 재생성했습니다.`);
+      return;
+    }
+
+    try {
+      setIsRegenerating(true);
+      const result = await regenerateBusinessTemplates({
+        regenerateAll: regenerateMode === "bulk",
+        templateIds: selectedTemplateIds,
+      });
+      setHasChanges(false);
+      setRegenerateMode(null);
+      toast.success(`템플릿 ${result.processingCount}개 재생성 작업을 등록했습니다.`);
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setIsRegenerating(false);
+    }
   };
+
+  if (isLoading) {
+    return (
+      <AppStatePage
+        title="비즈니스 프로필을 불러오는 중입니다"
+        description="회사 정보와 FAQ, 템플릿 영향을 확인하고 있습니다."
+      />
+    );
+  }
 
   return (
     <>
       <div className="mx-auto max-w-[1200px] p-4 lg:p-8">
+        {loadError ? (
+          <StateBanner
+            title="비즈니스 프로필 일부를 불러오지 못했습니다"
+            description={loadError}
+            tone="error"
+            className="mb-6"
+          />
+        ) : null}
+
+        {useDemoDataMode ? (
+          <StateBanner
+            title="데모 데이터 모드"
+            description="현재 화면은 스크린샷과 UI 검증용 목업 데이터를 유지한 상태입니다. 일반 진입에서는 백엔드 API를 사용합니다."
+            tone="info"
+            className="mb-6"
+          />
+        ) : null}
+
         {saveErrorScenario ? (
           <StateBanner
             title="비즈니스 프로필을 저장하지 못했습니다"
@@ -408,11 +710,12 @@ export function BusinessProfile({ scenarioId }: BusinessProfileProps) {
 
             <div className="flex justify-end border-t border-[#E2E8F0] pt-3">
               <button
-                onClick={handleSaveProfile}
-                className="flex items-center gap-2 rounded-lg bg-[#1E2A3A] px-4 py-2 text-[13px] text-white transition-colors hover:bg-[#2A3A4E]"
+                onClick={() => void handleSaveProfile()}
+                disabled={isSavingProfile}
+                className="flex items-center gap-2 rounded-lg bg-[#1E2A3A] px-4 py-2 text-[13px] text-white transition-colors hover:bg-[#2A3A4E] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Save className="h-4 w-4" />
-                저장
+                {isSavingProfile ? "저장 중..." : "저장"}
               </button>
             </div>
           </div>
@@ -440,7 +743,7 @@ export function BusinessProfile({ scenarioId }: BusinessProfileProps) {
                     {file.uploadDate} 업로드
                   </span>
                   <button
-                    onClick={() => handleRemoveFile(file.id)}
+                    onClick={() => void handleRemoveFile(file.id)}
                     className="rounded-md p-1.5 text-[#94A3B8] opacity-0 transition-all hover:bg-[#FEF2F2] hover:text-[#EF4444] group-hover:opacity-100"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -529,13 +832,15 @@ export function BusinessProfile({ scenarioId }: BusinessProfileProps) {
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setRegenerateMode("bulk")}
-                className="rounded-lg bg-[#1E2A3A] px-4 py-2 text-[13px] text-white transition-colors hover:bg-[#2A3A4E]"
+                disabled={!canRegenerate}
+                className="rounded-lg bg-[#1E2A3A] px-4 py-2 text-[13px] text-white transition-colors hover:bg-[#2A3A4E] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 템플릿 일괄 재생성
               </button>
               <button
                 onClick={() => setRegenerateMode("select")}
-                className="rounded-lg border border-[#E2E8F0] bg-white px-4 py-2 text-[13px] text-[#64748B] transition-colors hover:bg-[#F8FAFC]"
+                disabled={!canRegenerate}
+                className="rounded-lg border border-[#E2E8F0] bg-white px-4 py-2 text-[13px] text-[#64748B] transition-colors hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 개별 선택 후 재생성
               </button>
@@ -554,7 +859,7 @@ export function BusinessProfile({ scenarioId }: BusinessProfileProps) {
           type="file"
           multiple
           className="hidden"
-          onChange={handleFileSelection}
+          onChange={(event) => void handleFileSelection(event)}
         />
       </div>
 
@@ -619,7 +924,7 @@ export function BusinessProfile({ scenarioId }: BusinessProfileProps) {
             <button
               type="button"
               className="rounded-xl bg-[#1E2A3A] px-4 py-2 text-sm text-white"
-              onClick={handleSaveFaq}
+              onClick={() => void handleSaveFaq()}
             >
               저장
             </button>
@@ -637,7 +942,7 @@ export function BusinessProfile({ scenarioId }: BusinessProfileProps) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>취소</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteFaq}>
+            <AlertDialogAction onClick={() => void handleDeleteFaq()}>
               삭제
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -669,17 +974,17 @@ export function BusinessProfile({ scenarioId }: BusinessProfileProps) {
 
           {regenerateMode === "select" ? (
             <div className="space-y-2">
-              {impactedTemplates.map((template) => {
-                const selected = selectedTemplates.includes(template);
+              {templateOptions.map((template) => {
+                const selected = selectedTemplates.includes(template.id);
                 return (
                   <button
-                    key={template}
+                    key={template.id}
                     type="button"
                     onClick={() =>
                       setSelectedTemplates((current) =>
                         selected
-                          ? current.filter((item) => item !== template)
-                          : [...current, template]
+                          ? current.filter((item) => item !== template.id)
+                          : [...current, template.id]
                       )
                     }
                     className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-sm transition ${
@@ -688,7 +993,7 @@ export function BusinessProfile({ scenarioId }: BusinessProfileProps) {
                         : "border-border bg-background text-foreground"
                     }`}
                   >
-                    <span>{template}</span>
+                    <span>{template.title}</span>
                     <span>{selected ? "선택됨" : "선택"}</span>
                   </button>
                 );
@@ -706,10 +1011,11 @@ export function BusinessProfile({ scenarioId }: BusinessProfileProps) {
             </button>
             <button
               type="button"
-              className="rounded-xl bg-[#1E2A3A] px-4 py-2 text-sm text-white"
-              onClick={handleRegenerateTemplates}
+              disabled={isRegenerating || !canRegenerate}
+              className="rounded-xl bg-[#1E2A3A] px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={() => void handleRegenerateTemplates()}
             >
-              재생성 시작
+              {isRegenerating ? "재생성 요청 중..." : "재생성 시작"}
             </button>
           </DialogFooter>
         </DialogContent>
