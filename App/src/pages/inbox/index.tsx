@@ -23,6 +23,7 @@ import {
   mapInboxListItem,
   mergeInboxDetail,
 } from "../../app/components/inbox.helpers";
+import { resolveDemoScenarioId } from "../../shared/scenarios/demo-mode";
 
 type InboxStatus = "all" | EmailStatus;
 
@@ -39,7 +40,7 @@ function getCurrentTimeLabel() {
 
 export function InboxPage() {
   const [searchParams] = useSearchParams();
-  const scenarioId = searchParams.get("scenario");
+  const scenarioId = resolveDemoScenarioId(searchParams.get("scenario"), "inbox-demo");
   const emptyScenario = scenarioId === "inbox-empty";
   const listErrorScenario = scenarioId === "inbox-list-error";
   const threadErrorScenario = scenarioId === "inbox-thread-error";

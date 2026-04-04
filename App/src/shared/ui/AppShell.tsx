@@ -2,21 +2,26 @@ import { useEffect, useRef, useState } from "react";
 import { useTheme } from "next-themes";
 import { Outlet, useLocation } from "react-router";
 import { Menu } from "lucide-react";
+import { toast } from "sonner";
+import {
+  getNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+} from "../api/notifications";
 import { useUiStore } from "../../app/store/uiStore";
-import { notificationItems as initialNotifications } from "../../entities/notification/model/notification-data";
 import { AppSidebar } from "../../features/layout/ui/AppSidebar";
 import { GlobalSearchPanel } from "../../features/layout/ui/GlobalSearchPanel";
 import { NotificationPanel } from "../../features/layout/ui/NotificationPanel";
 import { ProfileMenu } from "../../features/layout/ui/ProfileMenu";
+import { demoNotifications } from "../demo/demo-data";
 import type { NotificationItem } from "../types";
+import { isDemoModeEnabled } from "../scenarios/demo-mode";
 
 export function AppShell() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [notifications, setNotifications] = useState<NotificationItem[]>(
-    initialNotifications as NotificationItem[]
-  );
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [notificationFilter, setNotificationFilter] = useState<"all" | "unread">("all");
   const { resolvedTheme, setTheme } = useTheme();
   const location = useLocation();
@@ -32,6 +37,7 @@ export function AppShell() {
   const showSearch = ["/app/inbox", "/app/calendar", "/app/templates"].some((path) =>
     location.pathname.startsWith(path)
   );
+  const demoMode = isDemoModeEnabled();
   const contentLayoutClass = showSearch ? "h-screen" : "min-h-screen";
   const mainLayoutClass = showSearch
     ? "min-h-0 flex-1 overflow-hidden px-0 py-0"
@@ -55,6 +61,35 @@ export function AppShell() {
       setSearchOpen(false);
     }
   }, [searchOpen, setSearchOpen, showSearch]);
+
+  useEffect(() => {
+    if (demoMode) {
+      setNotifications(demoNotifications);
+      return;
+    }
+
+    let mounted = true;
+
+    void getNotifications()
+      .then((items) => {
+        if (!mounted) {
+          return;
+        }
+
+        setNotifications(items);
+      })
+      .catch((error) => {
+        if (!mounted) {
+          return;
+        }
+
+        toast.error(error instanceof Error ? error.message : "알림을 불러오지 못했습니다.");
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [demoMode]);
 
   const theme = resolvedTheme === "dark" ? "dark" : "light";
   const desktopSidebarOffset = collapsed ? "lg:pl-[88px]" : "lg:pl-[270px]";
@@ -103,14 +138,32 @@ export function AppShell() {
                   activeFilter={notificationFilter}
                   onToggle={() => setNotificationOpen(!notificationOpen)}
                   onFilterChange={setNotificationFilter}
-                  onMarkAllRead={() =>
-                    setNotifications((current) => current.map((item) => ({ ...item, read: true })))
-                  }
-                  onNotificationRead={(id: string) =>
+                  onMarkAllRead={() => {
+                    setNotifications((current) => current.map((item) => ({ ...item, read: true })));
+                    if (demoMode) {
+                      return;
+                    }
+                    void markAllNotificationsRead().catch((error) => {
+                      toast.error(
+                        error instanceof Error ? error.message : "알림 상태를 저장하지 못했습니다.",
+                      );
+                      void getNotifications().then((items) => setNotifications(items));
+                    });
+                  }}
+                  onNotificationRead={(id: string) => {
                     setNotifications((current) =>
-                      current.map((item) => (item.id === id ? { ...item, read: true } : item))
-                    )
-                  }
+                      current.map((item) => (item.id === id ? { ...item, read: true } : item)),
+                    );
+                    if (demoMode) {
+                      return;
+                    }
+                    void markNotificationRead(id).catch((error) => {
+                      toast.error(
+                        error instanceof Error ? error.message : "알림 상태를 저장하지 못했습니다.",
+                      );
+                      void getNotifications().then((items) => setNotifications(items));
+                    });
+                  }}
                 />
 
                 <ProfileMenu
