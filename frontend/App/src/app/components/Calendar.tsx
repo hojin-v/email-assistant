@@ -50,23 +50,44 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
+import {
+  confirmCalendarEvent,
+  createCalendarEvent,
+  deleteCalendarEvent,
+  getCalendarEvents,
+  type CalendarEventSnapshot,
+  updateCalendarEvent,
+} from "../../shared/api/calendar";
+import { getErrorMessage } from "../../shared/api/http";
 import { AppStatePage } from "../../shared/ui/primitives/AppStatePage";
 import { StateBanner } from "../../shared/ui/primitives/StateBanner";
 import { StatePanel } from "../../shared/ui/primitives/StatePanel";
+import {
+  type CalendarEventType,
+  getCalendarMonthRange,
+  inferCalendarEventType,
+  isEndTimeBeforeStartTime,
+  splitCalendarDateTime,
+  toCalendarApiDateTime,
+} from "./calendar.helpers";
 
 export interface CalendarEvent {
   id: string;
+  eventId?: number;
   title: string;
   date: string;
   startTime: string;
   endTime: string;
-  type: "meeting" | "call" | "video" | "deadline";
+  type: CalendarEventType;
   location?: string;
   attendees: { name: string; email: string; company: string }[];
   fromEmail?: { sender: string; subject: string; id: string };
   color: string;
   confirmed: boolean;
   notes?: string;
+  source?: string | null;
+  status?: string | null;
+  isCalendarAdded?: boolean;
 }
 
 interface CalendarEventDraft {
@@ -247,6 +268,39 @@ function buildAttendees(attendeesText: string) {
     }));
 }
 
+function mapSnapshotToEvent(snapshot: CalendarEventSnapshot): CalendarEvent {
+  const start = splitCalendarDateTime(snapshot.startDatetime, "00:00");
+  const end = splitCalendarDateTime(
+    snapshot.endDatetime ?? snapshot.startDatetime,
+    start.time,
+  );
+  const normalizedType = inferCalendarEventType(snapshot.title);
+  const confirmed = snapshot.status === "CONFIRMED";
+
+  return {
+    id: String(snapshot.eventId),
+    eventId: snapshot.eventId,
+    title: snapshot.title,
+    date: start.date,
+    startTime: start.time,
+    endTime: end.time,
+    type: normalizedType,
+    attendees: [],
+    color: colorByType[normalizedType],
+    confirmed,
+    source: snapshot.source,
+    status: snapshot.status,
+    isCalendarAdded: snapshot.isCalendarAdded,
+    fromEmail: snapshot.emailId
+      ? {
+          id: String(snapshot.emailId),
+          sender: `이메일 #${snapshot.emailId}`,
+          subject: "연결된 원본 이메일",
+        }
+      : undefined,
+  };
+}
+
 const typeIcons: Record<CalendarEvent["type"], typeof Video> = {
   meeting: Users,
   call: Clock,
@@ -424,16 +478,19 @@ export function Calendar({ scenarioId }: CalendarProps) {
   const editNormalScenario = scenarioId === "calendar-edit-normal";
   const deleteNormalScenario = scenarioId === "calendar-delete-normal";
   const createErrorScenario = scenarioId === "calendar-create-error";
-  const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
-  const [currentYear, setCurrentYear] = useState(2026);
-  const [currentMonth, setCurrentMonth] = useState(2);
-  const [selectedDate, setSelectedDate] = useState<string | null>("2026-03-02");
+  const useDemoDataMode = Boolean(scenarioId?.startsWith("calendar-"));
+  const todayDate = new Date();
+  const today = format(todayDate, "yyyy-MM-dd");
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [currentYear, setCurrentYear] = useState(useDemoDataMode ? 2026 : todayDate.getFullYear());
+  const [currentMonth, setCurrentMonth] = useState(useDemoDataMode ? 2 : todayDate.getMonth());
+  const [selectedDate, setSelectedDate] = useState<string | null>(useDemoDataMode ? "2026-03-02" : today);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorMode, setEditorMode] = useState<"create" | "edit">("create");
   const [draft, setDraft] = useState<CalendarEventDraft>({
     title: "",
-    date: "2026-03-02",
+    date: useDemoDataMode ? "2026-03-02" : today,
     startTime: "09:00",
     endTime: "10:00",
     type: "meeting",
@@ -442,6 +499,11 @@ export function Calendar({ scenarioId }: CalendarProps) {
     notes: "",
   });
   const [deleteTarget, setDeleteTarget] = useState<CalendarEvent | null>(null);
+  const [isLoading, setIsLoading] = useState(!useDemoDataMode);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const visibleEvents = emptyScenario ? [] : events;
 
   const daysInMonth = getDaysInMonth(currentYear, currentMonth);
@@ -450,6 +512,41 @@ export function Calendar({ scenarioId }: CalendarProps) {
 
   const selectedEvent =
     visibleEvents.find((event) => event.id === selectedEventId) || null;
+
+  async function loadEvents() {
+    if (useDemoDataMode) {
+      return;
+    }
+
+    setIsLoading(true);
+    setLoadError(null);
+
+    try {
+      const range = getCalendarMonthRange(currentYear, currentMonth);
+      const snapshots = await getCalendarEvents({
+        startDate: range.start,
+        endDate: range.end,
+      });
+      const mappedEvents = snapshots.map(mapSnapshotToEvent);
+
+      setEvents(mappedEvents);
+    } catch (error) {
+      setLoadError(getErrorMessage(error, "캘린더를 불러오지 못했습니다."));
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (useDemoDataMode) {
+      setEvents(initialEvents);
+      setIsLoading(false);
+      setLoadError(null);
+      return;
+    }
+
+    void loadEvents();
+  }, [currentMonth, currentYear, useDemoDataMode]);
 
   useEffect(() => {
     const state = location.state as
@@ -485,24 +582,52 @@ export function Calendar({ scenarioId }: CalendarProps) {
 
     setSelectedDate(prefillDraft.date);
 
+    const submitPrefill = async () => {
+      if (useDemoDataMode) {
+        const newEvent: CalendarEvent = {
+          id: String(Date.now()),
+          title: prefillDraft.title,
+          date: prefillDraft.date,
+          startTime: prefillDraft.startTime,
+          endTime: prefillDraft.endTime,
+          type: prefillDraft.type,
+          location: prefillDraft.location,
+          attendees: buildAttendees(prefillDraft.attendeesText),
+          fromEmail: state.prefillEvent?.fromEmail,
+          color: colorByType[prefillDraft.type],
+          confirmed: false,
+          notes: prefillDraft.notes,
+        };
+        setEvents((current) => [newEvent, ...current]);
+        setSelectedEventId(newEvent.id);
+        toast.success("일정을 캘린더에 추가했습니다.");
+        return;
+      }
+
+      try {
+        const createdEvent = await createCalendarEvent({
+          title: prefillDraft.title,
+          startDatetime: toCalendarApiDateTime(prefillDraft.date, prefillDraft.startTime),
+          endDatetime: toCalendarApiDateTime(prefillDraft.date, prefillDraft.endTime),
+        });
+        const mappedEvent = {
+          ...mapSnapshotToEvent(createdEvent),
+          location: prefillDraft.location,
+          attendees: buildAttendees(prefillDraft.attendeesText),
+          notes: prefillDraft.notes,
+          fromEmail: state.prefillEvent?.fromEmail,
+        };
+
+        setEvents((current) => [mappedEvent, ...current]);
+        setSelectedEventId(mappedEvent.id);
+        toast.success("일정을 캘린더에 추가했습니다.");
+      } catch (error) {
+        toast.error(getErrorMessage(error, "일정을 추가하지 못했습니다."));
+      }
+    };
+
     if (state.autoSubmit) {
-      const newEvent: CalendarEvent = {
-        id: String(Date.now()),
-        title: prefillDraft.title,
-        date: prefillDraft.date,
-        startTime: prefillDraft.startTime,
-        endTime: prefillDraft.endTime,
-        type: prefillDraft.type,
-        location: prefillDraft.location,
-        attendees: buildAttendees(prefillDraft.attendeesText),
-        fromEmail: state.prefillEvent.fromEmail,
-        color: colorByType[prefillDraft.type],
-        confirmed: false,
-        notes: prefillDraft.notes,
-      };
-      setEvents((current) => [newEvent, ...current]);
-      setSelectedEventId(newEvent.id);
-      toast.success("일정을 캘린더에 추가했습니다.");
+      void submitPrefill();
     } else {
       setDraft(prefillDraft);
       setEditorMode("create");
@@ -510,9 +635,13 @@ export function Calendar({ scenarioId }: CalendarProps) {
     }
 
     navigate(location.pathname, { replace: true, state: null });
-  }, [location.pathname, location.state, navigate]);
+  }, [location.pathname, location.state, navigate, useDemoDataMode]);
 
   useEffect(() => {
+    if (!useDemoDataMode) {
+      return;
+    }
+
     if (createNormalScenario) {
       setSelectedDate("2026-03-12");
       setSelectedEventId(null);
@@ -567,7 +696,7 @@ export function Calendar({ scenarioId }: CalendarProps) {
       notes: "계약 조건 후속 협의",
     });
     setEditorOpen(true);
-  }, [createErrorScenario, createNormalScenario, deleteNormalScenario, editNormalScenario]);
+  }, [createErrorScenario, createNormalScenario, deleteNormalScenario, editNormalScenario, useDemoDataMode]);
 
   const changeMonth = (direction: number) => {
     const nextDate = new Date(currentYear, currentMonth + direction, 1);
@@ -589,18 +718,18 @@ export function Calendar({ scenarioId }: CalendarProps) {
   const selectedDateEvents = selectedDate ? getEventsForDate(selectedDate) : [];
   const emailLinkedEvents = useMemo(
     () => visibleEvents.filter((event) => event.fromEmail),
-    [visibleEvents]
+    [visibleEvents],
   );
   const pendingEvents = useMemo(
     () => visibleEvents.filter((event) => !event.confirmed),
-    [visibleEvents]
+    [visibleEvents],
   );
 
   const openCreateDialog = () => {
     setEditorMode("create");
     setDraft({
       title: "",
-      date: selectedDate || "2026-03-02",
+      date: selectedDate || today,
       startTime: "09:00",
       endTime: "10:00",
       type: "meeting",
@@ -618,9 +747,14 @@ export function Calendar({ scenarioId }: CalendarProps) {
     setEditorOpen(true);
   };
 
-  const handleSaveEvent = () => {
+  const handleSaveEvent = async () => {
     if (!draft.title.trim()) {
       toast.error("일정 제목을 입력하세요.");
+      return;
+    }
+
+    if (isEndTimeBeforeStartTime(draft.startTime, draft.endTime)) {
+      toast.error("종료 시간은 시작 시간 이후여야 합니다.");
       return;
     }
 
@@ -629,75 +763,164 @@ export function Calendar({ scenarioId }: CalendarProps) {
       return;
     }
 
-    if (editorMode === "edit" && selectedEvent) {
-      setEvents((current) =>
-        current.map((event) =>
-          event.id === selectedEvent.id
-            ? {
-                ...event,
-                title: draft.title.trim(),
-                date: draft.date,
-                startTime: draft.startTime,
-                endTime: draft.endTime,
-                type: draft.type,
-                location: draft.location,
-                attendees: buildAttendees(draft.attendeesText),
-                color: colorByType[draft.type],
-                notes: draft.notes,
-              }
-            : event
-        )
-      );
-      toast.success("일정을 수정했습니다.");
-    } else {
-      const newEvent: CalendarEvent = {
-        id: String(Date.now()),
-        title: draft.title.trim(),
-        date: draft.date,
-        startTime: draft.startTime,
-        endTime: draft.endTime,
-        type: draft.type,
-        location: draft.location,
-        attendees: buildAttendees(draft.attendeesText),
-        color: colorByType[draft.type],
-        confirmed: draft.type === "deadline",
-        notes: draft.notes,
-      };
-      setEvents((current) => [newEvent, ...current]);
-      setSelectedEventId(newEvent.id);
-      toast.success("새 일정을 추가했습니다.");
-    }
+    setIsSaving(true);
 
-    setSelectedDate(draft.date);
-    setEditorOpen(false);
+    try {
+      if (editorMode === "edit" && selectedEvent) {
+        if (useDemoDataMode || !selectedEvent.eventId) {
+          setEvents((current) =>
+            current.map((event) =>
+              event.id === selectedEvent.id
+                ? {
+                    ...event,
+                    title: draft.title.trim(),
+                    date: draft.date,
+                    startTime: draft.startTime,
+                    endTime: draft.endTime,
+                    type: draft.type,
+                    location: draft.location,
+                    attendees: buildAttendees(draft.attendeesText),
+                    color: colorByType[draft.type],
+                    notes: draft.notes,
+                  }
+                : event,
+            ),
+          );
+        } else {
+          const updatedEvent = await updateCalendarEvent(selectedEvent.eventId, {
+            title: draft.title.trim(),
+            startDatetime: toCalendarApiDateTime(draft.date, draft.startTime),
+            endDatetime: toCalendarApiDateTime(draft.date, draft.endTime),
+          });
+          const mappedEvent = {
+            ...mapSnapshotToEvent(updatedEvent),
+            location: selectedEvent.location,
+            attendees: selectedEvent.attendees,
+            notes: selectedEvent.notes,
+            fromEmail: selectedEvent.fromEmail,
+          };
+
+          setEvents((current) =>
+            current.map((event) => (event.id === selectedEvent.id ? mappedEvent : event)),
+          );
+        }
+        toast.success("일정을 수정했습니다.");
+      } else if (useDemoDataMode) {
+        const newEvent: CalendarEvent = {
+          id: String(Date.now()),
+          title: draft.title.trim(),
+          date: draft.date,
+          startTime: draft.startTime,
+          endTime: draft.endTime,
+          type: draft.type,
+          location: draft.location,
+          attendees: buildAttendees(draft.attendeesText),
+          color: colorByType[draft.type],
+          confirmed: draft.type === "deadline",
+          notes: draft.notes,
+        };
+        setEvents((current) => [newEvent, ...current]);
+        setSelectedEventId(newEvent.id);
+        toast.success("새 일정을 추가했습니다.");
+      } else {
+        const createdEvent = await createCalendarEvent({
+          title: draft.title.trim(),
+          startDatetime: toCalendarApiDateTime(draft.date, draft.startTime),
+          endDatetime: toCalendarApiDateTime(draft.date, draft.endTime),
+        });
+        const mappedEvent = {
+          ...mapSnapshotToEvent(createdEvent),
+          location: draft.location,
+          attendees: buildAttendees(draft.attendeesText),
+          notes: draft.notes,
+        };
+
+        setEvents((current) => [mappedEvent, ...current]);
+        setSelectedEventId(mappedEvent.id);
+        toast.success("새 일정을 추가했습니다.");
+      }
+
+      setSelectedDate(draft.date);
+      setEditorOpen(false);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "일정을 저장하지 못했습니다."));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleConfirmEvent = () => {
+  const handleConfirmEvent = async () => {
     if (!selectedEvent) {
       return;
     }
 
-    setEvents((current) =>
-      current.map((event) =>
-        event.id === selectedEvent.id ? { ...event, confirmed: true } : event
-      )
-    );
-    toast.success("일정을 확정했습니다.");
+    if (useDemoDataMode || !selectedEvent.eventId) {
+      setEvents((current) =>
+        current.map((event) =>
+          event.id === selectedEvent.id ? { ...event, confirmed: true } : event,
+        ),
+      );
+      toast.success("일정을 확정했습니다.");
+      return;
+    }
+
+    setIsConfirming(true);
+
+    try {
+      const confirmedEvent = await confirmCalendarEvent(selectedEvent.eventId);
+      const mappedEvent = {
+        ...mapSnapshotToEvent(confirmedEvent),
+        location: selectedEvent.location,
+        attendees: selectedEvent.attendees,
+        notes: selectedEvent.notes,
+        fromEmail: selectedEvent.fromEmail,
+      };
+
+      setEvents((current) =>
+        current.map((event) => (event.id === selectedEvent.id ? mappedEvent : event)),
+      );
+      toast.success("일정을 확정했습니다.");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "일정을 확정하지 못했습니다."));
+    } finally {
+      setIsConfirming(false);
+    }
   };
 
-  const handleDeleteEvent = () => {
+  const handleDeleteEvent = async () => {
     if (!deleteTarget) {
       return;
     }
 
-    setEvents((current) =>
-      current.filter((event) => event.id !== deleteTarget.id)
-    );
-    if (selectedEventId === deleteTarget.id) {
-      setSelectedEventId(null);
+    if (useDemoDataMode || !deleteTarget.eventId) {
+      setEvents((current) =>
+        current.filter((event) => event.id !== deleteTarget.id),
+      );
+      if (selectedEventId === deleteTarget.id) {
+        setSelectedEventId(null);
+      }
+      toast.success("일정을 삭제했습니다.");
+      setDeleteTarget(null);
+      return;
     }
-    toast.success("일정을 삭제했습니다.");
-    setDeleteTarget(null);
+
+    setIsDeleting(true);
+
+    try {
+      await deleteCalendarEvent(deleteTarget.eventId);
+      setEvents((current) =>
+        current.filter((event) => event.id !== deleteTarget.id),
+      );
+      if (selectedEventId === deleteTarget.id) {
+        setSelectedEventId(null);
+      }
+      toast.success("일정을 삭제했습니다.");
+      setDeleteTarget(null);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "일정을 삭제하지 못했습니다."));
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const openMeetingLink = () => {
@@ -708,11 +931,9 @@ export function Calendar({ scenarioId }: CalendarProps) {
     window.open(
       `https://calendar.google.com/calendar/u/0/r/eventedit/${selectedEvent.id}`,
       "_blank",
-      "noopener,noreferrer"
+      "noopener,noreferrer",
     );
   };
-
-  const today = "2026-03-02";
 
   if (loadErrorScenario) {
     return (
@@ -723,10 +944,46 @@ export function Calendar({ scenarioId }: CalendarProps) {
     );
   }
 
+  if (loadError) {
+    return (
+      <AppStatePage
+        title="캘린더를 불러오지 못했습니다"
+        description={loadError}
+        action={
+          <button
+            type="button"
+            onClick={() => void loadEvents()}
+            className="app-cta-primary inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm font-medium"
+          >
+            다시 시도
+          </button>
+        }
+      />
+    );
+  }
+
   return (
     <>
       <div className="flex h-full w-full min-h-0 min-w-0 flex-col bg-background lg:flex-row">
         <div className="scrollbar-none min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-4 lg:px-6 lg:py-5">
+          {useDemoDataMode ? (
+            <StateBanner
+              title="데모 데이터 모드"
+              description="시나리오용 목업 일정을 유지하고 있습니다. 실제 백엔드 연결 상태는 일반 진입 경로에서 확인할 수 있습니다."
+              tone="info"
+              className="mb-5"
+            />
+          ) : null}
+
+          {!useDemoDataMode ? (
+            <StateBanner
+              title="현재 연결된 캘린더 범위"
+              description="실제 백엔드에는 제목, 시작 시간, 종료 시간, 확정 상태만 저장됩니다. 장소, 참석자, 메모는 현재 화면 보조 정보이며 아직 서버에는 저장되지 않습니다."
+              tone="warning"
+              className="mb-5"
+            />
+          ) : null}
+
           {syncErrorScenario ? (
             <StateBanner
               title="Google Calendar 동기화에 문제가 있습니다"
@@ -791,8 +1048,8 @@ export function Calendar({ scenarioId }: CalendarProps) {
                     day === "일"
                       ? "text-[#EF4444]"
                       : day === "토"
-                      ? "text-[#3B82F6]"
-                      : "text-[#94A3B8]"
+                        ? "text-[#3B82F6]"
+                        : "text-[#94A3B8]"
                   }`}
                 >
                   {day}
@@ -835,10 +1092,10 @@ export function Calendar({ scenarioId }: CalendarProps) {
                         isToday
                           ? "bg-[#1E2A3A] text-white dark:bg-[#18263A]"
                           : dayOfWeek === 0
-                          ? "text-[#EF4444]"
-                          : dayOfWeek === 6
-                          ? "text-[#3B82F6]"
-                          : "text-[#1E2A3A] dark:text-foreground"
+                            ? "text-[#EF4444]"
+                            : dayOfWeek === 6
+                              ? "text-[#3B82F6]"
+                              : "text-[#1E2A3A] dark:text-foreground"
                       }`}
                     >
                       {day}
@@ -997,7 +1254,7 @@ export function Calendar({ scenarioId }: CalendarProps) {
                       </span>
                     </div>
                     <p className="text-[12px] text-[#1E2A3A] dark:text-foreground">
-                      {selectedEvent.fromEmail.sender}님의 이메일
+                      {selectedEvent.fromEmail.sender}
                     </p>
                     <p className="truncate text-[11px] text-[#64748B] dark:text-muted-foreground">
                       "{selectedEvent.fromEmail.subject}"
@@ -1023,15 +1280,24 @@ export function Calendar({ scenarioId }: CalendarProps) {
                   </div>
                 ) : null}
 
+                {!useDemoDataMode && (!selectedEvent.location || selectedEvent.attendees.length === 0) ? (
+                  <StateBanner
+                    title="일부 상세 정보는 아직 백엔드와 연결되지 않았습니다"
+                    description="현재 API 응답에는 장소, 참석자, 메모가 포함되지 않아 이 일정에서는 표시되지 않을 수 있습니다."
+                    tone="neutral"
+                  />
+                ) : null}
+
                 <div className="flex gap-2 border-t border-[#F1F5F9] pt-3 dark:border-border">
                   {!selectedEvent.confirmed ? (
                     <>
                       <button
-                        onClick={handleConfirmEvent}
+                        onClick={() => void handleConfirmEvent()}
+                        disabled={isConfirming}
                         className="app-cta-accent flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-[13px]"
                       >
                         <CalendarCheck className="h-4 w-4" />
-                        일정 확정
+                        {isConfirming ? "확정 중..." : "일정 확정"}
                       </button>
                       <button
                         onClick={() => openEditDialog(selectedEvent)}
@@ -1128,7 +1394,7 @@ export function Calendar({ scenarioId }: CalendarProps) {
                           {event.fromEmail ? (
                             <span className="mt-1.5 inline-flex items-center gap-1 rounded bg-[#2DD4BF]/10 px-2 py-0.5 text-[10px] text-[#0D9488] dark:bg-[#0B2728] dark:text-[#5EEAD4]">
                               <Mail className="h-2.5 w-2.5" />
-                              {event.fromEmail.sender}님 이메일
+                              {event.fromEmail.sender}
                             </span>
                           ) : null}
                         </div>
@@ -1207,6 +1473,14 @@ export function Calendar({ scenarioId }: CalendarProps) {
               title="일정 저장을 완료하지 못했습니다"
               description="입력한 내용은 유지되었지만 저장 응답이 지연되고 있습니다. 다시 시도해 주세요."
               tone="error"
+            />
+          ) : null}
+
+          {!useDemoDataMode ? (
+            <StateBanner
+              title="지금 저장되는 항목"
+              description="실제 백엔드에는 제목, 날짜, 시작 시간, 종료 시간만 저장됩니다. 장소, 참석자, 메모는 문서화된 미구현 항목으로 남겨두고 있습니다."
+              tone="warning"
             />
           ) : null}
 
@@ -1295,7 +1569,8 @@ export function Calendar({ scenarioId }: CalendarProps) {
                 onChange={(event) =>
                   setDraft((current) => ({ ...current, location: event.target.value }))
                 }
-                className="app-form-input h-11 w-full rounded-xl px-4 text-sm"
+                disabled={!useDemoDataMode}
+                className="app-form-input h-11 w-full rounded-xl px-4 text-sm disabled:cursor-not-allowed disabled:opacity-60"
               />
             </label>
 
@@ -1310,7 +1585,8 @@ export function Calendar({ scenarioId }: CalendarProps) {
                   }))
                 }
                 placeholder="이름을 쉼표로 구분하세요"
-                className="app-form-input h-11 w-full rounded-xl px-4 text-sm"
+                disabled={!useDemoDataMode}
+                className="app-form-input h-11 w-full rounded-xl px-4 text-sm disabled:cursor-not-allowed disabled:opacity-60"
               />
             </label>
 
@@ -1322,7 +1598,8 @@ export function Calendar({ scenarioId }: CalendarProps) {
                 onChange={(event) =>
                   setDraft((current) => ({ ...current, notes: event.target.value }))
                 }
-                className="app-form-input w-full rounded-xl px-4 py-3 text-sm"
+                disabled={!useDemoDataMode}
+                className="app-form-input w-full rounded-xl px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
               />
             </label>
           </div>
@@ -1332,15 +1609,17 @@ export function Calendar({ scenarioId }: CalendarProps) {
               type="button"
               className="rounded-xl border border-border px-4 py-2 text-sm text-muted-foreground"
               onClick={() => setEditorOpen(false)}
+              disabled={isSaving}
             >
               취소
             </button>
             <button
               type="button"
               className="app-cta-primary rounded-xl px-4 py-2 text-sm"
-              onClick={handleSaveEvent}
+              onClick={() => void handleSaveEvent()}
+              disabled={isSaving}
             >
-              저장
+              {isSaving ? "저장 중..." : "저장"}
             </button>
           </DialogFooter>
         </DialogContent>
@@ -1355,9 +1634,9 @@ export function Calendar({ scenarioId }: CalendarProps) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>취소</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteEvent}>
-              삭제
+            <AlertDialogCancel disabled={isDeleting}>취소</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void handleDeleteEvent()} disabled={isDeleting}>
+              {isDeleting ? "삭제 중..." : "삭제"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
