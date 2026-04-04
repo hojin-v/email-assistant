@@ -12,11 +12,12 @@ import type {
   DisplaySettings,
   SettingsTabId,
 } from "../../shared/types";
+import { resolveDemoScenarioId } from "../../shared/scenarios/demo-mode";
 
 export function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const searchTab = searchParams.get("tab");
-  const scenarioId = searchParams.get("scenario");
+  const scenarioId = resolveDemoScenarioId(searchParams.get("scenario"), "settings-demo");
   const [activeTab, setActiveTab] = useState<SettingsTabId>(
     (searchTab as SettingsTabId) || (defaultSettingsState.activeTab as SettingsTabId)
   );

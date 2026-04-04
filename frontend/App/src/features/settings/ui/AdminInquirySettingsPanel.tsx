@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { MessageSquareMore, Plus, Send } from "lucide-react";
 import { toast } from "sonner";
+import {
+  createSupportTicket,
+  getSupportTicket,
+  getSupportTickets,
+  type SupportTicketDetail,
+  type SupportTicketSummary,
+} from "../../../shared/api/support";
+import { getErrorMessage } from "../../../shared/api/http";
 import { SectionCard } from "../../../shared/ui/primitives/SectionCard";
 import { StateBanner } from "../../../shared/ui/primitives/StateBanner";
 import { StatusBadge } from "../../../shared/ui/primitives/StatusBadge";
@@ -16,59 +24,90 @@ import {
 type SupportTicketStatus = "PENDING" | "ANSWERED";
 type SupportTicketFilter = "all" | SupportTicketStatus;
 
-interface SupportTicket {
-  ticketId: string;
-  title: string;
-  content: string;
-  status: SupportTicketStatus;
-  createdAt: string;
-  repliedAt?: string;
-  adminReply?: string;
-}
-
-const initialTickets: SupportTicket[] = [
-  {
-    ticketId: "T-240315-01",
-    title: "캘린더 등록 대기 일정이 동기화되지 않습니다",
-    content:
-      "미팅 일정 조율 메일에서 감지된 일정이 승인 후에도 캘린더 화면에 보이지 않습니다. 확인 부탁드립니다.",
-    status: "PENDING",
-    createdAt: "2026.03.15 09:20",
-  },
-  {
-    ticketId: "T-240313-04",
-    title: "템플릿 재생성 이후 기존 초안이 유지되는지 문의합니다",
-    content:
-      "비즈니스 자료를 수정한 뒤 템플릿 재생성을 실행하면 이미 생성된 초안이 바뀌는지 확인하고 싶습니다.",
-    status: "ANSWERED",
-    createdAt: "2026.03.13 14:05",
-    repliedAt: "2026.03.13 16:40",
-    adminReply:
-      "이미 생성된 초안은 자동으로 덮어쓰지 않고, 이후 새로 생성되는 초안부터 갱신된 템플릿을 사용합니다.",
-  },
-];
-
 function formatTicketStatus(status: SupportTicketStatus) {
   return status === "ANSWERED"
     ? { label: "답변 완료", tone: "success" as const }
     : { label: "답변 대기", tone: "warning" as const };
 }
 
+function formatTicketDate(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("ko-KR", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
+
 interface AdminInquirySettingsPanelProps {
   scenarioId?: string | null;
 }
 
+const demoTickets: SupportTicketSummary[] = [
+  {
+    ticketId: "support-101",
+    title: "캘린더 등록 자동화 동작 문의",
+    contentPreview: "미팅 요청 메일에서 감지된 일정이 어떤 조건일 때 자동 등록되는지 확인하고 싶습니다.",
+    status: "ANSWERED",
+    createdAt: "2026-03-01T14:10:00",
+  },
+  {
+    ticketId: "support-102",
+    title: "템플릿 재생성 요청 처리 시간 문의",
+    contentPreview: "템플릿 재생성 요청 후 처리 완료까지 예상 시간을 알고 싶습니다.",
+    status: "PENDING",
+    createdAt: "2026-03-02T09:30:00",
+  },
+];
+
+const demoTicketDetails: Record<string, SupportTicketDetail> = {
+  "support-101": {
+    ticketId: "support-101",
+    title: "캘린더 등록 자동화 동작 문의",
+    content:
+      "미팅 요청 메일에서 감지된 일정이 어떤 조건일 때 자동 등록되는지 확인하고 싶습니다.",
+    status: "ANSWERED",
+    createdAt: "2026-03-01T14:10:00",
+    adminReply:
+      "현재는 확인된 일정만 캘린더 대기 상태로 저장되며, 사용자가 확인 후 등록하는 흐름입니다.",
+  },
+  "support-102": {
+    ticketId: "support-102",
+    title: "템플릿 재생성 요청 처리 시간 문의",
+    content: "템플릿 재생성 요청 후 처리 완료까지 예상 시간을 알고 싶습니다.",
+    status: "PENDING",
+    createdAt: "2026-03-02T09:30:00",
+    adminReply: null,
+  },
+};
+
 export function AdminInquirySettingsPanel({
   scenarioId,
 }: AdminInquirySettingsPanelProps) {
+  const useDemoDataMode =
+    scenarioId === "settings-demo" || Boolean(scenarioId?.startsWith("settings-"));
   const supportDialogNormalScenario = scenarioId === "settings-support-dialog-normal";
   const supportSubmitErrorScenario = scenarioId === "settings-support-submit-error";
-  const [tickets, setTickets] = useState<SupportTicket[]>(initialTickets);
+  const [tickets, setTickets] = useState<SupportTicketSummary[]>([]);
+  const [selectedTicketId, setSelectedTicketId] = useState("");
+  const [selectedTicket, setSelectedTicket] = useState<SupportTicketDetail | null>(null);
   const [activeFilter, setActiveFilter] = useState<SupportTicketFilter>("all");
-  const [selectedTicketId, setSelectedTicketId] = useState(initialTickets[0]?.ticketId ?? "");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [draftTitle, setDraftTitle] = useState("");
   const [draftContent, setDraftContent] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const loadTickets = async () => {
+    const nextTickets = await getSupportTickets();
+    setTickets(nextTickets);
+    setSelectedTicketId((current) => current || nextTickets[0]?.ticketId || "");
+  };
 
   useEffect(() => {
     if (supportDialogNormalScenario) {
@@ -91,6 +130,38 @@ export function AdminInquirySettingsPanel({
     );
   }, [supportDialogNormalScenario, supportSubmitErrorScenario]);
 
+  useEffect(() => {
+    if (useDemoDataMode) {
+      setTickets(demoTickets);
+      setSelectedTicketId(demoTickets[0]?.ticketId ?? "");
+      setSelectedTicket(demoTicketDetails[demoTickets[0]?.ticketId ?? ""] ?? null);
+      setLoading(false);
+      return;
+    }
+
+    let mounted = true;
+
+    void loadTickets()
+      .catch((error) => {
+        if (!mounted) {
+          return;
+        }
+
+        toast.error(getErrorMessage(error, "문의 목록을 불러오지 못했습니다."));
+      })
+      .finally(() => {
+        if (!mounted) {
+          return;
+        }
+
+        setLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [useDemoDataMode]);
+
   const visibleTickets = useMemo(
     () =>
       activeFilter === "all"
@@ -99,12 +170,70 @@ export function AdminInquirySettingsPanel({
     [activeFilter, tickets],
   );
 
-  const selectedTicket =
+  useEffect(() => {
+    if (!visibleTickets.length) {
+      setSelectedTicketId("");
+      setSelectedTicket(null);
+      return;
+    }
+
+    if (!visibleTickets.some((ticket) => ticket.ticketId === selectedTicketId)) {
+      setSelectedTicketId(visibleTickets[0].ticketId);
+    }
+  }, [selectedTicketId, visibleTickets]);
+
+  useEffect(() => {
+    if (useDemoDataMode) {
+      setSelectedTicket(
+        selectedTicketId ? demoTicketDetails[selectedTicketId] ?? null : null,
+      );
+      setDetailLoading(false);
+      return;
+    }
+
+    if (!selectedTicketId) {
+      setSelectedTicket(null);
+      return;
+    }
+
+    let mounted = true;
+    setDetailLoading(true);
+
+    void getSupportTicket(selectedTicketId)
+      .then((ticketDetail) => {
+        if (!mounted) {
+          return;
+        }
+
+        setSelectedTicket(ticketDetail);
+      })
+      .catch((error) => {
+        if (!mounted) {
+          return;
+        }
+
+        toast.error(getErrorMessage(error, "문의 상세를 불러오지 못했습니다."));
+      })
+      .finally(() => {
+        if (!mounted) {
+          return;
+        }
+
+        setDetailLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [selectedTicketId, useDemoDataMode]);
+
+  const selectedSummary =
     visibleTickets.find((ticket) => ticket.ticketId === selectedTicketId) ??
     visibleTickets[0] ??
     null;
+  const selectedStatus = selectedTicket?.status ?? selectedSummary?.status ?? null;
 
-  const submitTicket = () => {
+  const submitTicket = async () => {
     if (!draftTitle.trim() || !draftContent.trim()) {
       toast.error("문의 제목과 내용을 모두 입력하세요.");
       return;
@@ -115,21 +244,47 @@ export function AdminInquirySettingsPanel({
       return;
     }
 
-    const ticket: SupportTicket = {
-      ticketId: `T-${Date.now()}`,
-      title: draftTitle.trim(),
-      content: draftContent.trim(),
-      status: "PENDING",
-      createdAt: "방금 전",
-    };
+    if (useDemoDataMode) {
+      const createdTicket: SupportTicketSummary = {
+        ticketId: `support-demo-${Date.now()}`,
+        title: draftTitle.trim(),
+        contentPreview: draftContent.trim(),
+        status: "PENDING",
+        createdAt: new Date().toISOString(),
+      };
 
-    setTickets((current) => [ticket, ...current]);
-    setSelectedTicketId(ticket.ticketId);
-    setActiveFilter("all");
-    setDraftTitle("");
-    setDraftContent("");
-    setDialogOpen(false);
-    toast.success("관리자 문의를 등록했습니다.");
+      const createdDetail: SupportTicketDetail = {
+        ...createdTicket,
+        content: draftContent.trim(),
+        adminReply: null,
+      };
+
+      demoTicketDetails[createdTicket.ticketId] = createdDetail;
+      setTickets((current) => [createdTicket, ...current]);
+      setSelectedTicketId(createdTicket.ticketId);
+      setSelectedTicket(createdDetail);
+      setDraftTitle("");
+      setDraftContent("");
+      setDialogOpen(false);
+      toast.success("데모 모드에서 관리자 문의 등록을 확인했습니다.");
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      const createdTicket = await createSupportTicket(draftTitle.trim(), draftContent.trim());
+      await loadTickets();
+      setSelectedTicketId(createdTicket.ticketId);
+      setDraftTitle("");
+      setDraftContent("");
+      setDialogOpen(false);
+      toast.success("관리자 문의를 등록했습니다.");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "관리자 문의를 등록하지 못했습니다."));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -172,79 +327,101 @@ export function AdminInquirySettingsPanel({
             </div>
 
             <div className="space-y-3">
-              {visibleTickets.map((ticket) => {
-                const statusMeta = formatTicketStatus(ticket.status);
+              {loading ? (
+                <div className="rounded-2xl border border-border bg-card px-4 py-6 text-sm text-muted-foreground">
+                  문의 목록을 불러오는 중입니다.
+                </div>
+              ) : visibleTickets.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-border bg-card px-4 py-6 text-sm text-muted-foreground">
+                  등록된 문의가 없습니다.
+                </div>
+              ) : (
+                visibleTickets.map((ticket) => {
+                  const statusMeta = formatTicketStatus(ticket.status);
 
-                return (
-                  <button
-                    key={ticket.ticketId}
-                    type="button"
-                    className={`w-full rounded-2xl border px-4 py-4 text-left transition ${
-                      selectedTicket?.ticketId === ticket.ticketId
-                        ? "border-[#2DD4BF] bg-[#F0FDFA]"
-                        : "border-border bg-card hover:border-[#CBD5E1]"
-                    }`}
-                    onClick={() => setSelectedTicketId(ticket.ticketId)}
-                  >
-                    <div className="mb-2 flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-foreground">
-                          {ticket.title}
-                        </p>
-                        <p className="mt-1 text-xs text-muted-foreground">{ticket.ticketId}</p>
+                  return (
+                    <button
+                      key={ticket.ticketId}
+                      type="button"
+                      className={`w-full rounded-2xl border px-4 py-4 text-left transition ${
+                        selectedSummary?.ticketId === ticket.ticketId
+                          ? "border-[#2DD4BF] bg-[#F0FDFA]"
+                          : "border-border bg-card hover:border-[#CBD5E1]"
+                      }`}
+                      onClick={() => setSelectedTicketId(ticket.ticketId)}
+                    >
+                      <div className="mb-2 flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-foreground">
+                            {ticket.title}
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">{ticket.ticketId}</p>
+                        </div>
+                        <StatusBadge label={statusMeta.label} tone={statusMeta.tone} />
                       </div>
-                      <StatusBadge label={statusMeta.label} tone={statusMeta.tone} />
-                    </div>
-                    <p className="line-clamp-2 text-xs text-muted-foreground">{ticket.content}</p>
-                    <p className="mt-3 text-[11px] text-slate-400">{ticket.createdAt}</p>
-                  </button>
-                );
-              })}
+                      <p className="line-clamp-2 text-xs text-muted-foreground">
+                        {ticket.contentPreview}
+                      </p>
+                      <p className="mt-3 text-[11px] text-slate-400">
+                        {formatTicketDate(ticket.createdAt)}
+                      </p>
+                    </button>
+                  );
+                })
+              )}
             </div>
           </div>
 
           <div className="rounded-2xl border border-border bg-[#F8FAFC] p-5">
-            {selectedTicket ? (
-              <div className="space-y-5">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-lg font-semibold text-foreground">{selectedTicket.title}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      문의 ID {selectedTicket.ticketId} · {selectedTicket.createdAt}
+            {selectedSummary ? (
+              detailLoading && !selectedTicket ? (
+                <div className="flex min-h-[280px] items-center justify-center text-sm text-muted-foreground">
+                  문의 상세를 불러오는 중입니다.
+                </div>
+              ) : (
+                <div className="space-y-5">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-lg font-semibold text-foreground">
+                        {selectedTicket?.title ?? selectedSummary.title}
+                      </p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        문의 ID {selectedSummary.ticketId} ·{" "}
+                        {formatTicketDate(selectedTicket?.createdAt ?? selectedSummary.createdAt)}
+                      </p>
+                    </div>
+                    {selectedStatus ? (
+                      <StatusBadge
+                        label={formatTicketStatus(selectedStatus).label}
+                        tone={formatTicketStatus(selectedStatus).tone}
+                      />
+                    ) : null}
+                  </div>
+
+                  <div className="rounded-2xl border border-border bg-card p-4">
+                    <p className="mb-2 text-xs font-medium text-[#94A3B8]">문의 내용</p>
+                    <p className="whitespace-pre-wrap text-sm text-foreground">
+                      {selectedTicket?.content ?? selectedSummary.contentPreview}
                     </p>
                   </div>
-                  <StatusBadge
-                    label={formatTicketStatus(selectedTicket.status).label}
-                    tone={formatTicketStatus(selectedTicket.status).tone}
-                  />
-                </div>
 
-                <div className="rounded-2xl border border-border bg-card p-4">
-                  <p className="mb-2 text-xs font-medium text-[#94A3B8]">문의 내용</p>
-                  <p className="whitespace-pre-wrap text-sm text-foreground">{selectedTicket.content}</p>
-                </div>
-
-                <div className="rounded-2xl border border-border bg-card p-4">
-                  <div className="mb-2 flex items-center gap-2">
-                    <MessageSquareMore className="h-4 w-4 text-[#0F766E]" />
-                    <p className="text-xs font-medium text-[#94A3B8]">관리자 답변</p>
-                  </div>
-                  {selectedTicket.adminReply ? (
-                    <>
+                  <div className="rounded-2xl border border-border bg-card p-4">
+                    <div className="mb-2 flex items-center gap-2">
+                      <MessageSquareMore className="h-4 w-4 text-[#0F766E]" />
+                      <p className="text-xs font-medium text-[#94A3B8]">관리자 답변</p>
+                    </div>
+                    {selectedTicket?.adminReply ? (
                       <p className="whitespace-pre-wrap text-sm text-foreground">
                         {selectedTicket.adminReply}
                       </p>
-                      <p className="mt-3 text-[11px] text-slate-400">
-                        {selectedTicket.repliedAt} 답변 완료
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        아직 관리자 답변이 등록되지 않았습니다. 답변이 작성되면 이 탭에서 바로 확인할 수 있습니다.
                       </p>
-                    </>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      아직 관리자 답변이 등록되지 않았습니다. 답변이 작성되면 이 탭에서 바로 확인할 수 있습니다.
-                    </p>
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
+              )
             ) : (
               <div className="flex min-h-[280px] items-center justify-center rounded-2xl border border-dashed border-border bg-card px-6 text-center">
                 <div>
@@ -311,10 +488,11 @@ export function AdminInquirySettingsPanel({
             <button
               type="button"
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#1E2A3A] px-4 py-2 text-sm text-white"
-              onClick={submitTicket}
+              onClick={() => void submitTicket()}
+              disabled={submitting}
             >
               <Send className="h-4 w-4" />
-              문의 등록
+              {submitting ? "등록 중..." : "문의 등록"}
             </button>
           </DialogFooter>
         </DialogContent>

@@ -29,6 +29,8 @@ interface AccountSettingsPanelProps {
 
 export function AccountSettingsPanel({ account, scenarioId }: AccountSettingsPanelProps) {
   const navigate = useNavigate();
+  const useDemoDataMode =
+    scenarioId === "settings-demo" || Boolean(scenarioId?.startsWith("settings-"));
   const passwordValidationScenario = scenarioId === "settings-password-validation-error";
   const deleteDialogScenario = scenarioId === "settings-account-delete-dialog-normal";
   const [profile, setProfile] = useState(account);
@@ -43,6 +45,12 @@ export function AccountSettingsPanel({ account, scenarioId }: AccountSettingsPan
   });
 
   useEffect(() => {
+    if (useDemoDataMode) {
+      setProfile(account);
+      setLoading(false);
+      return;
+    }
+
     let mounted = true;
 
     void getMyProfile()
@@ -74,7 +82,7 @@ export function AccountSettingsPanel({ account, scenarioId }: AccountSettingsPan
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [account, useDemoDataMode]);
 
   const handleChangePassword = async () => {
     if (!passwords.current || !passwords.next || !passwords.confirm) {
@@ -84,6 +92,12 @@ export function AccountSettingsPanel({ account, scenarioId }: AccountSettingsPan
 
     if (passwords.next !== passwords.confirm) {
       toast.error("새 비밀번호 확인이 일치하지 않습니다.");
+      return;
+    }
+
+    if (useDemoDataMode) {
+      setPasswords({ current: "", next: "", confirm: "" });
+      toast.success("데모 모드에서 비밀번호 변경을 확인했습니다.");
       return;
     }
 
@@ -101,6 +115,13 @@ export function AccountSettingsPanel({ account, scenarioId }: AccountSettingsPan
   };
 
   const handleDeleteAccount = async () => {
+    if (useDemoDataMode) {
+      setDeleteDialogOpen(false);
+      toast.success("데모 모드에서 회원 탈퇴 동작을 확인했습니다.");
+      navigate("/app", { replace: true });
+      return;
+    }
+
     setDeletingAccount(true);
 
     try {
