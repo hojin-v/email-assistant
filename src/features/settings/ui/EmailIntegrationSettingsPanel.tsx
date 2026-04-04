@@ -1,26 +1,21 @@
 import { useEffect, useState } from "react";
-import { CheckCircle2, Plus } from "lucide-react";
-import { useSearchParams } from "react-router";
-import type { EmailAccount } from "../../../shared/types";
+import { RefreshCw, Unplug, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
+import type { EmailAccount } from "../../../shared/types";
+import {
+  deleteMyIntegration,
+  getGoogleAuthorizationUrl,
+  getMyIntegrationSafe,
+  type IntegrationSnapshot,
+} from "../../../shared/api/integrations";
+import { getErrorMessage } from "../../../shared/api/http";
+import { setConnectedEmails } from "../../../shared/lib/app-session";
 import { SectionCard } from "../../../shared/ui/primitives/SectionCard";
 import { StateBanner } from "../../../shared/ui/primitives/StateBanner";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "../../../app/components/ui/dialog";
-import {
-  deriveGoogleIntegrationEmail,
-  getAppSession,
-  setConnectedEmails,
-} from "../../../shared/lib/app-session";
 
-interface AccountProviderIconProps {
-  provider: string;
+interface EmailIntegrationSettingsPanelProps {
+  accounts: EmailAccount[];
+  scenarioId?: string | null;
 }
 
 function GmailIcon() {
@@ -37,304 +32,271 @@ function GmailIcon() {
   );
 }
 
-function AccountProviderIcon({ provider }: AccountProviderIconProps) {
-  if (provider === "Gmail") {
-    return (
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#F1F5F9] bg-white shadow-sm dark:border-border dark:bg-[#131D2F]">
-        <GmailIcon />
-      </div>
-    );
+function formatSyncStatus(syncStatus: string) {
+  if (syncStatus === "ERROR") {
+    return { label: "연동 오류", tone: "error" as const };
   }
 
-  return (
-    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#64748B] text-sm font-semibold text-white dark:bg-[#22324A]">
-      {provider.slice(0, 1)}
-    </div>
-  );
-}
-
-interface EmailIntegrationSettingsPanelProps {
-  accounts: EmailAccount[];
-  scenarioId?: string | null;
-}
-
-function buildGmailAccount(email: string): EmailAccount {
-  return {
-    id: `gmail-${email}`,
-    provider: "Gmail",
-    email,
-    status: "정상 연결",
-  };
-}
-
-const GOOGLE_OAUTH_PENDING_KEY = "emailassist-google-oauth-pending";
-
-function deriveAdditionalGmailEmail(baseEmail: string, existingEmails: string[]) {
-  const normalizedBaseEmail = deriveGoogleIntegrationEmail(baseEmail);
-
-  if (!existingEmails.includes(normalizedBaseEmail)) {
-    return normalizedBaseEmail;
+  if (syncStatus === "DISCONNECTED") {
+    return { label: "연동 해제", tone: "warning" as const };
   }
 
-  const [localPart, domain = "gmail.com"] = normalizedBaseEmail.split("@");
-  let suffix = 2;
+  return { label: "정상 연결", tone: "info" as const };
+}
 
-  while (existingEmails.includes(`${localPart}+${suffix}@${domain}`)) {
-    suffix += 1;
+function formatSyncDate(value: string | null) {
+  if (!value) {
+    return "동기화 이력 없음";
   }
 
-  return `${localPart}+${suffix}@${domain}`;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("ko-KR", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
 }
 
 export function EmailIntegrationSettingsPanel({
   accounts,
   scenarioId,
 }: EmailIntegrationSettingsPanelProps) {
-  const session = getAppSession();
-  const oauthVerifyNormalScenario =
-    scenarioId === "settings-email-oauth-verify-normal";
+  const useDemoDataMode =
+    scenarioId === "settings-demo" || Boolean(scenarioId?.startsWith("settings-"));
+  const oauthVerifyNormalScenario = scenarioId === "settings-email-oauth-verify-normal";
   const oauthErrorScenario = scenarioId === "settings-email-oauth-error";
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [items, setItems] = useState<EmailAccount[]>(() => {
-    if (session.connectedEmails.length) {
-      return session.connectedEmails.map(buildGmailAccount);
-    }
+  const [integration, setIntegration] = useState<IntegrationSnapshot | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
 
-    if (session.connectedEmail) {
-      return [buildGmailAccount(session.connectedEmail)];
-    }
-
-    const initialGmailAccounts = accounts.filter(
-      (account) => account.provider === "Gmail",
-    );
-
-    if (initialGmailAccounts.length) {
-      return initialGmailAccounts.map((account) => ({
-        ...account,
-        id: account.id || `gmail-${account.email}`,
-      }));
-    }
-
-    return [];
-  });
-  const [verificationDialogOpen, setVerificationDialogOpen] = useState(false);
-  const [verificationReady, setVerificationReady] = useState(false);
-  const [verificationEmail, setVerificationEmail] = useState("");
-
-  const syncConnectedAccounts = (updater: (current: EmailAccount[]) => EmailAccount[]) => {
-    setItems((current) => {
-      const nextItems = updater(current);
-      setConnectedEmails(nextItems.map((item) => item.email));
-      return nextItems;
-    });
+  const loadIntegration = async () => {
+    const nextIntegration = await getMyIntegrationSafe();
+    setIntegration(nextIntegration);
+    setConnectedEmails(nextIntegration?.connectedEmail ? [nextIntegration.connectedEmail] : []);
   };
 
-  const clearOauthReturnState = () => {
-    if (typeof window !== "undefined") {
-      window.sessionStorage.removeItem(GOOGLE_OAUTH_PENDING_KEY);
+  useEffect(() => {
+    if (useDemoDataMode) {
+      const fallbackAccount = accounts[0];
+
+      if (fallbackAccount) {
+        const nextIntegration: IntegrationSnapshot = {
+          provider: fallbackAccount.provider,
+          connectedEmail: fallbackAccount.email,
+          syncStatus: "CONNECTED",
+          isGmailConnected: true,
+          isCalendarConnected: true,
+          lastSyncedAt: "2026-03-02T09:20:00",
+        };
+
+        setIntegration(nextIntegration);
+        setConnectedEmails([nextIntegration.connectedEmail]);
+      } else {
+        setIntegration(null);
+        setConnectedEmails([]);
+      }
+
+      setLoading(false);
+      return;
     }
 
-    const nextSearchParams = new URLSearchParams(searchParams);
-    nextSearchParams.delete("google_oauth");
-    setSearchParams(nextSearchParams, { replace: true });
-    setVerificationDialogOpen(false);
-    setVerificationReady(false);
-    setVerificationEmail("");
+    let mounted = true;
+
+    void loadIntegration()
+      .catch((error) => {
+        if (!mounted) {
+          return;
+        }
+
+        toast.error(getErrorMessage(error, "이메일 연동 상태를 불러오지 못했습니다."));
+      })
+      .finally(() => {
+        if (!mounted) {
+          return;
+        }
+
+        setLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [accounts, useDemoDataMode]);
+
+  const handleRefresh = async () => {
+    if (useDemoDataMode) {
+      toast.success("데모 모드에서 연동 상태를 새로고침했습니다.");
+      return;
+    }
+
+    setRefreshing(true);
+
+    try {
+      await loadIntegration();
+      toast.success("연동 상태를 새로고침했습니다.");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "연동 상태를 새로고침하지 못했습니다."));
+    } finally {
+      setRefreshing(false);
+    }
   };
 
-  const handleConfirmOAuth = () => {
+  const handleConnect = async () => {
     if (oauthErrorScenario) {
       toast.error("Google 인증 응답을 확인하지 못했습니다.");
       return;
     }
 
-    syncConnectedAccounts((current) => {
-      if (current.some((item) => item.email === verificationEmail)) {
-        return current;
-      }
+    if (useDemoDataMode) {
+      const fallbackAccount = accounts[0];
+      const nextIntegration: IntegrationSnapshot = {
+        provider: fallbackAccount?.provider ?? "Gmail",
+        connectedEmail: fallbackAccount?.email ?? "demo@gmail.com",
+        syncStatus: "CONNECTED",
+        isGmailConnected: true,
+        isCalendarConnected: true,
+        lastSyncedAt: new Date().toISOString(),
+      };
 
-      return [...current, buildGmailAccount(verificationEmail)];
-    });
-
-    toast.success("Google OAuth 인증이 확인되어 Gmail 계정을 추가했습니다.");
-    clearOauthReturnState();
-  };
-
-  const handleAddAccount = () => {
-    const nextEmail = deriveAdditionalGmailEmail(
-      session.userEmail,
-      items.map((item) => item.email),
-    );
-
-    if (typeof window !== "undefined") {
-      window.sessionStorage.setItem(GOOGLE_OAUTH_PENDING_KEY, nextEmail);
-    }
-
-    const nextSearchParams = new URLSearchParams(searchParams);
-    nextSearchParams.set("tab", "email");
-    nextSearchParams.set("google_oauth", "returned");
-    setSearchParams(nextSearchParams);
-  };
-
-  useEffect(() => {
-    if (searchParams.get("google_oauth") !== "returned" || verificationReady) {
+      setIntegration(nextIntegration);
+      setConnectedEmails([nextIntegration.connectedEmail]);
+      toast.success("데모 모드에서 Google 계정 연결을 확인했습니다.");
       return;
     }
 
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const pendingEmail = window.sessionStorage.getItem(GOOGLE_OAUTH_PENDING_KEY);
-
-    if (!pendingEmail) {
-      clearOauthReturnState();
-      return;
-    }
-
-    setVerificationDialogOpen(true);
-    setVerificationReady(true);
-    setVerificationEmail(pendingEmail);
-  }, [searchParams, verificationReady]);
-
-  useEffect(() => {
-    if (oauthVerifyNormalScenario) {
-      setVerificationDialogOpen(true);
-      setVerificationReady(true);
-      setVerificationEmail(
-        deriveAdditionalGmailEmail(
-          session.userEmail,
-          items.map((item) => item.email),
-        ),
+    try {
+      const authorizationUrl = await getGoogleAuthorizationUrl();
+      window.open(authorizationUrl, "_blank", "noopener,noreferrer");
+      toast.message(
+        "Google 인증을 새 탭에서 시작했습니다. 인증이 끝나면 이 화면에서 새로고침을 눌러 주세요.",
       );
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Google 인증을 시작하지 못했습니다."));
+    }
+  };
+
+  const handleDisconnect = async () => {
+    if (useDemoDataMode) {
+      setIntegration(null);
+      setConnectedEmails([]);
+      toast.success("데모 모드에서 계정 연결 해제를 확인했습니다.");
       return;
     }
 
-    if (!oauthErrorScenario) {
-      return;
-    }
+    setDisconnecting(true);
 
-    setVerificationDialogOpen(true);
-    setVerificationReady(true);
-    setVerificationEmail(items[0]?.email ?? deriveGoogleIntegrationEmail(session.userEmail));
-  }, [items, oauthErrorScenario, oauthVerifyNormalScenario, session.userEmail]);
+    try {
+      await deleteMyIntegration();
+      setIntegration(null);
+      setConnectedEmails([]);
+      toast.success("Google 계정 연결을 해제했습니다.");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "계정 연결을 해제하지 못했습니다."));
+    } finally {
+      setDisconnecting(false);
+    }
+  };
+
+  const fallbackAccount = accounts[0];
+  const syncStatusMeta = integration ? formatSyncStatus(integration.syncStatus) : null;
 
   return (
-    <>
-      <SectionCard title="연결된 이메일 계정">
-        {oauthErrorScenario ? (
-          <StateBanner
-            title="Google 인증 확인을 완료하지 못했습니다"
-            description="OAuth 복귀 응답을 검증하지 못했습니다. 계정 추가를 다시 시도해 주세요."
-            tone="error"
-            className="mb-5"
-          />
-        ) : null}
-        <div className="mt-6 space-y-3">
-          {items.map((account: EmailAccount) => (
-            <div
-              key={account.id}
-              className="flex flex-wrap items-center justify-between gap-4 rounded-[18px] border border-[#E2E8F0] bg-card px-4 py-4 dark:border-border"
-            >
-              <div className="flex items-center gap-4">
-                <AccountProviderIcon provider={account.provider} />
+    <SectionCard
+      title="연결된 이메일 계정"
+      action={
+        <button
+          type="button"
+          className="inline-flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground"
+          onClick={() => void handleRefresh()}
+          disabled={loading || refreshing}
+        >
+          <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+          <span>{refreshing ? "새로고침 중..." : "새로고침"}</span>
+        </button>
+      }
+    >
+      {oauthErrorScenario ? (
+        <StateBanner
+          title="Google 인증 확인을 완료하지 못했습니다"
+          description="OAuth 복귀 응답을 검증하지 못했습니다. 계정 연결을 다시 시도해 주세요."
+          tone="error"
+          className="mb-5"
+        />
+      ) : null}
+      {oauthVerifyNormalScenario ? (
+        <StateBanner
+          title="Google 인증을 시작할 준비가 되었습니다"
+          description="계정 연결 버튼을 누르면 백엔드가 발급한 Google OAuth URL로 이동합니다."
+          tone="info"
+          className="mb-5"
+        />
+      ) : null}
 
-                <div>
-                  <p className="text-base font-medium text-[#0F172A] dark:text-foreground">
-                    {account.email}
-                  </p>
-                  <span className="app-success-pill mt-2 inline-flex rounded-full px-2 py-1 text-[11px] font-medium">
-                    {account.status}
-                  </span>
-                </div>
+      <div className="mt-2 rounded-[18px] border border-[#E2E8F0] bg-card px-4 py-4 dark:border-border">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#F1F5F9] bg-white shadow-sm dark:border-border dark:bg-[#131D2F]">
+              <GmailIcon />
+            </div>
+
+            <div>
+              <p className="text-base font-medium text-[#0F172A] dark:text-foreground">
+                {integration?.connectedEmail ?? fallbackAccount?.email ?? "Google 계정 미연결"}
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span
+                  className={`inline-flex rounded-full px-2 py-1 font-medium ${
+                    syncStatusMeta?.tone === "error"
+                      ? "bg-[#FEE2E2] text-[#B91C1C]"
+                      : syncStatusMeta?.tone === "warning"
+                      ? "bg-[#FEF3C7] text-[#B45309]"
+                      : "bg-[#E6FAF8] text-[#0F766E]"
+                  }`}
+                >
+                  {syncStatusMeta?.label ?? "미연결"}
+                </span>
+                <span>
+                  Gmail {integration?.isGmailConnected ? "연결됨" : "미연결"} / Calendar{" "}
+                  {integration?.isCalendarConnected ? "연결됨" : "미연결"}
+                </span>
+                <span>최근 동기화: {formatSyncDate(integration?.lastSyncedAt ?? null)}</span>
               </div>
-
-              <button
-                type="button"
-                className="app-danger-button rounded-xl px-4 py-2 text-sm font-medium"
-                onClick={() => {
-                  syncConnectedAccounts((current) =>
-                    current.filter((item) => item.id !== account.id)
-                  );
-                  toast.success("Gmail 계정 연결을 해제했습니다.");
-                }}
-              >
-                연결 해제
-              </button>
-            </div>
-          ))}
-
-          <button
-            type="button"
-            className="flex w-full items-center justify-center gap-2 rounded-[18px] border border-dashed border-[#D7E0EB] px-4 py-5 text-sm font-medium text-[#64748B] transition hover:bg-[#F8FAFC] dark:border-border dark:text-muted-foreground dark:hover:bg-[#131D2F]"
-            onClick={handleAddAccount}
-          >
-            <Plus className="h-4 w-4" />
-            <span>계정 추가</span>
-          </button>
-        </div>
-      </SectionCard>
-
-      <Dialog
-        open={verificationDialogOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            clearOauthReturnState();
-            return;
-          }
-
-          setVerificationDialogOpen(open);
-        }}
-      >
-          <DialogContent className="sm:max-w-[460px]">
-            <DialogHeader className="text-center sm:text-center">
-              <DialogTitle>Google 인증 확인</DialogTitle>
-              <DialogDescription className="mx-auto max-w-[320px] break-keep text-center">
-                Google OAuth 인증을 마쳤다면 아래에서 계정 연결을 완료해 주세요.
-              </DialogDescription>
-            </DialogHeader>
-
-          <div className="flex flex-col items-center gap-4 py-3 text-center">
-            <div
-              className={`flex h-16 w-16 items-center justify-center rounded-full ${
-                oauthErrorScenario
-                  ? "bg-[#FECACA]/30 dark:bg-[#3F1D24]"
-                  : "bg-[#2DD4BF]/10 dark:bg-[#0F766E]/20"
-              }`}
-            >
-              <CheckCircle2
-                className={`h-8 w-8 ${
-                  oauthErrorScenario
-                    ? "text-[#DC2626] dark:text-[#FCA5A5]"
-                    : "text-[#0F766E] dark:text-[#5EEAD4]"
-                }`}
-              />
-            </div>
-            <div className="space-y-1">
-              <p className="text-sm font-semibold text-foreground">{verificationEmail}</p>
-              {oauthErrorScenario ? (
-                <p className="text-sm text-muted-foreground">
-                  Google 인증 결과를 확인하지 못했습니다. OAuth를 다시 진행한 뒤 다시 시도해 주세요.
-                </p>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  인증이 완료되면 이 Gmail 계정이 이메일 연동 목록에 추가됩니다.
-                </p>
-              )}
             </div>
           </div>
 
-          <DialogFooter className="justify-center sm:justify-center">
+          {integration ? (
             <button
               type="button"
-              className="app-cta-primary rounded-xl px-4 py-2 text-sm"
-              onClick={handleConfirmOAuth}
+              className="app-danger-button inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium"
+              onClick={() => void handleDisconnect()}
+              disabled={disconnecting}
             >
-              인증 확인
+              <Unplug className="h-4 w-4" />
+              <span>{disconnecting ? "해제 중..." : "연결 해제"}</span>
             </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+          ) : (
+            <button
+              type="button"
+              className="app-cta-primary inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium"
+              onClick={() => void handleConnect()}
+              disabled={loading}
+            >
+              <ExternalLink className="h-4 w-4" />
+              <span>Google 계정 연결</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {!integration ? (
+        <p className="mt-4 text-xs text-muted-foreground">
+          현재 백엔드 OAuth 콜백은 JSON 응답으로 끝나기 때문에 인증 후 이 화면에서 새로고침해 상태를 확인해야 합니다.
+        </p>
+      ) : null}
+    </SectionCard>
   );
 }
