@@ -49,9 +49,13 @@ export function EmailThreadPanel({ email }: EmailThreadPanelProps) {
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-[#1E2A3A]">
                 {email.sender}
-                <span className="ml-2 text-[#94A3B8]">{email.company}</span>
+                {email.company ? (
+                  <span className="ml-2 text-[#94A3B8]">{email.company}</span>
+                ) : null}
               </p>
-              <p className="truncate text-xs text-[#94A3B8]">{email.senderEmail}</p>
+              {email.senderEmail ? (
+                <p className="truncate text-xs text-[#94A3B8]">{email.senderEmail}</p>
+              ) : null}
             </div>
           </div>
         </div>
