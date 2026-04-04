@@ -122,15 +122,22 @@
   - 일반 사용자: Google 연동 또는 비즈니스 프로필이 있으면 완료로 간주
 - 이 기준은 임시 규칙이므로 별도 계약이 필요하다.
 
+### 5-1. 온보딩 마지막 단계
+
+- 온보딩 1~2단계는 기존 API를 조합해 연결할 수 있다.
+- 하지만 마지막 `초기 템플릿 생성`은 현재 백엔드가 전용 API를 제공하지 않는다.
+- 현재 백엔드의 `/api/business/templates/regenerate`는 이미 존재하는 템플릿 재생성만 지원한다.
+- 상세 내용은 [onboarding-backend-gap.md](/home/hojin/Projects/email-assistant/docs/onboarding-backend-gap.md)에 정리했다.
+
 ### 6. 설정 저장 범위
 
 - `설정 > 알림`, `설정 > 화면`은 프론트 로컬 상태만 있다.
 - 백엔드에는 알림 선호값 저장 API, 화면 위젯/테마 저장 API가 없다.
 - 현재는 기존 로컬 동작을 유지한다.
 
-### 7. 아직 mock 상태인 화면
+### 7. 아직 mock 상태이거나 부분 연결인 화면
 
-- 사용자 온보딩: 완료 기준과 OAuth 콜백 UX가 먼저 정리돼야 함
+- 사용자 온보딩: 이메일 연동, 프로필/자료/FAQ/카테고리 저장은 연결 가능하지만 초기 템플릿 생성 API가 부족함
 - 관리자 사용자/문의/모니터링/템플릿-자동화 일부 화면: 아직 mock 기반
 
 ## 현재 연결 방식 메모
@@ -142,10 +149,12 @@
 - 캘린더도 `calendar-*` 시나리오에서는 기존 목업 데이터를 유지한다.
 - 수신함도 `inbox-*` 시나리오에서는 기존 목업 데이터를 유지한다.
 - 자동화 설정도 `automation-*` 시나리오에서는 기존 목업 데이터를 유지한다.
+- 온보딩도 `onboarding-*` 시나리오에서는 기존 목업 상태를 유지한다.
 - 템플릿 수정에서는 백엔드 계약상 카테고리 변경을 지원하지 않으므로, 수정 화면에서는 카테고리를 읽기 전용으로 처리한다.
 - 캘린더는 현재 백엔드 계약상 `제목 / 시작시간 / 종료시간 / 상태` 중심으로만 연결했고, 장소/참석자/메모 등 누락 항목은 [calendar-backend-gap.md](/home/hojin/Projects/email-assistant/docs/calendar-backend-gap.md)에 별도로 정리했다.
 - 수신함은 현재 `미발송` 상태를 상세의 `draft status = SKIPPED`를 이용해 보강 판별하고 있으며, 목록 계약/발신자 이메일/일정 카드 구조의 누락 항목은 [inbox-backend-gap.md](/home/hojin/Projects/email-assistant/docs/inbox-backend-gap.md)에 정리했다.
 - 자동화 설정은 현재 `카테고리 카드 = 여러 규칙 묶음`으로 프론트가 직접 그룹핑하고 있으며, bulk 저장/전역 캘린더 자동 등록처럼 아직 직접 지원되지 않는 항목은 [automation-backend-gap.md](/home/hojin/Projects/email-assistant/docs/automation-backend-gap.md)에 정리했다.
+- 온보딩은 프로필/자료/FAQ/카테고리 저장과 연동 상태 조회를 실연동했고, 마지막 초기 템플릿 생성 부족 항목은 [onboarding-backend-gap.md](/home/hojin/Projects/email-assistant/docs/onboarding-backend-gap.md)에 정리했다.
 
 ## 후속 작업 권장 순서
 
