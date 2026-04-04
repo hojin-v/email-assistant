@@ -9,6 +9,11 @@ export const emailStatusMeta = {
     tone: "neutral",
     banner: "발송된 응답 내용",
   },
+  unsent: {
+    label: "미발송",
+    tone: "red",
+    banner: "읽음 확인 후 발송하지 않은 응답 내용",
+  },
   "auto-sent": {
     label: "자동 발송",
     tone: "success",

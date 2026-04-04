@@ -33,6 +33,9 @@ function getPanelTitle(status: EmailStatus) {
   if (status === "completed") {
     return "발송된 답변 내용";
   }
+  if (status === "unsent") {
+    return "미발송 답변 내용";
+  }
   if (status === "auto-sent") {
     return "자동 발송된 답변 내용";
   }
@@ -110,6 +113,15 @@ function StatusBanner({ status, sentTime }: StatusBannerProps) {
     );
   }
 
+  if (status === "unsent") {
+    return (
+      <div className="inline-flex items-center gap-2 rounded-full bg-[#FEF2F2] px-3 py-1 text-xs font-medium text-[#B91C1C] dark:bg-[#211314] dark:text-[#F4B4B4]">
+        <SkipForward className="h-3.5 w-3.5" />
+        미발송 처리 · {sentTime || "읽음 확인"}
+      </div>
+    );
+  }
+
   if (status === "auto-sent") {
     return (
       <div className="app-success-pill inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium">
@@ -152,8 +164,13 @@ export function DraftPanel({
 
   const meta = metaByStatus[email.status];
   const readonly = email.status !== "pending";
-  const templateName = templateNameByCategory[email.category] || "기본 답변 템플릿";
-  const counts = getVariableCounts(email.draft);
+  const templateName =
+    email.templateName || templateNameByCategory[email.category] || "기본 답변 템플릿";
+  const tokenCounts = getVariableCounts(email.draft);
+  const counts = {
+    auto: email.autoCompletedCount ?? tokenCounts.auto,
+    required: email.requiredInputCount ?? tokenCounts.required,
+  };
 
   return (
     <div className="flex h-full flex-col">
@@ -214,7 +231,9 @@ export function DraftPanel({
 
           <div>
             <p className="text-[11px] font-medium text-[#94A3B8] dark:text-muted-foreground">제목</p>
-            <p className="mt-1 text-sm text-[#1E2A3A] dark:text-foreground">Re: {email.subject}</p>
+            <p className="mt-1 text-sm text-[#1E2A3A] dark:text-foreground">
+              {email.draftSubject || `Re: ${email.subject}`}
+            </p>
           </div>
         </div>
 
