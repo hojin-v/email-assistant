@@ -6,39 +6,14 @@ export type AppSession = {
   role: UserRole;
   userName: string;
   userEmail: string;
-  clientIp: string;
-  adminVpnApproved: boolean;
   connectedEmail: string;
   connectedEmails: string[];
 };
 
-type MockAuthAccount = {
-  email: string;
-  name: string;
-  role: UserRole;
-  password: string;
-};
-
 export const ADMIN_VPN_CIDR = "192.168.0.0/24";
-export const DEFAULT_MOCK_CLIENT_IP = "192.168.0.42";
-export const ADMIN_IP_DENIED_MOCK_CLIENT_IP = "203.0.113.25";
 
-const mockAuthAccounts: MockAuthAccount[] = [
-  {
-    email: "admin@admin",
-    name: "운영 관리자",
-    role: "ADMIN",
-    password: "admin",
-  },
-  {
-    email: "ops@emailassist.com",
-    name: "운영 담당자",
-    role: "ADMIN",
-    password: "admin",
-  },
-];
-
-const STORAGE_KEY = "emailassist-app-session";
+const SESSION_STORAGE_KEY = "emailassist-app-session";
+const ACCESS_TOKEN_STORAGE_KEY = "emailassist-access-token";
 
 const defaultSession: AppSession = {
   authenticated: false,
@@ -46,18 +21,36 @@ const defaultSession: AppSession = {
   role: "USER",
   userName: "",
   userEmail: "",
-  clientIp: "",
-  adminVpnApproved: false,
   connectedEmail: "",
   connectedEmails: [],
 };
 
-function normalizeEmail(email: string) {
-  return email.trim().toLowerCase();
-}
-
 function canUseStorage() {
   return typeof window !== "undefined" && typeof window.sessionStorage !== "undefined";
+}
+
+function notifySessionChange() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.dispatchEvent(new Event("emailassist-session-updated"));
+}
+
+function normalizeConnectedEmails(connectedEmail: string, connectedEmails: string[]) {
+  const dedupedEmails = Array.from(
+    new Set(
+      connectedEmails.filter(
+        (email): email is string => typeof email === "string" && email.trim().length > 0,
+      ),
+    ),
+  );
+
+  if (connectedEmail.trim().length > 0 && !dedupedEmails.includes(connectedEmail)) {
+    dedupedEmails.push(connectedEmail);
+  }
+
+  return dedupedEmails;
 }
 
 function writeSession(session: AppSession) {
@@ -65,7 +58,8 @@ function writeSession(session: AppSession) {
     return;
   }
 
-  window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+  window.sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+  notifySessionChange();
 }
 
 export function getAppSession(): AppSession {
@@ -73,7 +67,7 @@ export function getAppSession(): AppSession {
     return defaultSession;
   }
 
-  const raw = window.sessionStorage.getItem(STORAGE_KEY);
+  const raw = window.sessionStorage.getItem(SESSION_STORAGE_KEY);
 
   if (!raw) {
     return defaultSession;
@@ -81,15 +75,11 @@ export function getAppSession(): AppSession {
 
   try {
     const parsed = JSON.parse(raw) as Partial<AppSession>;
-    const connectedEmails = Array.isArray(parsed.connectedEmails)
-      ? parsed.connectedEmails.filter(
-          (email): email is string => typeof email === "string" && email.trim().length > 0,
-        )
-      : parsed.connectedEmail
-      ? [parsed.connectedEmail]
-      : [];
-    const primaryConnectedEmail =
-      parsed.connectedEmail ?? connectedEmails[connectedEmails.length - 1] ?? "";
+    const connectedEmails = normalizeConnectedEmails(
+      parsed.connectedEmail ?? "",
+      Array.isArray(parsed.connectedEmails) ? parsed.connectedEmails : [],
+    );
+    const connectedEmail = parsed.connectedEmail ?? connectedEmails[connectedEmails.length - 1] ?? "";
 
     return {
       ...defaultSession,
@@ -99,9 +89,7 @@ export function getAppSession(): AppSession {
       role: parsed.role === "ADMIN" ? "ADMIN" : "USER",
       userName: parsed.userName ?? "",
       userEmail: parsed.userEmail ?? "",
-      clientIp: parsed.clientIp ?? "",
-      adminVpnApproved: parsed.adminVpnApproved === true,
-      connectedEmail: primaryConnectedEmail,
+      connectedEmail,
       connectedEmails,
     };
   } catch {
@@ -109,42 +97,74 @@ export function getAppSession(): AppSession {
   }
 }
 
+export function updateAppSession(partial: Partial<AppSession>) {
+  const current = getAppSession();
+  const nextConnectedEmail = partial.connectedEmail ?? current.connectedEmail;
+  const nextConnectedEmails = normalizeConnectedEmails(
+    nextConnectedEmail,
+    partial.connectedEmails ?? current.connectedEmails,
+  );
+  const nextSession: AppSession = {
+    ...current,
+    ...partial,
+    connectedEmail: nextConnectedEmail || nextConnectedEmails[nextConnectedEmails.length - 1] || "",
+    connectedEmails: nextConnectedEmails,
+  };
+
+  writeSession(nextSession);
+  return nextSession;
+}
+
 export function createAuthenticatedSession({
   name,
   email,
   role = "USER",
-  clientIp = DEFAULT_MOCK_CLIENT_IP,
-  adminVpnApproved = false,
+  onboardingCompleted = role === "ADMIN",
+  connectedEmail = "",
+  connectedEmails = [],
 }: {
   name: string;
   email: string;
   role?: UserRole;
-  clientIp?: string;
-  adminVpnApproved?: boolean;
+  onboardingCompleted?: boolean;
+  connectedEmail?: string;
+  connectedEmails?: string[];
 }) {
+  const normalizedEmails = normalizeConnectedEmails(connectedEmail, connectedEmails);
+  const primaryConnectedEmail =
+    connectedEmail || normalizedEmails[normalizedEmails.length - 1] || "";
   const session: AppSession = {
-    ...defaultSession,
     authenticated: true,
-    onboardingCompleted: role === "ADMIN",
+    onboardingCompleted,
     role,
-    userName: name,
-    userEmail: email,
-    clientIp,
-    adminVpnApproved,
+    userName: name.trim(),
+    userEmail: email.trim(),
+    connectedEmail: primaryConnectedEmail,
+    connectedEmails: normalizedEmails,
   };
 
   writeSession(session);
   return session;
 }
 
-export function updateAppSession(partial: Partial<AppSession>) {
-  const nextSession = {
-    ...getAppSession(),
-    ...partial,
-  };
+export function setAccessToken(accessToken: string) {
+  if (!canUseStorage()) {
+    return;
+  }
 
-  writeSession(nextSession);
-  return nextSession;
+  if (accessToken.trim().length === 0) {
+    window.sessionStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
+  } else {
+    window.sessionStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, accessToken);
+  }
+}
+
+export function getAccessToken() {
+  if (!canUseStorage()) {
+    return "";
+  }
+
+  return window.sessionStorage.getItem(ACCESS_TOKEN_STORAGE_KEY) ?? "";
 }
 
 export function markOnboardingComplete() {
@@ -152,86 +172,17 @@ export function markOnboardingComplete() {
 }
 
 export function setConnectedEmail(connectedEmail: string) {
-  const current = getAppSession();
-  const connectedEmails = connectedEmail
-    ? Array.from(new Set([...current.connectedEmails.filter(Boolean), connectedEmail]))
-    : [];
-
   return updateAppSession({
     connectedEmail,
-    connectedEmails,
+    connectedEmails: connectedEmail ? [connectedEmail] : [],
   });
 }
 
-export function resolveMockAuthAccount(email: string): MockAuthAccount {
-  const normalizedEmail = normalizeEmail(email);
-  const account = mockAuthAccounts.find((item) => item.email === normalizedEmail);
-
-  if (account) {
-    return account;
-  }
-
-  return {
-    email: normalizedEmail,
-    name: deriveNameFromEmail(normalizedEmail) || "사용자",
-    role: "USER",
-    password: "",
-  };
-}
-
-export function validateMockAccountPassword(email: string, password: string) {
-  const normalizedEmail = normalizeEmail(email);
-  const account = mockAuthAccounts.find((item) => item.email === normalizedEmail);
-
-  if (!account) {
-    return true;
-  }
-
-  return account.password === password.trim();
-}
-
-export function isVpnIpAllowed(ip: string, cidr = ADMIN_VPN_CIDR) {
-  const [network, maskBits] = cidr.split("/");
-  const normalizedMask = Number(maskBits);
-
-  if (!network || Number.isNaN(normalizedMask) || normalizedMask !== 24) {
-    return false;
-  }
-
-  const ipParts = ip.split(".");
-  const networkParts = network.split(".");
-
-  if (ipParts.length !== 4 || networkParts.length !== 4) {
-    return false;
-  }
-
-  return ipParts.slice(0, 3).join(".") === networkParts.slice(0, 3).join(".");
-}
-
-export function isAdminSession(session: AppSession) {
-  return session.authenticated && session.role === "ADMIN";
-}
-
-export function canAccessAdmin(session: AppSession) {
-  return isAdminSession(session) && session.adminVpnApproved;
-}
-
-export function canAccessUserWorkspace(session: AppSession) {
-  return session.authenticated && session.role === "USER";
-}
-
 export function setConnectedEmails(connectedEmails: string[]) {
-  const normalized = Array.from(
-    new Set(
-      connectedEmails.filter(
-        (email): email is string => typeof email === "string" && email.trim().length > 0,
-      ),
-    ),
-  );
-
+  const normalizedEmails = normalizeConnectedEmails("", connectedEmails);
   return updateAppSession({
-    connectedEmail: normalized[normalized.length - 1] ?? "",
-    connectedEmails: normalized,
+    connectedEmail: normalizedEmails[normalizedEmails.length - 1] ?? "",
+    connectedEmails: normalizedEmails,
   });
 }
 
@@ -250,12 +201,26 @@ export function deriveGoogleIntegrationEmail(userEmail: string) {
   return `${localPart || "user"}@gmail.com`;
 }
 
+export function isAdminSession(session: AppSession) {
+  return session.authenticated && session.role === "ADMIN";
+}
+
+export function canAccessAdmin(session: AppSession) {
+  return isAdminSession(session);
+}
+
+export function canAccessUserWorkspace(session: AppSession) {
+  return session.authenticated && session.role === "USER";
+}
+
 export function clearAppSession() {
   if (!canUseStorage()) {
     return;
   }
 
-  window.sessionStorage.removeItem(STORAGE_KEY);
+  window.sessionStorage.removeItem(SESSION_STORAGE_KEY);
+  window.sessionStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
+  notifySessionChange();
 }
 
 export function deriveNameFromEmail(email: string) {
