@@ -1,4 +1,4 @@
-export type EmailStatus = "pending" | "completed" | "auto-sent";
+export type EmailStatus = "pending" | "completed" | "unsent" | "auto-sent";
 
 export type StatusBadgeTone =
   | "warning"
@@ -58,6 +58,11 @@ export interface EmailItem {
   sentTime: string;
   schedule: EmailSchedule;
   draft: string;
+  templateName?: string;
+  draftSubject?: string;
+  autoCompletedCount?: number;
+  requiredInputCount?: number;
+  draftStatus?: string;
 }
 
 export interface NotificationItem {

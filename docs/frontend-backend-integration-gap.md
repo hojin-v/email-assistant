@@ -21,6 +21,10 @@
   - `GET /api/dashboard/schedules`
   - `GET /api/dashboard/weekly-summary`
   - `GET /api/dashboard/recent-emails`
+- 수신함:
+  - `GET /api/inbox`
+  - `GET /api/inbox/{emailId}`
+  - `POST /api/inbox/{emailId}/reply`
 - 상단 알림 패널:
   - `GET /api/notifications`
   - `PATCH /api/notifications/{id}/read`
@@ -127,13 +131,15 @@
 
 - 비즈니스 프로필과 템플릿 라이브러리는 일반 진입에서는 실제 API를 사용한다.
 - 캘린더도 일반 진입에서는 실제 API를 사용한다.
+- 수신함도 일반 진입에서는 실제 API를 사용한다.
 - 다만 `profile-*`, `templates-*` 시나리오에서는 기존 목업 데이터를 유지해 스크린샷 산출물과 상태 재현 테스트를 계속할 수 있게 했다.
 - 캘린더도 `calendar-*` 시나리오에서는 기존 목업 데이터를 유지한다.
+- 수신함도 `inbox-*` 시나리오에서는 기존 목업 데이터를 유지한다.
 - 템플릿 수정에서는 백엔드 계약상 카테고리 변경을 지원하지 않으므로, 수정 화면에서는 카테고리를 읽기 전용으로 처리한다.
 - 캘린더는 현재 백엔드 계약상 `제목 / 시작시간 / 종료시간 / 상태` 중심으로만 연결했고, 장소/참석자/메모 등 누락 항목은 [calendar-backend-gap.md](/home/hojin/Projects/email-assistant/docs/calendar-backend-gap.md)에 별도로 정리했다.
+- 수신함은 현재 `미발송` 상태를 상세의 `draft status = SKIPPED`를 이용해 보강 판별하고 있으며, 목록 계약/발신자 이메일/일정 카드 구조의 누락 항목은 [inbox-backend-gap.md](/home/hojin/Projects/email-assistant/docs/inbox-backend-gap.md)에 정리했다.
 
 ## 후속 작업 권장 순서
 
-1. 수신함 상태값 매핑과 상세 DTO 재설계
-2. 관리자 나머지 화면 연결
-3. 비밀번호 재설정, 온보딩 완료 기준, OAuth redirect UX 확정
+1. 관리자 나머지 화면 연결
+2. 비밀번호 재설정, 온보딩 완료 기준, OAuth redirect UX 확정
