@@ -3,12 +3,11 @@ import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import {
   getMyProfile,
-  updateMyProfile,
   changeMyPassword,
   deleteMyAccount,
 } from "../../../shared/api/auth";
 import { getErrorMessage } from "../../../shared/api/http";
-import { clearAppSession, updateAppSession } from "../../../shared/lib/app-session";
+import { clearAppSession } from "../../../shared/lib/app-session";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,12 +29,10 @@ interface AccountSettingsPanelProps {
 
 export function AccountSettingsPanel({ account, scenarioId }: AccountSettingsPanelProps) {
   const navigate = useNavigate();
-  const accountSaveErrorScenario = scenarioId === "settings-account-save-error";
   const passwordValidationScenario = scenarioId === "settings-password-validation-error";
   const deleteDialogScenario = scenarioId === "settings-account-delete-dialog-normal";
   const [profile, setProfile] = useState(account);
   const [loading, setLoading] = useState(true);
-  const [savingProfile, setSavingProfile] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(deleteDialogScenario);
@@ -78,37 +75,6 @@ export function AccountSettingsPanel({ account, scenarioId }: AccountSettingsPan
       mounted = false;
     };
   }, []);
-
-  const handleSaveProfile = async () => {
-    if (!profile.name.trim()) {
-      toast.error("이름을 입력하세요.");
-      return;
-    }
-
-    if (accountSaveErrorScenario) {
-      toast.error("계정 정보를 저장하지 못했습니다.");
-      return;
-    }
-
-    setSavingProfile(true);
-
-    try {
-      const updatedProfile = await updateMyProfile(profile.name.trim());
-      setProfile({
-        name: updatedProfile.name,
-        email: updatedProfile.email,
-      });
-      updateAppSession({
-        userName: updatedProfile.name,
-        userEmail: updatedProfile.email,
-      });
-      toast.success("계정 정보를 저장했습니다.");
-    } catch (error) {
-      toast.error(getErrorMessage(error, "계정 정보를 저장하지 못했습니다."));
-    } finally {
-      setSavingProfile(false);
-    }
-  };
 
   const handleChangePassword = async () => {
     if (!passwords.current || !passwords.next || !passwords.confirm) {
@@ -154,47 +120,22 @@ export function AccountSettingsPanel({ account, scenarioId }: AccountSettingsPan
     <>
       <div className="space-y-6">
         <SectionCard title="기본 정보">
-          {accountSaveErrorScenario ? (
-            <StateBanner
-              title="계정 정보를 저장하지 못했습니다"
-              description="프로필 업데이트 요청을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요."
-              tone="error"
-              className="mb-5"
-            />
-          ) : null}
           <div className="space-y-4">
-            <label className="block text-sm text-foreground">
-              이름
-              <input
-                value={profile.name}
-                onChange={(event) =>
-                  setProfile((current) => ({ ...current, name: event.target.value }))
-                }
-                className="app-form-input mt-2 h-11 w-full rounded-xl px-4 text-sm"
-                disabled={loading}
-              />
-            </label>
-            <label className="block text-sm text-foreground">
-              이메일
-              <input
-                value={profile.email}
-                readOnly
-                className="app-form-input mt-2 h-11 w-full rounded-xl px-4 text-sm opacity-80"
-              />
+            <div className="space-y-2">
+              <p className="text-sm text-foreground">이름</p>
+              <div className="flex min-h-11 items-center rounded-xl border border-border bg-muted/40 px-4 text-sm text-foreground">
+                {loading ? "불러오는 중..." : profile.name || "-"}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm text-foreground">이메일</p>
+              <div className="flex min-h-11 items-center rounded-xl border border-border bg-muted/40 px-4 text-sm text-muted-foreground">
+                {loading ? "불러오는 중..." : profile.email || "-"}
+              </div>
               <p className="mt-2 text-xs text-muted-foreground">
-                이메일 주소는 현재 백엔드 계약상 수정할 수 없습니다.
+                이름과 이메일은 현재 서비스에서 변경할 수 없는 계정 정보입니다.
               </p>
-            </label>
-          </div>
-          <div className="mt-5 flex justify-end">
-            <button
-              type="button"
-              className="rounded-xl bg-[#1E2A3A] px-5 py-2.5 text-sm font-medium text-white"
-              onClick={() => void handleSaveProfile()}
-              disabled={loading || savingProfile}
-            >
-              {savingProfile ? "저장 중..." : "저장"}
-            </button>
+            </div>
           </div>
         </SectionCard>
 
