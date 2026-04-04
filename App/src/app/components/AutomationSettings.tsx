@@ -39,7 +39,6 @@ import {
 import {
   Collapsible,
   CollapsibleContent,
-  CollapsibleTrigger,
 } from "./ui/collapsible";
 import {
   createAutomationRule,
@@ -827,77 +826,85 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
                     key={group.key}
                     className="overflow-hidden rounded-2xl border border-[#E2E8F0] dark:border-border"
                   >
-                    <div className="flex flex-col gap-3 border-b border-[#E2E8F0] bg-[#F8FAFC] p-5 dark:border-border dark:bg-[#131D2F] md:flex-row md:items-center md:justify-between">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className="h-2.5 w-2.5 rounded-full"
-                            style={{ backgroundColor: group.color }}
-                          />
-                          <h4 className="text-[15px] text-[#1E2A3A] dark:text-foreground">
-                            {group.categoryName}
-                          </h4>
-                          <span className="rounded-full bg-white px-2.5 py-1 text-[11px] text-[#64748B] shadow-sm dark:bg-[#0F172A] dark:text-muted-foreground">
-                            {configuredTemplates}/{group.templates.length}개 규칙 저장됨
-                          </span>
-                        </div>
-                        <p className="mt-2 text-[12px] text-[#94A3B8] dark:text-muted-foreground">
-                          템플릿 ID는 카테고리 내부 기본 목록을 따르며, 새 템플릿은 편집 저장 시 함께 반영됩니다.
-                        </p>
-                      </div>
-
-                      <div className="flex items-center gap-2 self-end md:self-auto">
-                        <button
-                          onClick={() => openEditDialog(group)}
-                          className="app-secondary-button flex items-center gap-2 rounded-lg px-3 py-2 text-[12px]"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                          관리
-                        </button>
-                        <button
-                          onClick={() => setDeleteTarget(group)}
-                          disabled={deleting}
-                          className="app-danger-button flex items-center gap-2 rounded-lg px-3 py-2 text-[12px] disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {deleting ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-3.5 w-3.5" />
-                          )}
-                          삭제
-                        </button>
-                      </div>
-                    </div>
-
                     <Collapsible
                       open={isExpanded}
                       onOpenChange={() => toggleGroupExpanded(group.key)}
                     >
-                      <div className="border-t border-[#F1F5F9] bg-white px-5 py-3 dark:border-border dark:bg-card">
-                        <CollapsibleTrigger className="group flex w-full items-center justify-between rounded-xl px-3 py-2 text-left transition-colors hover:bg-[#F8FAFC] dark:hover:bg-[#131D2F]">
-                          <div>
-                            <p className="text-[13px] text-[#1E2A3A] dark:text-foreground">
-                              템플릿 목록
-                            </p>
-                            <p className="mt-1 text-[11px] text-[#94A3B8] dark:text-muted-foreground">
-                              템플릿 {group.templates.length}개를 접어서 관리할 수 있습니다.
-                            </p>
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => toggleGroupExpanded(group.key)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            toggleGroupExpanded(group.key);
+                          }
+                        }}
+                        className="flex cursor-pointer flex-col gap-3 border-b border-[#E2E8F0] bg-[#F8FAFC] p-5 text-left transition-colors hover:bg-[#F1F5F9] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2DD4BF] dark:border-border dark:bg-[#131D2F] dark:hover:bg-[#182338] md:flex-row md:items-center md:justify-between"
+                        aria-expanded={isExpanded}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span
+                              className="h-2.5 w-2.5 rounded-full"
+                              style={{ backgroundColor: group.color }}
+                            />
+                            <h4 className="text-[15px] text-[#1E2A3A] dark:text-foreground">
+                              {group.categoryName}
+                            </h4>
+                            <span className="rounded-full bg-white px-2.5 py-1 text-[11px] text-[#64748B] shadow-sm dark:bg-[#0F172A] dark:text-muted-foreground">
+                              {configuredTemplates}/{group.templates.length}개 규칙 저장됨
+                            </span>
+                            <span className="rounded-full bg-[#EEF2FF] px-2.5 py-1 text-[11px] text-[#4F46E5] dark:bg-[#1E1B4B] dark:text-[#C7D2FE]">
+                              템플릿 {group.templates.length}개
+                            </span>
                           </div>
-                          <div className="flex items-center gap-3">
-                            <span className="rounded-full bg-[#F8FAFC] px-2.5 py-1 text-[11px] text-[#64748B] dark:bg-[#0F172A] dark:text-muted-foreground">
+                          <div className="mt-2 flex items-center gap-2 text-[12px] text-[#94A3B8] dark:text-muted-foreground">
+                            <span>
+                              템플릿 ID는 카테고리 내부 기본 목록을 따르며, 새 템플릿은 편집 저장 시 함께 반영됩니다.
+                            </span>
+                            <span className="hidden rounded-full bg-white px-2.5 py-1 text-[11px] text-[#64748B] shadow-sm dark:bg-[#0F172A] dark:text-muted-foreground md:inline-flex">
                               {isExpanded ? "접기" : "펴기"}
                             </span>
-                            <ChevronDown
-                              className={`h-4 w-4 text-[#94A3B8] transition-transform dark:text-muted-foreground ${
-                                isExpanded ? "rotate-180" : ""
-                              }`}
-                            />
                           </div>
-                        </CollapsibleTrigger>
+                        </div>
+
+                        <div className="flex items-center gap-2 self-end md:self-auto">
+                          <button
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              openEditDialog(group);
+                            }}
+                            className="app-secondary-button flex items-center gap-2 rounded-lg px-3 py-2 text-[12px]"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                            관리
+                          </button>
+                          <button
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setDeleteTarget(group);
+                            }}
+                            disabled={deleting}
+                            className="app-danger-button flex items-center gap-2 rounded-lg px-3 py-2 text-[12px] disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {deleting ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-3.5 w-3.5" />
+                            )}
+                            삭제
+                          </button>
+                          <ChevronDown
+                            className={`h-4 w-4 shrink-0 text-[#94A3B8] transition-transform dark:text-muted-foreground ${
+                              isExpanded ? "rotate-180" : ""
+                            }`}
+                          />
+                        </div>
                       </div>
 
                       <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
-                        <div className="divide-y divide-[#F1F5F9] dark:divide-border">
+                        <div className="max-h-[320px] overflow-y-auto overscroll-contain divide-y divide-[#F1F5F9] dark:divide-border">
                           {group.templates.map((template) => {
                             const templateKey =
                               template.templateId === null
