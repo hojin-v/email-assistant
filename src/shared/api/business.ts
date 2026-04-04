@@ -207,6 +207,26 @@ export async function getBusinessCategories() {
   })) satisfies BusinessCategorySnapshot[];
 }
 
+export async function createBusinessCategory(payload: {
+  categoryName: string;
+  color?: string | null;
+}) {
+  const response = await api.post<CategoryApiResponse>("/api/business/categories", {
+    category_name: payload.categoryName,
+    color: payload.color ?? null,
+  });
+
+  return {
+    categoryId: response.data.category_id,
+    categoryName: response.data.category_name,
+    color: response.data.color,
+  } satisfies BusinessCategorySnapshot;
+}
+
+export async function deleteBusinessCategory(categoryId: number) {
+  await api.delete(`/api/business/categories/${categoryId}`);
+}
+
 export async function regenerateBusinessTemplates(payload: {
   regenerateAll: boolean;
   templateIds: number[];

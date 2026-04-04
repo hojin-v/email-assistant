@@ -28,11 +28,30 @@ import {
   type RecommendedCategoryOption,
 } from "../../shared/config/onboarding-options";
 import {
-  deriveGoogleIntegrationEmail,
   getAppSession,
   markOnboardingComplete,
   setConnectedEmail as persistConnectedEmail,
 } from "../../shared/lib/app-session";
+import {
+  createBusinessCategory,
+  createBusinessFaq,
+  deleteBusinessCategory,
+  deleteBusinessFaq,
+  deleteBusinessFile,
+  getBusinessCategories,
+  getBusinessFaqs,
+  getBusinessProfile,
+  getBusinessResources,
+  getTemplates,
+  regenerateBusinessTemplates,
+  upsertBusinessProfile,
+  uploadBusinessFile,
+} from "../../shared/api/business";
+import { getErrorMessage } from "../../shared/api/http";
+import {
+  getGoogleAuthorizationUrl,
+  getMyIntegrationSafe,
+} from "../../shared/api/integrations";
 import { AuthOnboardingLayout } from "../../shared/ui/AuthOnboardingLayout";
 import {
   Select,
@@ -73,8 +92,19 @@ const toneOptions = [
 
 type FaqItem = {
   id: string;
+  faqId?: number;
   question: string;
   answer: string;
+};
+
+type UploadedFileItem = {
+  id: string;
+  resourceId?: number;
+  fileName: string;
+};
+
+type OnboardingCategoryItem = RecommendedCategoryOption & {
+  categoryId?: number;
 };
 
 const leftPanelContent: Record<
@@ -118,11 +148,36 @@ interface OnboardingProps {
   scenarioId?: string | null;
 }
 
+function mapToneToApiTone(value: string) {
+  if (value === "formal") {
+    return "FORMAL" as const;
+  }
+
+  if (value === "friendly") {
+    return "FRIENDLY" as const;
+  }
+
+  return "NEUTRAL" as const;
+}
+
+function mapApiToneToTone(value: string | null) {
+  if (value === "FORMAL") {
+    return "formal";
+  }
+
+  if (value === "FRIENDLY") {
+    return "friendly";
+  }
+
+  return "neutral";
+}
+
 export function Onboarding({ scenarioId }: OnboardingProps) {
   const session = getAppSession();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const generationTimeoutsRef = useRef<number[]>([]);
+  const integrationPollingRef = useRef<number | null>(null);
   const categoryComposerRef = useRef<HTMLDivElement | null>(null);
   const [currentMainStep, setCurrentMainStep] = useState(1);
   const [currentSubStep, setCurrentSubStep] = useState(0);
@@ -132,19 +187,27 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
     session.connectedEmails[session.connectedEmails.length - 1] ?? session.connectedEmail;
   const [emailConnected, setEmailConnected] = useState(Boolean(initialConnectedEmail));
   const [connectedEmail, setConnectedEmail] = useState(initialConnectedEmail);
+  const [checkingIntegration, setCheckingIntegration] = useState(false);
 
   // Onboarding states
   const [tone, setTone] = useState("neutral");
   const [businessType, setBusinessType] = useState("");
   const [description, setDescription] = useState("");
-  const [uploadedFile, setUploadedFile] = useState<string | null>(null);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFileItem[]>([]);
+  const [uploadingFile, setUploadingFile] = useState(false);
   const [faqItems, setFaqItems] = useState<FaqItem[]>([]);
   const [faqDraft, setFaqDraft] = useState({ question: "", answer: "" });
   const [faqComposerOpen, setFaqComposerOpen] = useState(true);
-  const [categories, setCategories] = useState<RecommendedCategoryOption[]>([]);
+  const [savingFaq, setSavingFaq] = useState(false);
+  const [categories, setCategories] = useState<OnboardingCategoryItem[]>([]);
   const [newCategory, setNewCategory] = useState("");
+  const [savingCategory, setSavingCategory] = useState(false);
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [initializing, setInitializing] = useState(!scenarioId);
+  const [templateGenerationMessage, setTemplateGenerationMessage] = useState<string | null>(null);
+  const [generatedTemplateCount, setGeneratedTemplateCount] = useState(0);
 
   // Template generation states
   const [isGenerating, setIsGenerating] = useState(false);
@@ -171,7 +234,20 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
     generationTimeoutsRef.current = [];
   };
 
-  useEffect(() => clearGenerationTimeouts, []);
+  const clearIntegrationPolling = () => {
+    if (integrationPollingRef.current !== null) {
+      window.clearInterval(integrationPollingRef.current);
+      integrationPollingRef.current = null;
+    }
+  };
+
+  useEffect(
+    () => () => {
+      clearGenerationTimeouts();
+      clearIntegrationPolling();
+    },
+    [],
+  );
 
   useEffect(() => {
     clearGenerationTimeouts();
@@ -196,7 +272,9 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
       setDescription(
         "비즈니스 이메일 자동화 SaaS 플랫폼으로, AI 기반 이메일 응답과 일정 자동화를 지원합니다.",
       );
-      setUploadedFile("고객응대_매뉴얼.pdf");
+      setUploadedFiles([
+        { id: "resource-1", fileName: "고객응대_매뉴얼.pdf" },
+      ]);
       setFaqItems([
         {
           id: "faq-1",
@@ -236,7 +314,7 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
       setDescription(
         "비즈니스 이메일 자동화 SaaS 플랫폼으로, AI 기반 이메일 응답과 일정 자동화를 지원합니다.",
       );
-      setUploadedFile(null);
+      setUploadedFiles([]);
       setFaqItems([]);
       setFaqDraft({ question: "", answer: "" });
       setFaqComposerOpen(true);
@@ -255,7 +333,9 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
       setDescription(
         "비즈니스 이메일 자동화 SaaS 플랫폼으로, AI 기반 이메일 응답과 일정 자동화를 지원합니다.",
       );
-      setUploadedFile("고객응대_매뉴얼.pdf");
+      setUploadedFiles([
+        { id: "resource-1", fileName: "고객응대_매뉴얼.pdf" },
+      ]);
       setFaqItems([
         {
           id: "faq-1",
@@ -284,7 +364,9 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
       setDescription(
         "비즈니스 이메일 자동화 SaaS 플랫폼으로, AI 기반 이메일 응답과 일정 자동화를 지원합니다.",
       );
-      setUploadedFile("고객응대_매뉴얼.pdf");
+      setUploadedFiles([
+        { id: "resource-1", fileName: "고객응대_매뉴얼.pdf" },
+      ]);
       setFaqItems([
         {
           id: "faq-1",
@@ -308,7 +390,9 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
       setDescription(
         "비즈니스 이메일 자동화 SaaS 플랫폼으로, AI 기반 이메일 응답과 일정 자동화를 지원합니다.",
       );
-      setUploadedFile("고객응대_매뉴얼.pdf");
+      setUploadedFiles([
+        { id: "resource-1", fileName: "고객응대_매뉴얼.pdf" },
+      ]);
       setFaqItems([
         {
           id: "faq-1",
@@ -335,7 +419,9 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
       setDescription(
         "비즈니스 이메일 자동화 SaaS 플랫폼으로, AI 기반 이메일 응답과 일정 자동화를 지원합니다.",
       );
-      setUploadedFile("고객응대_매뉴얼.pdf");
+      setUploadedFiles([
+        { id: "resource-1", fileName: "고객응대_매뉴얼.pdf" },
+      ]);
       setFaqItems([
         {
           id: "faq-1",
@@ -370,7 +456,9 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
       setDescription(
         "비즈니스 이메일 자동화 SaaS 플랫폼으로, AI 기반 이메일 응답과 일정 자동화를 지원합니다.",
       );
-      setUploadedFile("고객응대_매뉴얼.pdf");
+      setUploadedFiles([
+        { id: "resource-1", fileName: "고객응대_매뉴얼.pdf" },
+      ]);
       setFaqItems([
         {
           id: "faq-1",
@@ -394,7 +482,9 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
       setDescription(
         "비즈니스 이메일 자동화 SaaS 플랫폼으로, AI 기반 이메일 응답과 일정 자동화를 지원합니다.",
       );
-      setUploadedFile("고객응대_매뉴얼.pdf");
+      setUploadedFiles([
+        { id: "resource-1", fileName: "고객응대_매뉴얼.pdf" },
+      ]);
       setFaqItems([
         {
           id: "faq-1",
@@ -427,14 +517,111 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
   ]);
 
   useEffect(() => {
+    if (scenarioId) {
+      setInitializing(false);
+      return;
+    }
+
+    let active = true;
+
+    async function initializeOnboarding() {
+      setInitializing(true);
+
+      try {
+        const [integration, profile, resources, faqs, storedCategories] =
+          await Promise.all([
+            getMyIntegrationSafe(),
+            getBusinessProfile(),
+            getBusinessResources(),
+            getBusinessFaqs(),
+            getBusinessCategories(),
+          ]);
+
+        if (!active) {
+          return;
+        }
+
+        if (integration?.connectedEmail) {
+          setEmailConnected(true);
+          setConnectedEmail(integration.connectedEmail);
+          persistConnectedEmail(integration.connectedEmail);
+        }
+
+        if (profile) {
+          setBusinessType(profile.industryType);
+          setDescription(profile.companyDescription ?? "");
+          setTone(mapApiToneToTone(profile.emailTone));
+        }
+
+        setUploadedFiles(
+          resources.map((resource) => ({
+            id: String(resource.resourceId),
+            resourceId: resource.resourceId,
+            fileName: resource.fileName,
+          })),
+        );
+
+        setFaqItems(
+          faqs.map((faq) => ({
+            id: String(faq.faqId),
+            faqId: faq.faqId,
+            question: faq.question,
+            answer: faq.answer,
+          })),
+        );
+        setFaqComposerOpen(faqs.length === 0);
+
+        setCategories(
+          storedCategories.map((category) => ({
+            id: String(category.categoryId),
+            categoryId: category.categoryId,
+            name: category.categoryName,
+            domain: profile?.industryType || "사용자 정의",
+            color:
+              category.color ??
+              categoryColorPalette[
+                Math.floor(Math.random() * categoryColorPalette.length)
+              ],
+          })),
+        );
+      } catch (error) {
+        if (!active) {
+          return;
+        }
+
+        toast.error(getErrorMessage(error, "온보딩 정보를 불러오지 못했습니다."));
+      } finally {
+        if (active) {
+          setInitializing(false);
+        }
+      }
+    }
+
+    void initializeOnboarding();
+
+    return () => {
+      active = false;
+    };
+  }, [scenarioId]);
+
+  useEffect(() => {
     if (categoriesDropdownNormalScenario || categoriesCustomNormalScenario) {
+      return;
+    }
+
+    if (!businessType || categories.length > 0) {
       return;
     }
 
     setCategories(getRecommendedCategoriesForDomain(businessType));
     setNewCategory("");
     setCategoryDropdownOpen(false);
-  }, [businessType, categoriesCustomNormalScenario, categoriesDropdownNormalScenario]);
+  }, [
+    businessType,
+    categories.length,
+    categoriesCustomNormalScenario,
+    categoriesDropdownNormalScenario,
+  ]);
 
   useEffect(() => {
     const handleOutsideClick = (event: MouseEvent) => {
@@ -464,21 +651,56 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
     [availableCategorySuggestions],
   );
 
-  const handleEmailConnect = () => {
+  const handleEmailConnect = async () => {
     if (oauthErrorScenario) {
       toast.error("Google OAuth 인증을 확인하지 못했습니다.");
       return;
     }
 
-    const nextConnectedEmail = deriveGoogleIntegrationEmail(session.userEmail);
+    try {
+      setCheckingIntegration(true);
+      const authorizationUrl = await getGoogleAuthorizationUrl();
+      window.open(authorizationUrl, "_blank", "noopener,noreferrer");
+      toast("연결 창에서 권한 동의를 마치면 이 화면에서 자동으로 상태를 확인합니다.");
 
-    setConnectedEmail(nextConnectedEmail);
-    setEmailConnected(true);
-    persistConnectedEmail(nextConnectedEmail);
-    toast.success("이메일 계정 연결을 완료했습니다.");
+      let attempts = 0;
+      const maxAttempts = 20;
+
+      const intervalId = window.setInterval(async () => {
+        attempts += 1;
+
+        try {
+          const integration = await getMyIntegrationSafe();
+
+          if (integration?.connectedEmail) {
+            window.clearInterval(intervalId);
+            integrationPollingRef.current = null;
+            setConnectedEmail(integration.connectedEmail);
+            setEmailConnected(true);
+            persistConnectedEmail(integration.connectedEmail);
+            setCheckingIntegration(false);
+            toast.success("이메일 계정 연결을 완료했습니다.");
+            return;
+          }
+        } catch {
+          // Ignore polling failures and let the user retry.
+        }
+
+        if (attempts >= maxAttempts) {
+          window.clearInterval(intervalId);
+          integrationPollingRef.current = null;
+          setCheckingIntegration(false);
+          toast("연결 상태를 바로 확인하지 못했습니다. 권한 동의 후 다시 시도해 주세요.");
+        }
+      }, 3000);
+      integrationPollingRef.current = intervalId;
+    } catch (error) {
+      setCheckingIntegration(false);
+      toast.error(getErrorMessage(error, "Google 계정 연결을 시작하지 못했습니다."));
+    }
   };
 
-  const handleUploadedFiles = (files: FileList | null) => {
+  const handleUploadedFiles = async (files: FileList | null) => {
     const nextFile = files?.[0];
 
     if (!nextFile) {
@@ -490,26 +712,61 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
       return;
     }
 
-    setUploadedFile(nextFile.name);
-    toast.success(`${nextFile.name} 파일을 추가했습니다.`);
+    try {
+      setUploadingFile(true);
+      const uploadedResource = await uploadBusinessFile(nextFile);
+      setUploadedFiles((current) => [
+        ...current,
+        {
+          id: String(uploadedResource.resourceId),
+          resourceId: uploadedResource.resourceId,
+          fileName: uploadedResource.fileName,
+        },
+      ]);
+      toast.success(`${uploadedResource.fileName} 파일을 추가했습니다.`);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "자료 업로드를 완료하지 못했습니다."));
+    } finally {
+      setUploadingFile(false);
+    }
   };
 
-  const startTemplateGeneration = () => {
-    if (templateGenerationErrorScenario) {
-      clearGenerationTimeouts();
-      setCurrentMainStep(3);
-      setIsGenerating(true);
-      setGenerationStep(2);
-      setTemplateProgress(4);
-      toast.error("템플릿 생성 작업을 완료하지 못했습니다.");
+  const handleRemoveUploadedFile = async (targetFile: UploadedFileItem) => {
+    if (!targetFile.resourceId) {
+      setUploadedFiles((current) =>
+        current.filter((file) => file.id !== targetFile.id),
+      );
       return;
     }
 
+    try {
+      await deleteBusinessFile(targetFile.resourceId);
+      setUploadedFiles((current) =>
+        current.filter((file) => file.id !== targetFile.id),
+      );
+      toast.success("업로드한 자료를 삭제했습니다.");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "자료를 삭제하지 못했습니다."));
+    }
+  };
+
+  const handleCancelGeneration = () => {
+    clearGenerationTimeouts();
+    setIsGenerating(false);
+    setGenerationStep(0);
+    setTemplateProgress(0);
+    markOnboardingComplete();
+    toast.message("설정은 저장되지 않았지만 나중에 다시 진행할 수 있습니다.");
+    navigate("/app");
+  };
+
+  const runTemplateGenerationAnimation = (templateCount: number) => {
     clearGenerationTimeouts();
     setCurrentMainStep(3);
     setIsGenerating(true);
     setGenerationStep(0);
     setTemplateProgress(0);
+    setGeneratedTemplateCount(templateCount);
 
     generationTimeoutsRef.current = [
       window.setTimeout(() => setGenerationStep(1), 800),
@@ -528,30 +785,95 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
     ];
   };
 
-  const handleCancelGeneration = () => {
-    clearGenerationTimeouts();
-    setIsGenerating(false);
-    setGenerationStep(0);
-    setTemplateProgress(0);
-    markOnboardingComplete();
-    toast.message("설정은 저장되지 않았지만 나중에 다시 진행할 수 있습니다.");
-    navigate("/app");
+  const saveCompanyProfile = async () => {
+    if (!businessType) {
+      toast.error("업종 / 비즈니스 유형을 선택해 주세요.");
+      return false;
+    }
+
+    setSavingProfile(true);
+
+    try {
+      await upsertBusinessProfile({
+        industryType: businessType,
+        companyDescription: description.trim(),
+        emailTone: mapToneToApiTone(tone),
+      });
+      return true;
+    } catch (error) {
+      toast.error(getErrorMessage(error, "회사 프로필을 저장하지 못했습니다."));
+      return false;
+    } finally {
+      setSavingProfile(false);
+    }
   };
 
-  const handleNextMainStep = () => {
+  const startTemplateGeneration = async () => {
+    if (templateGenerationErrorScenario) {
+      clearGenerationTimeouts();
+      setCurrentMainStep(3);
+      setIsGenerating(true);
+      setGenerationStep(2);
+      setTemplateProgress(4);
+      setTemplateGenerationMessage(null);
+      toast.error("템플릿 생성 작업을 완료하지 못했습니다.");
+      return;
+    }
+
+    try {
+      setTemplateGenerationMessage(null);
+      const templates = await getTemplates();
+
+      if (templates.length === 0) {
+        setTemplateGenerationMessage(
+          "현재 백엔드는 온보딩용 초기 템플릿 생성을 직접 지원하지 않아 마지막 단계는 시뮬레이션으로 대체할 수 없습니다. 비즈니스 프로필 저장까지는 완료되었고, 초기 템플릿 생성 API가 추가되면 이 단계까지 연결할 수 있습니다.",
+        );
+        toast.error("초기 템플릿 생성 API가 아직 없어 마지막 단계를 완료할 수 없습니다.");
+        return;
+      }
+
+      const response = await regenerateBusinessTemplates({
+        regenerateAll: true,
+        templateIds: [],
+      });
+
+      runTemplateGenerationAnimation(response.processingCount);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "템플릿 생성 작업을 시작하지 못했습니다."));
+    }
+  };
+
+  const handleNextMainStep = async () => {
     if (currentMainStep === 1 && emailConnected) {
       setCurrentMainStep(2);
       setCurrentSubStep(0);
     } else if (currentMainStep === 2 && currentSubStep === 2) {
-      startTemplateGeneration();
+      await startTemplateGeneration();
     }
   };
 
-  const handleRemoveCategory = (id: string) => {
-    setCategories(categories.filter((c) => c.id !== id));
+  const handleRemoveCategory = async (id: string) => {
+    const targetCategory = categories.find((category) => category.id === id);
+
+    if (!targetCategory) {
+      return;
+    }
+
+    if (!targetCategory.categoryId) {
+      setCategories(categories.filter((c) => c.id !== id));
+      return;
+    }
+
+    try {
+      await deleteBusinessCategory(targetCategory.categoryId);
+      setCategories(categories.filter((c) => c.id !== id));
+      toast.success("카테고리를 삭제했습니다.");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "카테고리를 삭제하지 못했습니다."));
+    }
   };
 
-  const handleAddCategory = () => {
+  const handleAddCategory = async () => {
     const categoryName = newCategory.trim();
 
     if (categoryName) {
@@ -564,24 +886,64 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
         (option) => option.name === categoryName,
       );
 
-      setCategories([
-        ...categories,
+      const nextCategory =
         recommendedCategory ?? {
           id: Date.now().toString(),
           name: categoryName,
           domain: businessType || "사용자 정의",
           color: categoryColorPalette[Math.floor(Math.random() * categoryColorPalette.length)],
+        };
+
+      try {
+        setSavingCategory(true);
+        const savedCategory = await createBusinessCategory({
+          categoryName,
+          color: nextCategory.color,
+        });
+        setCategories([
+          ...categories,
+          {
+            ...nextCategory,
+            id: String(savedCategory.categoryId),
+            categoryId: savedCategory.categoryId,
+            color: savedCategory.color ?? nextCategory.color,
+          },
+        ]);
+        setNewCategory("");
+        setCategoryDropdownOpen(false);
+      } catch (error) {
+        toast.error(getErrorMessage(error, "카테고리를 추가하지 못했습니다."));
+      } finally {
+        setSavingCategory(false);
+      }
+    }
+  };
+
+  const handleSelectSuggestedCategory = async (
+    category: RecommendedCategoryOption,
+  ) => {
+    try {
+      setSavingCategory(true);
+      const savedCategory = await createBusinessCategory({
+        categoryName: category.name,
+        color: category.color,
+      });
+      setCategories((current) => [
+        ...current,
+        {
+          ...category,
+          id: String(savedCategory.categoryId),
+          categoryId: savedCategory.categoryId,
+          color: savedCategory.color ?? category.color,
         },
       ]);
       setNewCategory("");
       setCategoryDropdownOpen(false);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "카테고리를 추가하지 못했습니다."));
+    } finally {
+      setSavingCategory(false);
     }
-  };
-
-  const handleSelectSuggestedCategory = (category: RecommendedCategoryOption) => {
-    setCategories((current) => [...current, category]);
-    setNewCategory("");
-    setCategoryDropdownOpen(false);
   };
 
   const handleFaqDraftChange = (
@@ -591,7 +953,7 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
     setFaqDraft((current) => ({ ...current, [field]: value }));
   };
 
-  const handleSaveFaq = () => {
+  const handleSaveFaq = async () => {
     const question = faqDraft.question.trim();
     const answer = faqDraft.answer.trim();
 
@@ -599,24 +961,45 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
       return;
     }
 
-    setFaqItems((current) => [
-      ...current,
-      {
-        id: Date.now().toString(),
-        question,
-        answer,
-      },
-    ]);
-    setFaqDraft({ question: "", answer: "" });
-    setFaqComposerOpen(false);
+    try {
+      setSavingFaq(true);
+      const savedFaq = await createBusinessFaq({ question, answer });
+      setFaqItems((current) => [
+        ...current,
+        {
+          id: String(savedFaq.faqId),
+          faqId: savedFaq.faqId,
+          question: savedFaq.question,
+          answer: savedFaq.answer,
+        },
+      ]);
+      setFaqDraft({ question: "", answer: "" });
+      setFaqComposerOpen(false);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "FAQ를 저장하지 못했습니다."));
+    } finally {
+      setSavingFaq(false);
+    }
   };
 
-  const handleRemoveFaq = (id: string) => {
+  const handleRemoveFaq = async (id: string) => {
     if (faqItems.length === 1 && faqItems[0].id === id) {
       setFaqComposerOpen(true);
     }
 
-    setFaqItems((current) => current.filter((item) => item.id !== id));
+    const targetFaq = faqItems.find((item) => item.id === id);
+
+    if (!targetFaq?.faqId) {
+      setFaqItems((current) => current.filter((item) => item.id !== id));
+      return;
+    }
+
+    try {
+      await deleteBusinessFaq(targetFaq.faqId);
+      setFaqItems((current) => current.filter((item) => item.id !== id));
+    } catch (error) {
+      toast.error(getErrorMessage(error, "FAQ를 삭제하지 못했습니다."));
+    }
   };
 
   const panelText = leftPanelContent[currentMainStep];
@@ -726,11 +1109,16 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
                     </div>
 
                     <button
-                      onClick={handleEmailConnect}
-                      className="mx-auto flex w-full max-w-[320px] items-center justify-center gap-2 rounded-xl bg-[#2DD4BF] px-5 py-3.5 text-[#1E2A3A] transition-colors hover:bg-[#14B8A6]"
+                      onClick={() => void handleEmailConnect()}
+                      disabled={checkingIntegration}
+                      className="mx-auto flex w-full max-w-[320px] items-center justify-center gap-2 rounded-xl bg-[#2DD4BF] px-5 py-3.5 text-[#1E2A3A] transition-colors hover:bg-[#14B8A6] disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      <Mail className="w-4 h-4" />
-                      Google 계정으로 로그인
+                      {checkingIntegration ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Mail className="w-4 h-4" />
+                      )}
+                      {checkingIntegration ? "연결 상태 확인 중..." : "Google 계정으로 로그인"}
                     </button>
 
                     {/* Security Notice */}
@@ -767,6 +1155,15 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
             {currentMainStep === 2 && (
               <>
                 <div className="bg-white rounded-2xl shadow-sm border border-[#E2E8F0]/60 p-8 sm:p-10 mb-6">
+                  {initializing ? (
+                    <StateBanner
+                      title="기존 온보딩 정보를 불러오는 중입니다"
+                      description="이미 저장된 프로필, FAQ, 카테고리, 자료가 있으면 화면에 반영합니다."
+                      tone="info"
+                      className="mb-6"
+                    />
+                  ) : null}
+
                   {/* Sub-step 0: Company Profile */}
                   {currentSubStep === 0 && (
                     <div className="space-y-6">
@@ -875,9 +1272,9 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
                         onDrop={(e) => {
                           e.preventDefault();
                           setIsDragging(false);
-                          handleUploadedFiles(e.dataTransfer.files);
+                          void handleUploadedFiles(e.dataTransfer.files);
                         }}
-                        onClick={() => fileInputRef.current?.click()}
+                        onClick={() => !uploadingFile && fileInputRef.current?.click()}
                         className={`border-2 border-dashed rounded-xl p-10 text-center transition-all ${
                           isDragging
                             ? "border-[#2DD4BF] bg-[#2DD4BF]/5"
@@ -889,31 +1286,44 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
                           type="file"
                           accept=".pdf,.doc,.docx,.txt"
                           className="hidden"
-                          onChange={(e) => handleUploadedFiles(e.target.files)}
+                          onChange={(e) => void handleUploadedFiles(e.target.files)}
                         />
-                        <Upload className="w-10 h-10 text-[#CBD5E1] mx-auto mb-3" />
+                        {uploadingFile ? (
+                          <Loader2 className="w-10 h-10 text-[#2DD4BF] mx-auto mb-3 animate-spin" />
+                        ) : (
+                          <Upload className="w-10 h-10 text-[#CBD5E1] mx-auto mb-3" />
+                        )}
                         <p className="text-[14px] text-[#1E2A3A] mb-1">
-                          파일을 여기에 드래그하거나 클릭하여 업로드
+                          {uploadingFile
+                            ? "자료를 업로드하는 중입니다"
+                            : "파일을 여기에 드래그하거나 클릭하여 업로드"}
                         </p>
                         <p className="text-[12px] text-[#94A3B8]">
                           PDF, DOCX, TXT 형식 지원 (최대 10MB)
                         </p>
                       </div>
 
-                      {uploadedFile && (
-                        <div className="flex items-center gap-3 p-3 bg-[#F0FDF4] border border-[#BBF7D0] rounded-xl">
-                          <FileText className="w-5 h-5 text-[#10B981]" />
-                          <span className="flex-1 text-[13px] text-[#1E2A3A]">
-                            {uploadedFile}
-                          </span>
-                          <button
-                            onClick={() => setUploadedFile(null)}
-                            className="text-[#94A3B8] hover:text-[#EF4444]"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
+                      {uploadedFiles.length > 0 ? (
+                        <div className="space-y-2">
+                          {uploadedFiles.map((file) => (
+                            <div
+                              key={file.id}
+                              className="flex items-center gap-3 p-3 bg-[#F0FDF4] border border-[#BBF7D0] rounded-xl"
+                            >
+                              <FileText className="w-5 h-5 text-[#10B981]" />
+                              <span className="flex-1 text-[13px] text-[#1E2A3A]">
+                                {file.fileName}
+                              </span>
+                              <button
+                                onClick={() => void handleRemoveUploadedFile(file)}
+                                className="text-[#94A3B8] hover:text-[#EF4444]"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))}
                         </div>
-                      )}
+                      ) : null}
 
                       <div className="relative">
                         <div className="flex items-center gap-4 my-6">
@@ -977,7 +1387,7 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
 
                                 <button
                                   type="button"
-                                  onClick={() => handleRemoveFaq(item.id)}
+                                  onClick={() => void handleRemoveFaq(item.id)}
                                   className="text-[#CBD5E1] transition-colors hover:text-[#EF4444]"
                                 >
                                   <X className="w-4 h-4" />
@@ -1034,15 +1444,15 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
 
                               <button
                                 type="button"
-                                onClick={handleSaveFaq}
-                                disabled={!canSaveFaq}
+                                onClick={() => void handleSaveFaq()}
+                                disabled={!canSaveFaq || savingFaq}
                                 className={`px-4 py-2.5 rounded-xl text-[13px] transition-colors ${
-                                  canSaveFaq
+                                  canSaveFaq && !savingFaq
                                     ? "bg-[#1E2A3A] text-white hover:bg-[#2A3A4E]"
                                     : "bg-[#E2E8F0] text-[#94A3B8] cursor-not-allowed"
                                 }`}
                               >
-                                작성 완료
+                                {savingFaq ? "저장 중..." : "작성 완료"}
                               </button>
                             </div>
                           </div>
@@ -1092,7 +1502,7 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
                               </span>
                               <span className="text-[13px] text-[#1E2A3A]">{cat.name}</span>
                               <button
-                                onClick={() => handleRemoveCategory(cat.id)}
+                                onClick={() => void handleRemoveCategory(cat.id)}
                                 className="text-[#CBD5E1] hover:text-[#EF4444] transition-colors"
                               >
                                 <X className="w-3.5 h-3.5" />
@@ -1121,12 +1531,17 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
                             className="app-form-input h-11 flex-1 rounded-xl px-4 text-[14px] placeholder:text-[#94A3B8]"
                           />
                           <button
-                            onClick={handleAddCategory}
+                            onClick={() => void handleAddCategory()}
+                            disabled={savingCategory}
                             className="px-4 py-2.5 bg-[#1E2A3A] text-white rounded-xl hover:bg-[#2A3A4E] transition-colors flex items-center gap-2"
                           >
-                            <Plus className="w-4 h-4" />
+                            {savingCategory ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Plus className="w-4 h-4" />
+                            )}
                             <span className="text-[13px] hidden sm:inline">
-                              추가
+                              {savingCategory ? "추가 중" : "추가"}
                             </span>
                           </button>
                         </div>
@@ -1148,7 +1563,7 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
                                           key={option.id}
                                           type="button"
                                           className="rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-1.5 text-[12px] text-[#1E2A3A] transition hover:border-[#2DD4BF] hover:bg-[#F0FDFA]"
-                                          onClick={() => handleSelectSuggestedCategory(option)}
+                                          onClick={() => void handleSelectSuggestedCategory(option)}
                                         >
                                           {option.name}
                                         </button>
@@ -1225,16 +1640,39 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
 
                   {currentSubStep < 2 ? (
                     <button
-                      onClick={() => setCurrentSubStep(currentSubStep + 1)}
+                      onClick={async () => {
+                        if (currentSubStep === 0) {
+                          const saved = await saveCompanyProfile();
+
+                          if (!saved) {
+                            return;
+                          }
+                        }
+
+                        setCurrentSubStep(currentSubStep + 1);
+                      }}
+                      disabled={currentSubStep === 0 && savingProfile}
                       className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-[14px] bg-[#1E2A3A] text-white hover:bg-[#2A3A4E] transition-colors"
                     >
-                      다음
-                      <ChevronRight className="w-4 h-4" />
+                      {currentSubStep === 0 && savingProfile ? "저장 중..." : "다음"}
+                      {currentSubStep === 0 && savingProfile ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4" />
+                      )}
                     </button>
                   ) : (
                     <div className="flex flex-col items-end gap-2">
+                      {templateGenerationMessage ? (
+                        <StateBanner
+                          title="초기 템플릿 생성은 아직 백엔드와 완전히 연결되지 않았습니다"
+                          description={templateGenerationMessage}
+                          tone="warning"
+                          className="max-w-[420px]"
+                        />
+                      ) : null}
                       <button
-                        onClick={handleNextMainStep}
+                        onClick={() => void handleNextMainStep()}
                         className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-[14px] bg-[#2DD4BF] text-[#1E2A3A] hover:bg-[#14B8A6] transition-colors"
                       >
                         템플릿 생성 시작
@@ -1429,7 +1867,7 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
                         <Check className="w-3 h-3 text-[#2DD4BF]" />
                       </div>
                       <span className="text-[13px] text-[#1E2A3A]">
-                        템플릿 {categories.length * 3}개 생성 완료
+                        템플릿 {generatedTemplateCount || categories.length * 3}개 생성 완료
                       </span>
                     </div>
                   </div>
