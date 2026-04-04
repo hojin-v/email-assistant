@@ -12,15 +12,10 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  ADMIN_IP_DENIED_MOCK_CLIENT_IP,
   ADMIN_VPN_CIDR,
-  DEFAULT_MOCK_CLIENT_IP,
-  createAuthenticatedSession,
-  deriveNameFromEmail,
-  isVpnIpAllowed,
-  resolveMockAuthAccount,
-  validateMockAccountPassword,
 } from "../../shared/lib/app-session";
+import { getErrorMessage } from "../../shared/api/http";
+import { loginAndCreateSession, signupAndCreateSession } from "../../shared/api/session";
 import { AuthOnboardingLayout } from "../../shared/ui/AuthOnboardingLayout";
 import { StateBanner } from "../../shared/ui/primitives/StateBanner";
 
@@ -79,6 +74,8 @@ interface AuthPageProps {
   scenarioId?: string | null;
 }
 
+const ADMIN_IP_DENIED_MOCK_CLIENT_IP = "203.0.113.25";
+
 type RuntimeBanner = {
   tone: "error" | "warning" | "info" | "neutral";
   title: string;
@@ -104,6 +101,7 @@ export function AuthPage({ scenarioId }: AuthPageProps) {
     password: "",
     passwordConfirm: "",
   });
+  const [submittingMode, setSubmittingMode] = useState<AuthMode | null>(null);
   const [resetCompleted, setResetCompleted] = useState(false);
   const [runtimeBanner, setRuntimeBanner] = useState<RuntimeBanner | null>(null);
 
@@ -117,11 +115,6 @@ export function AuthPage({ scenarioId }: AuthPageProps) {
   const signupValidationScenario = scenarioId === "auth-signup-validation";
   const loginServiceErrorScenario = scenarioId === "auth-login-service-error";
   const adminIpDeniedScenario = scenarioId === "auth-admin-ip-denied";
-  const selectedAccount = useMemo(
-    () => resolveMockAuthAccount(loginForm.email.trim()),
-    [loginForm.email],
-  );
-  const adminAccountSelected = selectedAccount.role === "ADMIN";
 
   useEffect(() => {
     setRuntimeBanner(null);
@@ -254,7 +247,7 @@ export function AuthPage({ scenarioId }: AuthPageProps) {
     signupValidationScenario,
   ]);
 
-  const handleLoginSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleLoginSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setRuntimeBanner(null);
 
@@ -268,49 +261,49 @@ export function AuthPage({ scenarioId }: AuthPageProps) {
       return;
     }
 
-    if (!validateMockAccountPassword(loginForm.email.trim(), loginForm.password.trim())) {
-      setRuntimeBanner({
-        tone: "error",
-        title: "로그인 정보를 다시 확인해 주세요",
-        description: "관리자 계정의 이메일 또는 비밀번호가 올바르지 않습니다. 다시 입력해 주세요.",
-      });
-      return;
-    }
-
-    const account = resolveMockAuthAccount(loginForm.email.trim());
-    const clientIp = adminIpDeniedScenario
-      ? ADMIN_IP_DENIED_MOCK_CLIENT_IP
-      : DEFAULT_MOCK_CLIENT_IP;
-    const adminVpnApproved = account.role === "ADMIN" ? isVpnIpAllowed(clientIp) : false;
-
-    if (account.role === "ADMIN" && !adminVpnApproved) {
+    if (adminIpDeniedScenario) {
       setRuntimeBanner({
         tone: "error",
         title: "관리자 접근이 승인되지 않았습니다",
-        description: `현재 접속 IP ${clientIp}는 관리자 VPN 허용 대역(${ADMIN_VPN_CIDR})에 포함되지 않습니다. VPN 연결 후 다시 로그인해 주세요.`,
+        description: `현재 접속 IP ${ADMIN_IP_DENIED_MOCK_CLIENT_IP}는 관리자 VPN 허용 대역(${ADMIN_VPN_CIDR})에 포함되지 않습니다. VPN 연결 후 다시 로그인해 주세요.`,
       });
       return;
     }
 
-    createAuthenticatedSession({
-      name: account.name || deriveNameFromEmail(loginForm.email.trim()) || "사용자",
-      email: account.email || loginForm.email.trim(),
-      role: account.role,
-      clientIp,
-      adminVpnApproved,
-    });
+    setSubmittingMode("login");
 
-    if (account.role === "ADMIN") {
-      toast.success("관리자 계정으로 로그인되었습니다.");
-      navigate("/admin");
-      return;
+    try {
+      const session = await loginAndCreateSession(
+        loginForm.email.trim(),
+        loginForm.password.trim(),
+      );
+
+      if (session.role === "ADMIN") {
+        toast.success("관리자 계정으로 로그인되었습니다.");
+        navigate("/admin");
+        return;
+      }
+
+      if (session.onboardingCompleted) {
+        toast.success("로그인되었습니다. 업무 화면으로 이동합니다.");
+        navigate("/app");
+        return;
+      }
+
+      toast.success("로그인되었습니다. 온보딩으로 이동합니다.");
+      navigate("/onboarding");
+    } catch (error) {
+      setRuntimeBanner({
+        tone: "error",
+        title: "로그인 정보를 다시 확인해 주세요",
+        description: getErrorMessage(error, "로그인 요청을 처리하지 못했습니다."),
+      });
+    } finally {
+      setSubmittingMode(null);
     }
-
-    toast.success("로그인되었습니다. 온보딩으로 이동합니다.");
-    navigate("/onboarding");
   };
 
-  const handleSignupSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSignupSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (
@@ -328,13 +321,21 @@ export function AuthPage({ scenarioId }: AuthPageProps) {
       return;
     }
 
-    createAuthenticatedSession({
-      name: signupForm.name.trim(),
-      email: signupForm.email.trim(),
-    });
+    setSubmittingMode("signup");
 
-    toast.success("회원가입이 완료되었습니다. 온보딩으로 이동합니다.");
-    navigate("/onboarding");
+    try {
+      await signupAndCreateSession(
+        signupForm.name.trim(),
+        signupForm.email.trim(),
+        signupForm.password.trim(),
+      );
+      toast.success("회원가입이 완료되었습니다. 온보딩으로 이동합니다.");
+      navigate("/onboarding");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "회원가입을 완료하지 못했습니다."));
+    } finally {
+      setSubmittingMode(null);
+    }
   };
 
   const handleResetSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -360,12 +361,7 @@ export function AuthPage({ scenarioId }: AuthPageProps) {
       return;
     }
 
-    setLoginForm({
-      email: resetForm.email.trim(),
-      password: "",
-    });
-    setResetCompleted(true);
-    toast.success("새 비밀번호를 설정했습니다.");
+    toast.error("비밀번호 재설정 API는 아직 연결되지 않았습니다.");
   };
 
   return (
@@ -535,19 +531,12 @@ export function AuthPage({ scenarioId }: AuthPageProps) {
               ) : null}
             </label>
 
-            {adminAccountSelected ? (
-              <StateBanner
-                title="관리자 계정은 VPN 연결 후 로그인할 수 있습니다"
-                description={`운영 콘솔 접근은 관리자 role과 VPN 허용 대역(${ADMIN_VPN_CIDR})을 함께 확인합니다.`}
-                tone="info"
-              />
-            ) : null}
-
             <button
               type="submit"
               className="app-cta-primary flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3.5"
+              disabled={submittingMode === "login"}
             >
-              로그인하고 계속하기
+              {submittingMode === "login" ? "로그인 중..." : "로그인하고 계속하기"}
               <ArrowRight className="w-4 h-4" />
             </button>
 
@@ -767,8 +756,9 @@ export function AuthPage({ scenarioId }: AuthPageProps) {
                   <button
                     type="submit"
                     className="app-cta-accent flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3.5"
+                    disabled={submittingMode === "signup"}
                   >
-                    회원가입하고 계속하기
+                    {submittingMode === "signup" ? "회원가입 중..." : "회원가입하고 계속하기"}
                     <ArrowRight className="w-4 h-4" />
                   </button>
           </form>

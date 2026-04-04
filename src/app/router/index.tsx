@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { Link, Navigate, createBrowserRouter } from "react-router";
 import { AppShell } from "../../shared/ui/AppShell";
 import {
-  canAccessAdmin,
   canAccessUserWorkspace,
   getAppSession,
   isAdminSession,
@@ -13,7 +12,7 @@ import { AdminRootLayout } from "../../admin/AdminRootLayout";
 function AuthEntryGate({ children }: { children: ReactNode }) {
   const session = getAppSession();
 
-  if (canAccessAdmin(session)) {
+  if (isAdminSession(session)) {
     return <Navigate replace to="/admin" />;
   }
 
@@ -83,24 +82,6 @@ function AdminGate() {
             className="app-cta-primary inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm font-medium"
           >
             사용자 화면으로 이동
-          </Link>
-        }
-      />
-    );
-  }
-
-  if (!canAccessAdmin(session)) {
-    return (
-      <AppStatePage
-        title="관리자 접근이 승인되지 않았습니다"
-        description={`현재 접속 IP ${session.clientIp || "-"}는 관리자 VPN 허용 대역(192.168.0.0/24)에 포함되지 않습니다. VPN 연결 후 다시 로그인해 주세요.`}
-        tone="warning"
-        action={
-          <Link
-            to="/"
-            className="app-cta-primary inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm font-medium"
-          >
-            로그인 화면으로 이동
           </Link>
         }
       />
