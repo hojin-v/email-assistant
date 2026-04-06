@@ -13,9 +13,12 @@ import {
 import { toast } from "sonner";
 import {
   ADMIN_VPN_CIDR,
+  createAuthenticatedSession,
+  deriveNameFromEmail,
 } from "../../shared/lib/app-session";
 import { getErrorMessage } from "../../shared/api/http";
 import { loginAndCreateSession, signupAndCreateSession } from "../../shared/api/session";
+import { isDemoModeEnabled } from "../../shared/scenarios/demo-mode";
 import { AuthOnboardingLayout } from "../../shared/ui/AuthOnboardingLayout";
 import { StateBanner } from "../../shared/ui/primitives/StateBanner";
 
@@ -84,6 +87,7 @@ type RuntimeBanner = {
 
 export function AuthPage({ scenarioId }: AuthPageProps) {
   const navigate = useNavigate();
+  const demoMode = isDemoModeEnabled();
   const [mode, setMode] = useState<AuthMode>("login");
   const [loginForm, setLoginForm] = useState<LoginForm>({
     email: "",
@@ -273,10 +277,23 @@ export function AuthPage({ scenarioId }: AuthPageProps) {
     setSubmittingMode("login");
 
     try {
-      const session = await loginAndCreateSession(
-        loginForm.email.trim(),
-        loginForm.password.trim(),
-      );
+      const normalizedEmail = loginForm.email.trim().toLowerCase();
+      const session = demoMode
+        ? createAuthenticatedSession({
+            name:
+              normalizedEmail.startsWith("admin")
+                ? "데모 관리자"
+                : deriveNameFromEmail(normalizedEmail) || "데모 사용자",
+            email: normalizedEmail,
+            role: normalizedEmail.startsWith("admin") ? "ADMIN" : "USER",
+            onboardingCompleted: !normalizedEmail.startsWith("new-user"),
+            connectedEmail: normalizedEmail.startsWith("admin") ? "" : "demo@gmail.com",
+            connectedEmails: normalizedEmail.startsWith("admin") ? [] : ["demo@gmail.com"],
+          })
+        : await loginAndCreateSession(
+            loginForm.email.trim(),
+            loginForm.password.trim(),
+          );
 
       if (session.role === "ADMIN") {
         toast.success("관리자 계정으로 로그인되었습니다.");
@@ -324,11 +341,22 @@ export function AuthPage({ scenarioId }: AuthPageProps) {
     setSubmittingMode("signup");
 
     try {
-      await signupAndCreateSession(
-        signupForm.name.trim(),
-        signupForm.email.trim(),
-        signupForm.password.trim(),
-      );
+      if (demoMode) {
+        createAuthenticatedSession({
+          name: signupForm.name.trim(),
+          email: signupForm.email.trim(),
+          role: "USER",
+          onboardingCompleted: false,
+          connectedEmail: "",
+          connectedEmails: [],
+        });
+      } else {
+        await signupAndCreateSession(
+          signupForm.name.trim(),
+          signupForm.email.trim(),
+          signupForm.password.trim(),
+        );
+      }
       toast.success("회원가입이 완료되었습니다. 온보딩으로 이동합니다.");
       navigate("/onboarding");
     } catch (error) {
@@ -358,6 +386,12 @@ export function AuthPage({ scenarioId }: AuthPageProps) {
 
     if (resetForm.password.trim().length < 8) {
       toast.error("새 비밀번호는 8자 이상으로 입력해주세요.");
+      return;
+    }
+
+    if (demoMode) {
+      setResetCompleted(true);
+      toast.success("데모 모드에서 비밀번호 재설정 완료 상태를 표시했습니다.");
       return;
     }
 

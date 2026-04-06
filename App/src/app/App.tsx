@@ -24,17 +24,40 @@ function SessionBootstrap({ children }: { children: ReactNode }) {
 
     if (isDemoModeEnabled() && !getAccessToken()) {
       const pathname = window.location.pathname;
+      const authPath = pathname === "/";
       const onboardingPath = pathname.startsWith("/onboarding");
       const adminPath = pathname.startsWith("/admin");
+      const appPath = pathname.startsWith("/app");
 
-      createAuthenticatedSession({
-        name: adminPath ? "데모 관리자" : "데모 사용자",
-        email: adminPath ? "admin@emailassist.demo" : "demo@emailassist.demo",
-        role: adminPath ? "ADMIN" : "USER",
-        onboardingCompleted: adminPath || !onboardingPath,
-        connectedEmail: adminPath ? "" : "demo@gmail.com",
-        connectedEmails: adminPath ? [] : ["demo@gmail.com"],
-      });
+      if (authPath) {
+        setReady(true);
+        return;
+      }
+
+      if (adminPath) {
+        createAuthenticatedSession({
+          name: "데모 관리자",
+          email: "admin@emailassist.demo",
+          role: "ADMIN",
+          onboardingCompleted: true,
+          connectedEmail: "",
+          connectedEmails: [],
+        });
+        setReady(true);
+        return;
+      }
+
+      if (onboardingPath || appPath) {
+        createAuthenticatedSession({
+          name: "데모 사용자",
+          email: "demo@emailassist.demo",
+          role: "USER",
+          onboardingCompleted: appPath,
+          connectedEmail: "demo@gmail.com",
+          connectedEmails: ["demo@gmail.com"],
+        });
+      }
+
       setReady(true);
       return;
     }
