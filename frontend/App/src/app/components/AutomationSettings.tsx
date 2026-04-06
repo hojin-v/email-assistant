@@ -268,8 +268,8 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
   );
 
   const groups = useMemo(
-    () => buildAutomationCategoryGroups(rules, templateCatalog),
-    [rules, templateCatalog],
+    () => buildAutomationCategoryGroups(rules),
+    [rules],
   );
 
   const availableCategories = useMemo(
@@ -422,7 +422,7 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
     const targetCategory = availableCategories[0];
 
     if (!targetCategory) {
-      toast("추가할 수 있는 카테고리 자동화가 없습니다.");
+      toast("추가할 수 있는 자동발송 규칙이 없습니다.");
       return;
     }
 
@@ -470,6 +470,21 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
       ...current,
       templates: current.templates.map((template) =>
         template.templateId === templateId
+          ? {
+              ...template,
+              selected: !template.selected,
+              autoSend: !template.selected ? template.autoSend : false,
+            }
+          : template,
+      ),
+    }));
+  };
+
+  const handleDialogTemplateAutoSendToggle = (templateId: number) => {
+    setDialogState((current) => ({
+      ...current,
+      templates: current.templates.map((template) =>
+        template.templateId === templateId
           ? { ...template, autoSend: !template.autoSend }
           : template,
       ),
@@ -482,13 +497,17 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
       return;
     }
 
-    if (dialogState.templates.length === 0) {
-      toast.error("이 카테고리에는 연결할 템플릿이 없습니다.");
+    const selectedTemplates = dialogState.templates.filter(
+      (template) => template.selected,
+    );
+
+    if (selectedTemplates.length === 0) {
+      toast.error("자동발송 규칙에 포함할 템플릿을 선택해 주세요.");
       return;
     }
 
     if (ruleSaveErrorScenario) {
-      toast.error("카테고리 규칙을 저장하지 못했습니다.");
+      toast.error("자동발송 규칙을 저장하지 못했습니다.");
       return;
     }
 
@@ -500,7 +519,7 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
           const nextRuleStartId =
             rules.reduce((maxRuleId, rule) => Math.max(maxRuleId, rule.ruleId), 0) + 1;
 
-          const createdRules = dialogState.templates.map((template, index) => ({
+          const createdRules = selectedTemplates.map((template, index) => ({
             ruleId: nextRuleStartId + index,
             categoryId: selectedDialogCategory.categoryId,
             categoryName: selectedDialogCategory.categoryName,
@@ -512,32 +531,41 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
           })) satisfies AutomationRuleSnapshot[];
 
           setRules((current) => [...current, ...createdRules]);
-          toast.success("카테고리 자동화를 추가했습니다.");
+          toast.success("자동발송 규칙을 추가했습니다.");
         } else {
           const currentCategoryId = selectedDialogCategory.categoryId;
-          const nextTemplateMap = new Map(
-            dialogState.templates.map((template) => [template.templateId, template]),
+          const existingTemplateMap = new Map(
+            groups
+              .find((group) => group.categoryId === currentCategoryId)
+              ?.templates.map((template) => [template.templateId, template]) ?? [],
           );
+          const nextRuleStartId =
+            rules.reduce((maxRuleId, rule) => Math.max(maxRuleId, rule.ruleId), 0) + 1;
+          let createdOffset = 0;
 
-          setRules((current) =>
-            current.map((rule) => {
-              if (rule.categoryId !== currentCategoryId || rule.templateId === null) {
-                return rule;
-              }
+          const nextRules = rules
+            .filter((rule) => rule.categoryId !== currentCategoryId)
+            .concat(
+              selectedTemplates.map((template) => {
+                const existingTemplate = existingTemplateMap.get(template.templateId);
 
-              const nextTemplate = nextTemplateMap.get(rule.templateId);
+                return {
+                  ruleId:
+                    existingTemplate?.ruleId ??
+                    nextRuleStartId + createdOffset++,
+                  categoryId: selectedDialogCategory.categoryId,
+                  categoryName: selectedDialogCategory.categoryName,
+                  color: selectedDialogCategory.color,
+                  templateId: template.templateId,
+                  templateTitle: template.title,
+                  autoSendEnabled: template.autoSend,
+                  autoCalendarEnabled: existingTemplate?.autoCalendar ?? false,
+                } satisfies AutomationRuleSnapshot;
+              }),
+            );
 
-              if (!nextTemplate) {
-                return rule;
-              }
-
-              return {
-                ...rule,
-                autoSendEnabled: nextTemplate.autoSend,
-              };
-            }),
-          );
-          toast.success("카테고리 자동화를 수정했습니다.");
+          setRules(nextRules);
+          toast.success("자동발송 규칙을 수정했습니다.");
         }
 
         setRuleDialogOpen(false);
@@ -546,7 +574,7 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
 
       if (dialogState.mode === "create") {
         const createdRules = await Promise.all(
-          dialogState.templates.map((template) =>
+          selectedTemplates.map((template) =>
             createAutomationRule({
               categoryName: selectedDialogCategory.categoryName,
               color: selectedDialogCategory.color,
@@ -557,7 +585,7 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
         );
 
         setRules((current) => [...current, ...createdRules]);
-        toast.success("카테고리 자동화를 추가했습니다.");
+        toast.success("자동발송 규칙을 추가했습니다.");
       } else {
         const currentCategoryKey = getAutomationCategoryKey(
           selectedDialogCategory.categoryId,
@@ -566,13 +594,36 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
         const currentGroup = groups.find((group) => group.key === currentCategoryKey);
 
         if (!currentGroup) {
-          toast.error("수정할 카테고리 규칙을 찾을 수 없습니다.");
+          toast.error("수정할 자동발송 규칙을 찾을 수 없습니다.");
           return;
         }
 
         const nextRules = [...rules];
+        const selectedTemplateIds = new Set(
+          selectedTemplates.map((template) => template.templateId),
+        );
 
-        for (const template of dialogState.templates) {
+        for (const existingTemplate of currentGroup.templates) {
+          if (!existingTemplate.ruleId || existingTemplate.templateId === null) {
+            continue;
+          }
+
+          if (selectedTemplateIds.has(existingTemplate.templateId)) {
+            continue;
+          }
+
+          await deleteAutomationRule(existingTemplate.ruleId);
+
+          const ruleIndex = nextRules.findIndex(
+            (rule) => rule.ruleId === existingTemplate.ruleId,
+          );
+
+          if (ruleIndex >= 0) {
+            nextRules.splice(ruleIndex, 1);
+          }
+        }
+
+        for (const template of selectedTemplates) {
           const existingTemplate = currentGroup.templates.find(
             (item) => item.templateId === template.templateId,
           );
@@ -607,12 +658,12 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
         }
 
         setRules(nextRules);
-        toast.success("카테고리 자동화를 수정했습니다.");
+        toast.success("자동발송 규칙을 수정했습니다.");
       }
 
       setRuleDialogOpen(false);
     } catch (error) {
-      toast.error(getErrorMessage(error, "카테고리 규칙을 저장하지 못했습니다."));
+      toast.error(getErrorMessage(error, "자동발송 규칙을 저장하지 못했습니다."));
     } finally {
       setSaving(false);
     }
@@ -633,7 +684,7 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
             deleteTarget.key,
           ),
         );
-        toast.success("카테고리 자동화를 삭제했습니다.");
+        toast.success("자동발송 규칙을 삭제했습니다.");
         return;
       }
 
@@ -649,9 +700,9 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
           deleteTarget.key,
         ),
       );
-      toast.success("카테고리 자동화를 삭제했습니다.");
+      toast.success("자동발송 규칙을 삭제했습니다.");
     } catch (error) {
-      toast.error(getErrorMessage(error, "카테고리 규칙을 삭제하지 못했습니다."));
+      toast.error(getErrorMessage(error, "자동발송 규칙을 삭제하지 못했습니다."));
     } finally {
       setDeletingCategoryKey(null);
       setDeleteTarget(null);
@@ -708,7 +759,7 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
       });
 
       setRules((current) => [...current, createdRule]);
-      toast.success("새 템플릿 규칙을 추가했습니다.");
+      toast.success("새 템플릿 자동발송 규칙을 추가했습니다.");
     } catch (error) {
       toast.error(getErrorMessage(error, "자동 발송 상태를 변경하지 못했습니다."));
     } finally {
@@ -740,8 +791,8 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
       <div className="mx-auto max-w-[1200px] p-4 lg:p-8">
         {ruleSaveErrorScenario ? (
           <StateBanner
-            title="카테고리 규칙을 저장하지 못했습니다"
-            description="편집한 규칙 내용은 유지되었지만 저장 응답이 지연되고 있습니다. 다시 시도해 주세요."
+            title="자동발송 규칙을 저장하지 못했습니다"
+            description="편집한 자동발송 규칙 내용은 유지되었지만 저장 응답이 지연되고 있습니다. 다시 시도해 주세요."
             tone="error"
             className="mb-6"
           />
@@ -759,16 +810,16 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
         <div className="mb-8">
           <h1 className="mb-1 text-[#1E2A3A] dark:text-foreground">자동화 설정</h1>
           <p className="text-[14px] text-[#64748B] dark:text-muted-foreground">
-            카테고리별 템플릿 ID 규칙을 관리하고, 각 템플릿마다 자동 발송 여부를 설정합니다.
+            원하는 카테고리와 템플릿을 선택해 자동발송 규칙을 구성하고, 각 템플릿마다 자동 발송 여부를 설정합니다.
           </p>
         </div>
 
         <div className="overflow-hidden rounded-xl border border-[#E2E8F0] bg-white shadow-sm dark:border-border dark:bg-card">
           <div className="flex items-center justify-between border-b border-[#E2E8F0] p-6 dark:border-border">
             <div>
-              <h3 className="text-[#1E2A3A] dark:text-foreground">카테고리 자동화</h3>
+              <h3 className="text-[#1E2A3A] dark:text-foreground">자동발송 규칙</h3>
               <p className="mt-1 text-[12px] text-[#94A3B8] dark:text-muted-foreground">
-                카테고리에 속한 템플릿 ID를 기본 포함하고, 템플릿별 자동 발송을 개별로 켤 수 있습니다.
+                카테고리를 선택한 뒤 원하는 템플릿만 골라 자동발송 규칙으로 저장할 수 있습니다.
               </p>
             </div>
             <button
@@ -777,7 +828,7 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
               className="app-cta-primary flex items-center gap-2 rounded-lg px-4 py-2 text-[13px] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Plus className="h-4 w-4" />
-              카테고리 추가
+              규칙 추가
             </button>
           </div>
 
@@ -797,10 +848,10 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
             <div className="p-8">
               <div className="rounded-2xl border border-dashed border-[#CBD5E1] bg-[#F8FAFC] p-6 text-center dark:border-border dark:bg-[#131D2F]">
                 <p className="text-[15px] text-[#1E2A3A] dark:text-foreground">
-                  아직 설정된 카테고리 자동화가 없습니다
+                  아직 설정된 자동발송 규칙이 없습니다
                 </p>
                 <p className="mt-2 text-[13px] text-[#94A3B8] dark:text-muted-foreground">
-                  카테고리를 추가하면 해당 카테고리에 속한 템플릿 ID가 기본 포함됩니다.
+                  규칙을 추가한 뒤 필요한 템플릿만 선택해 자동발송 여부를 저장해 주세요.
                 </p>
                 <button
                   onClick={openCreateDialog}
@@ -808,16 +859,13 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
                   className="app-cta-primary mt-4 inline-flex items-center gap-2 rounded-lg px-4 py-2 text-[13px] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Plus className="h-4 w-4" />
-                  첫 카테고리 추가
+                  첫 규칙 추가
                 </button>
               </div>
             </div>
           ) : (
             <div className="space-y-4 p-6">
               {groups.map((group) => {
-                const configuredTemplates = group.templates.filter(
-                  (template) => template.hasRule,
-                ).length;
                 const deleting = deletingCategoryKey === group.key;
                 const isExpanded = expandedGroupKeys.includes(group.key);
 
@@ -853,15 +901,12 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
                               {group.categoryName}
                             </h4>
                             <span className="rounded-full bg-white px-2.5 py-1 text-[11px] text-[#64748B] shadow-sm dark:bg-[#0F172A] dark:text-muted-foreground">
-                              {configuredTemplates}/{group.templates.length}개 규칙 저장됨
-                            </span>
-                            <span className="rounded-full bg-[#EEF2FF] px-2.5 py-1 text-[11px] text-[#4F46E5] dark:bg-[#1E1B4B] dark:text-[#C7D2FE]">
-                              템플릿 {group.templates.length}개
+                              템플릿 {group.templates.length}개 선택됨
                             </span>
                           </div>
                           <div className="mt-2 flex items-center gap-2 text-[12px] text-[#94A3B8] dark:text-muted-foreground">
                             <span>
-                              템플릿 ID는 카테고리 내부 기본 목록을 따르며, 새 템플릿은 편집 저장 시 함께 반영됩니다.
+                              선택한 템플릿만 자동발송 규칙에 포함되며, 카드 안에서 개별 자동 발송 여부를 바꿀 수 있습니다.
                             </span>
                             <span className="hidden rounded-full bg-white px-2.5 py-1 text-[11px] text-[#64748B] shadow-sm dark:bg-[#0F172A] dark:text-muted-foreground md:inline-flex">
                               {isExpanded ? "접기" : "펴기"}
@@ -927,20 +972,12 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
                                     <span className="text-[14px] text-[#1E2A3A] dark:text-foreground">
                                       {template.title}
                                     </span>
-                                    {template.hasRule ? (
-                                      <span className="rounded-full bg-[#DCFCE7] px-2 py-0.5 text-[10px] text-[#166534] dark:bg-[#052E16] dark:text-[#86EFAC]">
-                                        저장됨
-                                      </span>
-                                    ) : (
-                                      <span className="rounded-full bg-[#FEF3C7] px-2 py-0.5 text-[10px] text-[#92400E] dark:bg-[#422006] dark:text-[#FCD34D]">
-                                        새 템플릿
-                                      </span>
-                                    )}
+                                    <span className="rounded-full bg-[#DCFCE7] px-2 py-0.5 text-[10px] text-[#166534] dark:bg-[#052E16] dark:text-[#86EFAC]">
+                                      저장됨
+                                    </span>
                                   </div>
                                   <p className="mt-2 text-[12px] text-[#94A3B8] dark:text-muted-foreground">
-                                    {template.hasRule
-                                      ? "현재 규칙에 저장된 템플릿입니다."
-                                      : "카테고리에는 포함되지만 아직 자동화 규칙이 저장되지 않았습니다."}
+                                    현재 자동발송 규칙에 포함된 템플릿입니다.
                                   </p>
                                 </div>
 
@@ -1069,17 +1106,17 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
           <DialogHeader>
             <DialogTitle>
               {dialogState.mode === "edit"
-                ? "카테고리 자동화 수정"
-                : "카테고리 자동화 추가"}
+                ? "자동발송 규칙 수정"
+                : "자동발송 규칙 추가"}
             </DialogTitle>
             <DialogDescription>
-              카테고리 안의 템플릿 ID를 기본 포함하고, 각 템플릿별 자동 발송 여부를 저장합니다.
+              카테고리를 선택한 뒤, 사용할 템플릿과 템플릿별 자동 발송 여부를 직접 선택해 저장합니다.
             </DialogDescription>
           </DialogHeader>
 
           {ruleSaveErrorScenario ? (
             <StateBanner
-              title="카테고리 규칙 저장을 완료하지 못했습니다"
+              title="자동발송 규칙 저장을 완료하지 못했습니다"
               description="입력한 규칙 내용은 유지됩니다. 다시 저장해 주세요."
               tone="error"
             />
@@ -1121,11 +1158,11 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
                     지정 템플릿 ID
                   </p>
                   <p className="text-[11px] text-[#94A3B8] dark:text-muted-foreground">
-                    선택한 카테고리에 속한 템플릿 ID가 기본 포함됩니다.
+                    선택한 카테고리 안에서 자동발송 규칙에 포함할 템플릿을 고르세요.
                   </p>
                 </div>
                 <span className="rounded-full bg-white px-2.5 py-1 text-[11px] text-[#64748B] shadow-sm dark:bg-[#0F172A] dark:text-muted-foreground">
-                  {dialogState.templates.length}개
+                  선택 {dialogState.templates.filter((template) => template.selected).length}개 / 전체 {dialogState.templates.length}개
                 </span>
               </div>
 
@@ -1140,14 +1177,31 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
                       key={template.templateId}
                       className="flex items-center justify-between rounded-lg border border-white bg-white px-4 py-3 dark:border-[#1E293B] dark:bg-[#0F172A]"
                     >
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleDialogTemplateToggle(template.templateId)}
+                            className={`inline-flex h-6 w-6 items-center justify-center rounded-md border transition-colors ${
+                              template.selected
+                                ? "border-[#2DD4BF] bg-[#CCFBF1] text-[#0F766E] dark:border-[#14B8A6] dark:bg-[#0F2E2B] dark:text-[#5EEAD4]"
+                                : "border-[#CBD5E1] bg-transparent text-transparent dark:border-[#334155]"
+                            }`}
+                            aria-label={`${template.title} 선택`}
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                          </button>
                           <span className="rounded-md bg-[#EEF2FF] px-2 py-1 text-[11px] font-medium text-[#4F46E5] dark:bg-[#1E1B4B] dark:text-[#C7D2FE]">
                             ID {template.templateId}
                           </span>
                           <span className="text-[13px] text-[#1E2A3A] dark:text-foreground">
                             {template.title}
                           </span>
+                          {template.selected ? (
+                            <span className="rounded-full bg-[#DCFCE7] px-2 py-0.5 text-[10px] text-[#166534] dark:bg-[#052E16] dark:text-[#86EFAC]">
+                              선택됨
+                            </span>
+                          ) : null}
                           {template.hasRule ? (
                             <span className="rounded-full bg-[#DCFCE7] px-2 py-0.5 text-[10px] text-[#166534] dark:bg-[#052E16] dark:text-[#86EFAC]">
                               저장됨
@@ -1158,12 +1212,17 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
 
                       <button
                         type="button"
-                        onClick={() => handleDialogTemplateToggle(template.templateId)}
+                        onClick={() =>
+                          template.selected
+                            ? handleDialogTemplateAutoSendToggle(template.templateId)
+                            : undefined
+                        }
+                        disabled={!template.selected}
                         className={`relative h-5.5 w-10 rounded-full transition-colors ${
                           template.autoSend
                             ? "bg-[#2DD4BF] dark:bg-[#0F766E]"
                             : "bg-[#CBD5E1] dark:bg-[#334155]"
-                        }`}
+                        } disabled:cursor-not-allowed disabled:opacity-50`}
                         aria-label={`${template.title} 자동 발송`}
                       >
                         <span
@@ -1205,9 +1264,9 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>카테고리 자동화를 삭제할까요?</AlertDialogTitle>
+            <AlertDialogTitle>자동발송 규칙을 삭제할까요?</AlertDialogTitle>
             <AlertDialogDescription>
-              "{deleteTarget?.categoryName}"에 연결된 템플릿 자동화 규칙이 함께 제거됩니다.
+              "{deleteTarget?.categoryName}"에 연결된 템플릿 자동발송 규칙이 함께 제거됩니다.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

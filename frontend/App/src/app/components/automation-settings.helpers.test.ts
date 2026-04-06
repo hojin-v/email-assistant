@@ -70,7 +70,7 @@ const rules: AutomationRuleSnapshot[] = [
 
 describe("automation-settings helpers", () => {
   it("builds grouped category cards and keeps missing template rows visible", () => {
-    const groups = buildAutomationCategoryGroups(rules, templateCatalog);
+    const groups = buildAutomationCategoryGroups(rules);
 
     expect(groups).toHaveLength(2);
     expect(groups[0]?.categoryName).toBe("가격문의");
@@ -83,19 +83,11 @@ describe("automation-settings helpers", () => {
         autoCalendar: false,
         hasRule: true,
       },
-      {
-        templateId: 2,
-        title: "할인 안내 템플릿",
-        ruleId: null,
-        autoSend: false,
-        autoCalendar: false,
-        hasRule: false,
-      },
     ]);
   });
 
   it("returns categories that can still be added to automation", () => {
-    const groups = buildAutomationCategoryGroups(rules, templateCatalog);
+    const groups = buildAutomationCategoryGroups(rules);
     const availableCategories = buildAvailableAutomationCategories(
       categories,
       templateCatalog,
@@ -113,7 +105,7 @@ describe("automation-settings helpers", () => {
   });
 
   it("builds dialog template rows with existing auto-send values", () => {
-    const groups = buildAutomationCategoryGroups(rules, templateCatalog);
+    const groups = buildAutomationCategoryGroups(rules);
     const drafts = buildAutomationDialogTemplateDrafts(
       1,
       templateCatalog,
@@ -124,6 +116,7 @@ describe("automation-settings helpers", () => {
       {
         templateId: 1,
         title: "가격 안내 템플릿",
+        selected: true,
         autoSend: true,
         ruleId: 10,
         hasRule: true,
@@ -131,6 +124,7 @@ describe("automation-settings helpers", () => {
       {
         templateId: 2,
         title: "할인 안내 템플릿",
+        selected: false,
         autoSend: false,
         ruleId: null,
         hasRule: false,

@@ -34,6 +34,7 @@ export type AutomationCategoryGroup = {
 export type AutomationDialogTemplateDraft = {
   templateId: number;
   title: string;
+  selected: boolean;
   autoSend: boolean;
   ruleId: number | null;
   hasRule: boolean;
@@ -57,7 +58,6 @@ export function getAutomationCategoryKey(
 
 export function buildAutomationCategoryGroups(
   rules: AutomationRuleSnapshot[],
-  templateCatalog: AutomationTemplateCatalogItem[],
 ) {
   const groupMap = new Map<
     string,
@@ -108,26 +108,6 @@ export function buildAutomationCategoryGroups(
       autoCalendar: rule.autoCalendarEnabled,
       hasRule: true,
     });
-  });
-
-  templateCatalog.forEach((template) => {
-    const key = getAutomationCategoryKey(template.categoryId, template.categoryName);
-    const group = groupMap.get(key);
-
-    if (!group) {
-      return;
-    }
-
-    if (!group.templates.has(`template:${template.templateId}`)) {
-      group.templates.set(`template:${template.templateId}`, {
-        templateId: template.templateId,
-        title: template.title,
-        ruleId: null,
-        autoSend: false,
-        autoCalendar: false,
-        hasRule: false,
-      });
-    }
   });
 
   return Array.from(groupMap.entries())
@@ -208,6 +188,7 @@ export function buildAutomationDialogTemplateDrafts(
       return {
         templateId: template.templateId,
         title: template.title,
+        selected: Boolean(existingTemplate),
         autoSend: existingTemplate?.autoSend ?? false,
         ruleId: existingTemplate?.ruleId ?? null,
         hasRule: existingTemplate?.hasRule ?? false,
