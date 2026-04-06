@@ -20,7 +20,6 @@ export type AutomationTemplateRow = {
   ruleId: number | null;
   autoSend: boolean;
   autoCalendar: boolean;
-  hasRule: boolean;
 };
 
 export type AutomationCategoryGroup = {
@@ -37,7 +36,6 @@ export type AutomationDialogTemplateDraft = {
   selected: boolean;
   autoSend: boolean;
   ruleId: number | null;
-  hasRule: boolean;
 };
 
 export type AvailableAutomationCategory = {
@@ -95,7 +93,6 @@ export function buildAutomationCategoryGroups(
         ruleId: rule.ruleId,
         autoSend: rule.autoSendEnabled,
         autoCalendar: rule.autoCalendarEnabled,
-        hasRule: true,
       });
       return;
     }
@@ -106,7 +103,6 @@ export function buildAutomationCategoryGroups(
       ruleId: rule.ruleId,
       autoSend: rule.autoSendEnabled,
       autoCalendar: rule.autoCalendarEnabled,
-      hasRule: true,
     });
   });
 
@@ -191,7 +187,6 @@ export function buildAutomationDialogTemplateDrafts(
         selected: Boolean(existingTemplate),
         autoSend: existingTemplate?.autoSend ?? false,
         ruleId: existingTemplate?.ruleId ?? null,
-        hasRule: existingTemplate?.hasRule ?? false,
       } satisfies AutomationDialogTemplateDraft;
     });
 }
