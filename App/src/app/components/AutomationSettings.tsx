@@ -238,8 +238,10 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
   const ruleDeleteNormalScenario = scenarioId === "automation-rule-delete-normal";
   const ruleSaveErrorScenario = scenarioId === "automation-rule-save-error";
   const calendarDisconnectedScenario = scenarioId === "automation-calendar-disconnected";
+  const scenarioRules =
+    ruleEditNormalScenario || ruleDeleteNormalScenario ? initialRules : [];
   const [rules, setRules] = useState<AutomationRuleSnapshot[]>(
-    scenarioMode ? initialRules : [],
+    scenarioMode ? scenarioRules : [],
   );
   const [categories, setCategories] = useState<AutomationCategoryCatalogItem[]>(
     scenarioMode ? demoCategories : [],
