@@ -1031,9 +1031,6 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
                                       {template.title}
                                     </span>
                                   </div>
-                                  <p className="mt-2 text-[12px] text-[#94A3B8] dark:text-muted-foreground">
-                                    현재 자동발송 규칙에 포함된 템플릿입니다.
-                                  </p>
                                 </div>
 
                                 <button
