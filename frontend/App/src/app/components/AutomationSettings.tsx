@@ -106,6 +106,62 @@ const demoTemplateCatalog: AutomationTemplateCatalogItem[] = [
     title: "가격표 및 할인 안내 템플릿",
   },
   {
+    categoryId: 1,
+    categoryName: "가격문의",
+    color: "#3B82F6",
+    templateId: 9,
+    title: "엔터프라이즈 요금제 안내 템플릿",
+  },
+  {
+    categoryId: 1,
+    categoryName: "가격문의",
+    color: "#3B82F6",
+    templateId: 10,
+    title: "연간 계약 할인 안내 템플릿",
+  },
+  {
+    categoryId: 1,
+    categoryName: "가격문의",
+    color: "#3B82F6",
+    templateId: 11,
+    title: "도입 규모별 견적 안내 템플릿",
+  },
+  {
+    categoryId: 1,
+    categoryName: "가격문의",
+    color: "#3B82F6",
+    templateId: 12,
+    title: "추가 옵션 비용 안내 템플릿",
+  },
+  {
+    categoryId: 1,
+    categoryName: "가격문의",
+    color: "#3B82F6",
+    templateId: 13,
+    title: "무료 체험 후 전환 안내 템플릿",
+  },
+  {
+    categoryId: 1,
+    categoryName: "가격문의",
+    color: "#3B82F6",
+    templateId: 14,
+    title: "결제 방식 안내 템플릿",
+  },
+  {
+    categoryId: 1,
+    categoryName: "가격문의",
+    color: "#3B82F6",
+    templateId: 15,
+    title: "견적서 요청 응답 템플릿",
+  },
+  {
+    categoryId: 1,
+    categoryName: "가격문의",
+    color: "#3B82F6",
+    templateId: 16,
+    title: "가격 비교 문의 응답 템플릿",
+  },
+  {
     categoryId: 2,
     categoryName: "불만접수",
     color: "#EF4444",
@@ -1168,7 +1224,7 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
                 </span>
               </div>
 
-              <div className="space-y-2">
+              <div className="max-h-[360px] space-y-2 overflow-y-auto overscroll-contain pr-1">
                 {dialogState.templates.length === 0 ? (
                   <div className="rounded-lg border border-dashed border-[#CBD5E1] bg-white px-4 py-3 text-[12px] text-[#94A3B8] dark:border-border dark:bg-[#0F172A] dark:text-muted-foreground">
                     이 카테고리에는 사용할 수 있는 템플릿이 없습니다.
