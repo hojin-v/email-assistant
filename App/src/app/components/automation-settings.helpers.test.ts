@@ -81,7 +81,6 @@ describe("automation-settings helpers", () => {
         ruleId: 10,
         autoSend: true,
         autoCalendar: false,
-        hasRule: true,
       },
     ]);
   });
@@ -119,7 +118,6 @@ describe("automation-settings helpers", () => {
         selected: true,
         autoSend: true,
         ruleId: 10,
-        hasRule: true,
       },
       {
         templateId: 2,
@@ -127,7 +125,6 @@ describe("automation-settings helpers", () => {
         selected: false,
         autoSend: false,
         ruleId: null,
-        hasRule: false,
       },
     ]);
   });

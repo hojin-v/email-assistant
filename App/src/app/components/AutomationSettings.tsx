@@ -1030,9 +1030,6 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
                                     <span className="text-[14px] text-[#1E2A3A] dark:text-foreground">
                                       {template.title}
                                     </span>
-                                    <span className="rounded-full bg-[#DCFCE7] px-2 py-0.5 text-[10px] text-[#166534] dark:bg-[#052E16] dark:text-[#86EFAC]">
-                                      저장됨
-                                    </span>
                                   </div>
                                   <p className="mt-2 text-[12px] text-[#94A3B8] dark:text-muted-foreground">
                                     현재 자동발송 규칙에 포함된 템플릿입니다.
@@ -1255,16 +1252,6 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
                           <span className="text-[13px] text-[#1E2A3A] dark:text-foreground">
                             {template.title}
                           </span>
-                          {template.selected ? (
-                            <span className="rounded-full bg-[#DCFCE7] px-2 py-0.5 text-[10px] text-[#166534] dark:bg-[#052E16] dark:text-[#86EFAC]">
-                              선택됨
-                            </span>
-                          ) : null}
-                          {template.hasRule ? (
-                            <span className="rounded-full bg-[#DCFCE7] px-2 py-0.5 text-[10px] text-[#166534] dark:bg-[#052E16] dark:text-[#86EFAC]">
-                              저장됨
-                            </span>
-                          ) : null}
                         </div>
                       </div>
 
