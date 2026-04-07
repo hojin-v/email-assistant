@@ -88,7 +88,7 @@ interface TemplateSelectionItem {
 
 const demoUploadedFiles: UploadedFile[] = [
   { id: "1", name: "비즈니스_매뉴얼.pdf", uploadDate: "2025.01.15" },
-  { id: "2", name: "제품_가이드.docx", uploadDate: "2025.03.01" },
+  { id: "2", name: "제품_가이드.pdf", uploadDate: "2025.03.01" },
 ];
 
 const demoFaqItems: FAQItem[] = [
@@ -858,6 +858,7 @@ export function BusinessProfile({ scenarioId }: BusinessProfileProps) {
           ref={fileInputRef}
           type="file"
           multiple
+          accept=".pdf,application/pdf"
           className="hidden"
           onChange={(event) => void handleFileSelection(event)}
         />
