@@ -286,7 +286,7 @@ export function AuthPage({ scenarioId }: AuthPageProps) {
                 : deriveNameFromEmail(normalizedEmail) || "데모 사용자",
             email: normalizedEmail,
             role: normalizedEmail.startsWith("admin") ? "ADMIN" : "USER",
-            onboardingCompleted: !normalizedEmail.startsWith("new-user"),
+            onboardingCompleted: normalizedEmail.startsWith("admin"),
             connectedEmail: normalizedEmail.startsWith("admin") ? "" : "demo@gmail.com",
             connectedEmails: normalizedEmail.startsWith("admin") ? [] : ["demo@gmail.com"],
           })
