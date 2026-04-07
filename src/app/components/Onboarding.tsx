@@ -1387,7 +1387,7 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
                         <input
                           ref={fileInputRef}
                           type="file"
-                          accept=".pdf,.doc,.docx,.txt"
+                          accept=".pdf,application/pdf"
                           className="hidden"
                           onChange={(e) => void handleUploadedFiles(e.target.files)}
                         />
@@ -1402,7 +1402,7 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
                             : "파일을 여기에 드래그하거나 클릭하여 업로드"}
                         </p>
                         <p className="text-[12px] text-[#94A3B8]">
-                          PDF, DOCX, TXT 형식 지원 (최대 10MB)
+                          PDF 형식 지원 (최대 10MB)
                         </p>
                       </div>
 
