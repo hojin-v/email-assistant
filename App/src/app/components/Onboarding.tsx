@@ -28,6 +28,7 @@ import {
   type RecommendedCategoryOption,
 } from "../../shared/config/onboarding-options";
 import {
+  deriveGoogleIntegrationEmail,
   getAppSession,
   markOnboardingComplete,
   setConnectedEmail as persistConnectedEmail,
@@ -52,6 +53,7 @@ import {
   getGoogleAuthorizationUrl,
   getMyIntegrationSafe,
 } from "../../shared/api/integrations";
+import { isDemoModeEnabled } from "../../shared/scenarios/demo-mode";
 import { AuthOnboardingLayout } from "../../shared/ui/AuthOnboardingLayout";
 import {
   Select,
@@ -174,6 +176,7 @@ function mapApiToneToTone(value: string | null) {
 
 export function Onboarding({ scenarioId }: OnboardingProps) {
   const session = getAppSession();
+  const demoMode = isDemoModeEnabled();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const generationTimeoutsRef = useRef<number[]>([]);
@@ -226,6 +229,7 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
   const uploadErrorScenario = scenarioId === "onboarding-upload-error";
   const templateGenerationErrorScenario =
     scenarioId === "onboarding-template-generation-error";
+  const emailNormalScenario = scenarioId === "onboarding-email-normal";
 
   const clearGenerationTimeouts = () => {
     generationTimeoutsRef.current.forEach((timeoutId) => {
@@ -302,6 +306,26 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
       setGenerationStep(2);
       setTemplateProgress(4);
       setFaqComposerOpen(false);
+      return;
+    }
+
+    if (emailNormalScenario) {
+      setCurrentMainStep(1);
+      setCurrentSubStep(0);
+      setEmailConnected(false);
+      setConnectedEmail("");
+      setBusinessType("");
+      setDescription("");
+      setUploadedFiles([]);
+      setFaqItems([]);
+      setFaqDraft({ question: "", answer: "" });
+      setFaqComposerOpen(true);
+      setCategories([]);
+      setNewCategory("");
+      setCategoryDropdownOpen(false);
+      setIsGenerating(false);
+      setGenerationStep(0);
+      setTemplateProgress(0);
       return;
     }
 
@@ -507,6 +531,7 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
     categoriesCustomNormalScenario,
     categoriesDropdownNormalScenario,
     completeNormalScenario,
+    emailNormalScenario,
     generatingNormalScenario,
     initialConnectedEmail,
     knowledgeNormalScenario,
@@ -657,6 +682,15 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
       return;
     }
 
+    if (demoMode) {
+      const demoConnectedEmail = deriveGoogleIntegrationEmail(session.userEmail);
+      setConnectedEmail(demoConnectedEmail);
+      setEmailConnected(true);
+      persistConnectedEmail(demoConnectedEmail);
+      toast.success("데모용 이메일 계정 연결을 완료했습니다.");
+      return;
+    }
+
     try {
       setCheckingIntegration(true);
       const authorizationUrl = await getGoogleAuthorizationUrl();
@@ -712,6 +746,22 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
       return;
     }
 
+    if (demoMode) {
+      setUploadingFile(true);
+      window.setTimeout(() => {
+        setUploadedFiles((current) => [
+          ...current,
+          {
+            id: `demo-resource-${Date.now()}`,
+            fileName: nextFile.name,
+          },
+        ]);
+        setUploadingFile(false);
+        toast.success(`${nextFile.name} 파일을 추가했습니다.`);
+      }, 300);
+      return;
+    }
+
     try {
       setUploadingFile(true);
       const uploadedResource = await uploadBusinessFile(nextFile);
@@ -732,7 +782,7 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
   };
 
   const handleRemoveUploadedFile = async (targetFile: UploadedFileItem) => {
-    if (!targetFile.resourceId) {
+    if (demoMode || !targetFile.resourceId) {
       setUploadedFiles((current) =>
         current.filter((file) => file.id !== targetFile.id),
       );
@@ -793,6 +843,13 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
 
     setSavingProfile(true);
 
+    if (demoMode) {
+      window.setTimeout(() => {
+        setSavingProfile(false);
+      }, 200);
+      return true;
+    }
+
     try {
       await upsertBusinessProfile({
         industryType: businessType,
@@ -817,6 +874,12 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
       setTemplateProgress(4);
       setTemplateGenerationMessage(null);
       toast.error("템플릿 생성 작업을 완료하지 못했습니다.");
+      return;
+    }
+
+    if (demoMode) {
+      setTemplateGenerationMessage(null);
+      runTemplateGenerationAnimation(Math.max(categories.length * 3, 3));
       return;
     }
 
@@ -859,7 +922,7 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
       return;
     }
 
-    if (!targetCategory.categoryId) {
+    if (demoMode || !targetCategory.categoryId) {
       setCategories(categories.filter((c) => c.id !== id));
       return;
     }
@@ -896,6 +959,19 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
 
       try {
         setSavingCategory(true);
+        if (demoMode) {
+          setCategories([
+            ...categories,
+            {
+              ...nextCategory,
+              id: `demo-category-${Date.now()}`,
+            },
+          ]);
+          setNewCategory("");
+          setCategoryDropdownOpen(false);
+          return;
+        }
+
         const savedCategory = await createBusinessCategory({
           categoryName,
           color: nextCategory.color,
@@ -924,6 +1000,19 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
   ) => {
     try {
       setSavingCategory(true);
+      if (demoMode) {
+        setCategories((current) => [
+          ...current,
+          {
+            ...category,
+            id: `demo-category-${Date.now()}`,
+          },
+        ]);
+        setNewCategory("");
+        setCategoryDropdownOpen(false);
+        return;
+      }
+
       const savedCategory = await createBusinessCategory({
         categoryName: category.name,
         color: category.color,
@@ -963,6 +1052,20 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
 
     try {
       setSavingFaq(true);
+      if (demoMode) {
+        setFaqItems((current) => [
+          ...current,
+          {
+            id: `demo-faq-${Date.now()}`,
+            question,
+            answer,
+          },
+        ]);
+        setFaqDraft({ question: "", answer: "" });
+        setFaqComposerOpen(false);
+        return;
+      }
+
       const savedFaq = await createBusinessFaq({ question, answer });
       setFaqItems((current) => [
         ...current,
@@ -989,7 +1092,7 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
 
     const targetFaq = faqItems.find((item) => item.id === id);
 
-    if (!targetFaq?.faqId) {
+    if (demoMode || !targetFaq?.faqId) {
       setFaqItems((current) => current.filter((item) => item.id !== id));
       return;
     }
