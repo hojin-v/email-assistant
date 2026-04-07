@@ -6,7 +6,7 @@ export function OnboardingPage() {
   const [searchParams] = useSearchParams();
   const scenarioId = resolveDemoScenarioId(
     searchParams.get("scenario"),
-    "onboarding-profile-normal",
+    "onboarding-email-normal",
   );
 
   return <Onboarding scenarioId={scenarioId} />;
