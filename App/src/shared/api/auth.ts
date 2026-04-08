@@ -67,6 +67,18 @@ export async function changeMyPassword(oldPassword: string, newPassword: string)
   });
 }
 
+export async function resetPasswordWithIdentity(
+  name: string,
+  email: string,
+  newPassword: string,
+) {
+  await api.post("/api/auth/password-reset", {
+    name,
+    email,
+    new_password: newPassword,
+  });
+}
+
 export async function deleteMyAccount() {
   await api.delete("/api/users/me");
 }
