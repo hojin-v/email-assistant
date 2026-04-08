@@ -1,0 +1,26 @@
+# 1. Python cache
+__pycache__/
+*.py[cod]
+
+# 2. Virtual environment
+.venv/
+venv/
+
+# 3. Test and tool cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+# 4. Local environment files
+.env
+
+# 5. Local vector store and runtime data
+.rag-data/
+
+# 6. Packaging artifacts
+*.egg-info/
+build/
+
+# 7. OS/editor junk
+.DS_Store
+Thumbs.db

@@ -1,0 +1,1 @@
+"""EmailAssist RAG application package."""
