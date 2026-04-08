@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "emailassist-rag"
+version = "0.1.0"
+description = "RAG service for EmailAssist"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "anthropic>=0.51,<1.0",
+  "chromadb>=1.0,<2.0",
+  "fastapi>=0.115,<1.0",
+  "uvicorn[standard]>=0.30,<1.0",
+  "pydantic>=2.7,<3.0",
+  "pydantic-settings>=2.2,<3.0",
+  "langchain-core>=0.3,<0.4",
+  "langchain-text-splitters>=0.3,<0.4",
+  "langchain-experimental>=0.3,<0.4",
+  "numpy>=1.26,<3.0",
+  "python-multipart>=0.0.9,<1.0",
+  "pypdf>=5.0,<6.0",
+  "sentence-transformers>=3.0,<4.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0,<9.0",
+  "httpx>=0.28,<1.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

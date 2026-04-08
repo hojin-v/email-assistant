@@ -8,7 +8,7 @@ Thumbs.db
 *.tmp
 *.cache
 
-AGENTS.md
+/AGENTS.md
 
-docs/
-README.md
+/docs/
+/README.md

@@ -16,6 +16,7 @@ import {
   createAuthenticatedSession,
   deriveNameFromEmail,
 } from "../../shared/lib/app-session";
+import { resetPasswordWithIdentity } from "../../shared/api/auth";
 import { getErrorMessage } from "../../shared/api/http";
 import { loginAndCreateSession, signupAndCreateSession } from "../../shared/api/session";
 import { isDemoModeEnabled } from "../../shared/scenarios/demo-mode";
@@ -366,8 +367,9 @@ export function AuthPage({ scenarioId }: AuthPageProps) {
     }
   };
 
-  const handleResetSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleResetSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setRuntimeBanner(null);
 
     if (
       !resetForm.name.trim() ||
@@ -395,7 +397,25 @@ export function AuthPage({ scenarioId }: AuthPageProps) {
       return;
     }
 
-    toast.error("비밀번호 재설정 API는 아직 연결되지 않았습니다.");
+    setSubmittingMode("reset");
+
+    try {
+      await resetPasswordWithIdentity(
+        resetForm.name.trim(),
+        resetForm.email.trim(),
+        resetForm.password.trim(),
+      );
+      setResetCompleted(true);
+      toast.success("비밀번호가 재설정되었습니다. 새 비밀번호로 로그인해 주세요.");
+    } catch (error) {
+      setRuntimeBanner({
+        tone: "error",
+        title: "비밀번호를 재설정하지 못했습니다",
+        description: getErrorMessage(error, "입력한 이름과 이메일을 다시 확인해 주세요."),
+      });
+    } finally {
+      setSubmittingMode(null);
+    }
   };
 
   return (
@@ -674,9 +694,10 @@ export function AuthPage({ scenarioId }: AuthPageProps) {
 
                 <button
                   type="submit"
+                  disabled={submittingMode === "reset"}
                   className="app-cta-primary flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3.5"
                 >
-                  새 비밀번호로 변경하기
+                  {submittingMode === "reset" ? "변경 중..." : "새 비밀번호로 변경하기"}
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </>
