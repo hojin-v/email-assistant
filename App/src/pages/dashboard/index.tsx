@@ -71,9 +71,13 @@ function isVideoSchedule(source: string) {
 }
 
 function formatDateRange(start: string, end: string) {
-  const fmt = (d: string) =>
-    new Intl.DateTimeFormat("ko-KR", { month: "numeric", day: "numeric" }).format(new Date(d));
-  return `${fmt(start)} - ${fmt(end)}`;
+  const format = (date: string) =>
+    new Intl.DateTimeFormat("ko-KR", {
+      month: "numeric",
+      day: "numeric",
+    }).format(new Date(date));
+
+  return `${format(start)} - ${format(end)}`;
 }
 
 function toInboxStatusLabel(status: string) {
