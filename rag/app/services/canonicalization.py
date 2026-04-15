@@ -6,6 +6,8 @@ from app.schemas import TemplateMetadataInput
 
 
 def _normalize_value(value: object) -> str | None:
+  # metadata 값은 숫자, 문자열, enum 등이 섞일 수 있으므로
+  # canonical text에 넣기 전에 문자열로 통일한다.
   if value is None:
     return None
   text = str(value).strip()
@@ -37,6 +39,7 @@ def build_email_canonical_text(
 ) -> str:
   # template matching에 사용할 단일 텍스트 표현이다.
   # 원문과 구조화된 AI 결과를 함께 반영하도록 의도했다.
+  # 목적은 "원문 보관"이 아니라, 이메일의 의미를 임베딩하기 좋은 형태로 정리하는 것이다.
   lines = [
     f"subject: {subject.strip()}",
     f"body: {body_clean.strip()}",
@@ -63,6 +66,7 @@ def build_template_canonical_text(
 ) -> str:
   # template retrieval은 최종 답장 문장보다
   # "이 템플릿을 언제 써야 하는지"를 더 강하게 반영해야 한다.
+  # 그래서 title/category/tone/required_points 같은 요약 정보를 중심으로 구성한다.
   lines = [
     f"title: {title.strip()}",
     f"category: {category_name.strip()}",

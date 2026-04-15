@@ -12,6 +12,8 @@ import numpy as np
 try:
   import chromadb
 except ImportError:  # pragma: no cover
+  # 선택 의존성이므로 import 실패 자체는 허용하되,
+  # 실제 사용 시 backend unavailable 상태로 드러나게 한다.
   chromadb = None
 
 
@@ -31,6 +33,8 @@ SCALAR_METADATA_KEYS = {
 # 1. 인덱스에 저장되는 최소 단위
 @dataclass
 class IndexRecord:
+  # vector store에 넣는 최소 단위다.
+  # payload는 검색 후 원래 정보를 복원하는 데 필요한 모든 메타데이터를 담는다.
   record_id: str
   vector: np.ndarray
   payload: dict[str, Any]
@@ -41,11 +45,12 @@ class IndexRecord:
 class VectorIndexStore:
   def __init__(
     self,
-    dimensions: int,
+    dimensions: int | None = None,
     *,
     backend: str = "chroma",
     persist_directory: str = ".rag-data/chroma",
   ):
+    # dimensions는 첫 upsert 시 자동으로 확정될 수 있다.
     self.dimensions = dimensions
     self.backend = backend
     self.persist_directory = persist_directory
@@ -65,6 +70,9 @@ class VectorIndexStore:
     # 벡터와 메타데이터를 collection에 함께 저장한다.
     if not records:
       return
+
+    if self.dimensions is None:
+      self.dimensions = int(len(records[0].vector))
 
     if self._client is None:
       raise RuntimeError("Chroma backend is not available. Install chromadb to use vector storage.")
@@ -125,6 +133,7 @@ class VectorIndexStore:
     distances = results.get("distances", [[]])[0]
 
     matches: list[tuple[IndexRecord, float]] = []
+    result_dimensions = self.dimensions or int(len(query_vector))
     # 검색 시점에는 원래 벡터 자체보다 payload 복원이 중요하므로
     # 응답용 IndexRecord를 다시 조립해 반환한다.
     for record_id, metadata, document, distance in zip(ids, metadatas, documents, distances, strict=False):
@@ -133,7 +142,7 @@ class VectorIndexStore:
         (
           IndexRecord(
             record_id=record_id,
-            vector=np.zeros(self.dimensions, dtype=np.float32),
+            vector=np.zeros(result_dimensions, dtype=np.float32),
             payload=payload,
           ),
           _distance_to_score(distance),
@@ -191,6 +200,7 @@ def _extract_document_text(payload: dict[str, Any]) -> str:
 
 def _serialize_payload(payload: dict[str, Any]) -> dict[str, Any]:
   # filter 가능한 scalar 값과 전체 payload JSON을 함께 저장한다.
+  # metadata는 빠른 where 검색용, payload_json은 전체 복원용이라고 보면 된다.
   serialized: dict[str, Any] = {}
   for key in SCALAR_METADATA_KEYS:
     value = payload.get(key)
@@ -210,6 +220,8 @@ def _deserialize_payload(metadata: dict[str, Any], document: str | None) -> dict
     payload = {key: value for key, value in metadata.items() if key != "payload_json"}
 
   if document and "chunk_text" not in payload and "canonical_text" not in payload:
+    # template 검색과 knowledge 검색이 document 필드를 다르게 쓰기 때문에
+    # template_id 존재 여부로 canonical_text/chunk_text를 구분해 복원한다.
     if "template_id" in payload:
       payload["canonical_text"] = document
     else:

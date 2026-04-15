@@ -13,12 +13,16 @@ def normalize_text(text: str) -> str:
 
 
 def chunk_text(text: str, max_chars: int, overlap: int) -> list[str]:
+  # 기본 chunking은 "문단 유지 + 길이 제한 + overlap" 전략이다.
+  # semantic chunking이 실패하더라도 항상 동작해야 하는 가장 안정적인 경로다.
   cleaned = normalize_text(text)
   if not cleaned:
     return []
 
   paragraphs = [part.strip() for part in cleaned.split("\n\n") if part.strip()]
   if not paragraphs:
+    # 문단 구분이 없는 텍스트라도 완전히 버리지 않고
+    # 제한 길이 안에서 최소 1개 chunk는 만들도록 한다.
     return [cleaned[:max_chars]]
 
   chunks: list[str] = []
@@ -27,6 +31,7 @@ def chunk_text(text: str, max_chars: int, overlap: int) -> list[str]:
   for paragraph in paragraphs:
     candidate = paragraph if not current else f"{current}\n\n{paragraph}"
     if len(candidate) <= max_chars:
+      # 아직 길이 제한 안이면 현재 chunk에 이어 붙인다.
       current = candidate
       continue
 
@@ -36,6 +41,7 @@ def chunk_text(text: str, max_chars: int, overlap: int) -> list[str]:
       tail = current[-overlap:] if overlap > 0 else ""
       current = f"{tail}\n\n{paragraph}".strip()
     else:
+      # 문단 하나가 너무 길면, 문단 내부에서도 다시 잘라야 한다.
       start = 0
       while start < len(paragraph):
         end = start + max_chars

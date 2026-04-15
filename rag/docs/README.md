@@ -1,47 +1,59 @@
 # RAG Docs
 
-`rag/` 내부 문서는 RAG 서버 자체의 책임, 현재 구현 상태, 연동 수정안을
-RAG 모듈 관점에서 관리하기 위한 문서 모음이다.
+`rag/docs`는 이제 `설명용 메모`보다 `실제 연동 문서`를 우선한다.
+현재 기준으로 팀에 전달할 문서는 아래 5개를 먼저 본다.
 
-## 문서 목록
+## 우선 읽을 문서
+
+1. [연동-개요.md](./연동-개요.md)
+2. [API-명세.md](./API-명세.md)
+3. [RabbitMQ-명세.md](./RabbitMQ-명세.md)
+4. [Chroma-저장구조-ERD.md](./Chroma-저장구조-ERD.md)
+5. [current-status.md](./current-status.md)
+
+## 문서별 역할
+
+- `연동-개요.md`
+  - RAG의 현재 책임
+  - Backend, AI, Infra 관점의 연결 포인트
+  - 현재 구현과 목표 연동 방식의 차이
+
+- `API-명세.md`
+  - Backend가 실제로 호출할 HTTP API 계약
+  - 요청/응답 필드
+  - 현재 외부 공개 API와 내부/레거시 API 구분
+
+- `RabbitMQ-명세.md`
+  - 현재 구현 여부와 무관하게 MQ로 바꿀 수 있는 경로 정리
+  - exchange, queue, routing key, 메시지 예시
+  - 어떤 작업은 MQ가 맞고 어떤 작업은 HTTP가 더 맞는지 기준
+
+- `Chroma-저장구조-ERD.md`
+  - `.rag-data/chroma` 저장 구조
+  - collection, segment, embedding, metadata 관계
+  - DBeaver / sqlite 조회 시 확인할 포인트
+
+- `current-status.md`
+  - 현재 코드 기준 구현/미구현 상태
+  - 테스트 결과
+  - 로컬 확인 시 주의사항
 
 - `progress-log.md`
   - 날짜순 작업 기록
-  - 어떤 변경이 언제 들어갔는지 추적
-- `ownership.md`
-  - RAG가 어느 레포 책임에 더 가까운지
-  - Backend/AI와의 경계
-- `current-status.md`
-  - 현재 `rag/`에 실제 구현된 내용
-  - 아직 없는 내용
-- `retrieval-query-design.md`
-  - 카테고리별 retrieval query 기준
-  - source priority, query set, filter 설계
-- `backend-server-changes.md`
-  - RAG 연동을 위해 `Backend_Server`에 필요한 수정
-- `ai-server-changes.md`
-  - RAG 연동을 위해 `AI/` 레포에 필요한 수정
+  - 구조나 문서 변경 이력 추적
+
+- `sample-manual.txt`
+  - 로컬 ingest 테스트용 샘플 문서
 
 ## 운영 원칙
 
-- RAG는 별도 서비스로 유지한다.
-- RAG는 별도 DB를 두지 않는다.
-- Backend DB를 source of truth로 본다.
-- AI는 분류/요약/템플릿 생성에 집중하고, RAG는 검색에 집중한다.
+- 현재 RAG의 외부 연동 기준은 `HTTP API`다.
+- MQ 문서는 `추후 전환 설계` 기준으로 읽는다.
+- RAG는 별도 비즈니스 DB를 두지 않고 `Chroma persistent storage`를 사용한다.
+- Backend DB가 source of truth이고, RAG는 검색용 파생 데이터를 저장한다.
 
-## 문서 사용 순서
+## 정리 기준
 
-새로 참여한 사람이 빠르게 이해하려면 아래 순서로 보면 된다.
-
-1. `../README.md`
-2. `current-status.md`
-3. `retrieval-query-design.md`
-4. `progress-log.md`
-5. `ownership.md`
-6. `backend-server-changes.md`, `ai-server-changes.md`
-
-## 진행 기록 원칙
-
-- 기능 구현이나 구조 변경이 있으면 `progress-log.md`에 먼저 날짜 단위로 남긴다.
-- 현재 시점의 정리된 상태는 `current-status.md`에 반영한다.
-- 서비스 경계나 타 서버 수정안이 바뀌면 관련 change 문서도 함께 갱신한다.
+- 구현과 다르게 낡은 설명성 문서는 제거한다.
+- 현재 코드 기준으로 바로 설명할 수 없는 문장은 넣지 않는다.
+- 백엔드/AI/인프라에 전달할 문서는 이 디렉터리 안에서 바로 찾을 수 있게 유지한다.

@@ -8,6 +8,8 @@ from app.services.chunking import chunk_text
 
 # 1. semantic chunking에 필요한 최소 embedding 인터페이스
 class SupportsEmbedTexts(Protocol):
+  # semantic chunking은 구체적인 임베딩 구현을 몰라도 되게 하기 위해
+  # embed_texts만 있으면 된다는 최소 계약만 정의한다.
   def embed_texts(self, texts: list[str]):
     ...
 
@@ -16,6 +18,7 @@ class SupportsEmbedTexts(Protocol):
 # 파일 형식과 출처를 같이 들고 있어야 전략 분기가 가능하다.
 @dataclass
 class ChunkingDocument:
+  # content 외의 메타 필드는 "어떤 전략으로 자를지" 결정하는 힌트로 쓴다.
   source_type: str
   source_id: str
   content: str
@@ -34,6 +37,7 @@ def split_document(
   max_chars: int,
   overlap: int,
 ) -> list[str]:
+  # 문서 유형에 따라 어떤 chunking 경로를 쓸지 결정하는 라우터 함수다.
   if not document.content.strip():
     return []
 
@@ -55,6 +59,7 @@ def split_document(
 
 
 def _is_pdf_document(document: ChunkingDocument) -> bool:
+  # mime type을 우선 신뢰하고, 없으면 파일명 suffix로 fallback 판단한다.
   if document.media_type == "application/pdf":
     return True
   if document.file_name and document.file_name.lower().endswith(".pdf"):
@@ -70,6 +75,8 @@ def _split_pdf_with_langchain(
   max_chars: int,
   overlap: int,
 ) -> list[str]:
+  # PDF는 일반 텍스트보다 구조와 의미 경계 영향이 크므로
+  # semantic chunking을 먼저 시도하고, 실패하면 기본 분할기로 내려간다.
   try:
     from langchain_core.documents import Document as LangChainDocument
     from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -82,6 +89,7 @@ def _split_pdf_with_langchain(
 
   semantic_chunks: list[str] = []
   if strategy == "semantic":
+    # semantic strategy는 문장 의미 경계 기반 1차 분할을 의미한다.
     semantic_chunks = _run_semantic_chunker(base_document.page_content, embedding_service)
 
   if not semantic_chunks:
@@ -144,6 +152,7 @@ class _LangChainEmbeddingAdapter:
     self._embedding_service = embedding_service
 
   def embed_documents(self, texts: list[str]) -> list[list[float]]:
+    # LangChain은 numpy 배열이 아니라 list[list[float]]를 기대한다.
     vectors = self._embedding_service.embed_texts(texts)
     return vectors.tolist()
 
