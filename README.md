@@ -9,17 +9,19 @@ EmailAssist의 별도 RAG 서버입니다.
 - embedding 생성
 - knowledge chunk 검색
 - template metadata embedding 저장 및 email-template candidate search
-- Claude 기반 생성 영역 관리
+- OpenAI 호환 LLM API 기반 생성 영역 관리
 
 현재 상태:
 
 - FastAPI 기반 최소 실행 스캐폴드
-- 기본 embedding backend는 로컬 해시 임베딩
+- 기본 embedding backend는 외부 OpenAI 호환 임베딩 API
 - PDF는 LangChain 기반 semantic chunking을 우선 시도하고, 실패하면 기존 chunking으로 fallback
 - 기본 vector backend는 Chroma persistent collection
-- PDF/TXT 텍스트 추출 엔드포인트 포함
-- `AI` 레포의 `draft` / `claude_service` 생성 영역을 `RAG` 내부 서비스로 포함
-- 아직 Backend_Server, frontend/App, ai 서버와 직접 연결되지는 않음
+- `knowledge/ingest`, `templates/index`, `templates/match` 기준 외부 API 정리
+- 이미지형 PDF는 Tesseract OCR fallback을 시도
+- 온보딩 템플릿 생성 책임을 `RAG` 내부 서비스로 관리
+- RabbitMQ worker 기반 `knowledge.ingest / draft / templates.index / templates.match` consume/publish 골격 추가
+- 현재 `rag/` 단독 테스트는 가능하지만, MQ end-to-end 송수신 검증은 별도 브로커 환경에서 확인이 필요
 
 ## Folder Structure
 
@@ -29,8 +31,12 @@ EmailAssist의 별도 RAG 서버입니다.
 rag/
 ├─ app/
 │  ├─ main.py
+│  ├─ worker.py
 │  ├─ config.py
 │  ├─ schemas.py
+│  ├─ mq/
+│  │  ├─ __init__.py
+│  │  └─ schemas.py
 │  └─ services/
 │     ├─ canonicalization.py
 │     ├─ claude_service.py
@@ -48,11 +54,13 @@ rag/
 │  └─ test_index_store.py
 ├─ docs/
 │  ├─ README.md
+│  ├─ 연동-개요.md
+│  ├─ API-명세.md
+│  ├─ RabbitMQ-명세.md
+│  ├─ Chroma-저장구조-ERD.md
 │  ├─ current-status.md
 │  ├─ progress-log.md
-│  ├─ ownership.md
-│  ├─ backend-server-changes.md
-│  └─ ai-server-changes.md
+│  └─ sample-manual.txt
 ├─ pyproject.toml
 ├─ .env.example
 ├─ Dockerfile
@@ -82,21 +90,24 @@ rag/
   - 기본 native chunking
   - 문단 기반 + 길이 제한 + overlap 처리
 - `app/services/claude_service.py`
-  - Claude API 호출과 생성 프롬프트 관리
+  - OpenAI 호환 chat completion API 호출과 온보딩 템플릿 생성 프롬프트 관리
   - mock mode 포함
+- `app/services/openai_compatible_client.py`
+  - 공통 인증 헤더와 `/v1/chat/completions`, `/v1/embeddings` 호출 처리
 - `app/services/draft_service.py`
-  - draft 요청 검증
-  - 생성 결과와 reply embedding 조합
+  - 온보딩 템플릿 생성 오케스트레이션
+  - variant별 템플릿 배열 조합
 - `app/services/document_chunking.py`
   - 문서 종류별 chunking 진입점
   - PDF는 LangChain semantic chunking 우선 시도
   - 실패 시 native chunking으로 fallback
 - `app/services/document_parser.py`
   - TXT/PDF 텍스트 추출
-  - 현재는 `pypdf` 기반 단순 추출
+  - 현재는 `PyMuPDF` 기반 추출
+  - 이미지형 PDF는 Tesseract OCR fallback 시도
 - `app/services/embedding.py`
+  - OpenAI 호환 embedding API backend 선택 및 생성
   - hash fallback embedding
-  - sentence-transformer embedding backend 선택 및 생성
 - `app/services/index_store.py`
   - namespace별 vector index 관리
   - Chroma collection 기반 upsert / search
@@ -112,7 +123,7 @@ rag/
 - `tests/test_document_chunking.py`
   - PDF LangChain 경로와 fallback 경로 테스트
 - `tests/test_draft_service.py`
-  - 생성 서비스의 기본 응답 조합 테스트
+  - 온보딩 템플릿 생성 서비스 테스트
 - `tests/test_index_store.py`
   - Chroma collection 기반 vector upsert / search 테스트
 
@@ -120,16 +131,20 @@ rag/
 
 - `docs/README.md`
   - `rag/docs` 내부 문서 인덱스
+- `docs/연동-개요.md`
+  - Backend, AI, Infra 관점의 한 장 요약
+- `docs/API-명세.md`
+  - 현재 코드 기준 HTTP API 계약
+- `docs/RabbitMQ-명세.md`
+  - MQ 전환 시 기준 메시지 설계
+- `docs/Chroma-저장구조-ERD.md`
+  - Chroma 내부 저장 구조와 확인 방법
 - `docs/current-status.md`
   - 현재 구현된 기능과 미구현 범위 기록
 - `docs/progress-log.md`
   - 작업 진행 내역을 날짜순으로 누적 기록
-- `docs/ownership.md`
-  - RAG의 책임과 서비스 경계 정리
-- `docs/backend-server-changes.md`
-  - Backend_Server 수정 필요사항 정리
-- `docs/ai-server-changes.md`
-  - AI 서버 수정 필요사항 정리
+- `docs/sample-manual.txt`
+  - 로컬 ingest 테스트용 샘플 문서
 
 ### Runtime / Packaging
 
@@ -150,6 +165,13 @@ pip install -e ".[dev]"
 uvicorn app.main:app --reload
 ```
 
+RabbitMQ worker 실행:
+
+```bash
+cd rag
+python -m app.worker
+```
+
 기본 주소:
 
 - `http://127.0.0.1:8090`
@@ -157,12 +179,8 @@ uvicorn app.main:app --reload
 
 ## Main Endpoints
 
-- `POST /extract-text`
-- `POST /draft`
-- `POST /canonical/email`
-- `POST /canonical/template`
-- `POST /knowledge/index`
-- `POST /knowledge/search`
+- `GET /health`
+- `POST /knowledge/ingest`
 - `POST /templates/index`
 - `POST /templates/match`
 
@@ -172,17 +190,28 @@ uvicorn app.main:app --reload
 
 ## Notes
 
-- 운영 환경에서는 `EMBEDDING_BACKEND=sentence_transformer`로 전환하고 동일 embedding 모델을 템플릿과 이메일 모두에 사용해야 합니다.
+- 운영 환경에서는 `LLM_API_BASE_URL`, `LLM_API_KEY`를 설정해 chat 생성에 사용합니다.
+- 현재 기본 임베딩 백엔드는 `EMBEDDING_BACKEND=embedding_api` 입니다.
+- 현재 기본 임베딩 모델은 `EMBEDDING_MODEL=text-embedding-3-small` 입니다.
+- OpenAI 임베딩만 별도로 쓰려면 `EMBEDDING_API_BASE_URL`, `EMBEDDING_API_KEY`를 설정하면 됩니다.
+- 생성은 기존 OpenAI 호환 서버를 유지하고, 임베딩만 OpenAI 공식 API로 분리하는 구성이 가능합니다.
+- `EMBEDDING_BACKEND=embedding_api`일 때 임베딩 차원은 API 응답에서 자동으로 학습합니다.
 - 기본 vector backend는 `VECTOR_BACKEND=chroma`입니다.
 - Chroma 데이터는 `CHROMA_PERSIST_DIRECTORY` 아래에 저장됩니다.
 - 운영 환경에서는 `CHUNKING_BACKEND=langchain`, `PDF_CHUNKING_STRATEGY=semantic` 조합을 권장합니다.
-- Claude 호출이 필요하면 `ANTHROPIC_API_KEY`를 설정해야 합니다.
+- 이미지형 PDF를 처리하려면 서버에 `tesseract-ocr`와 필요한 언어 데이터(`kor`)를 설치해야 합니다.
+- OCR fallback은 `PDF_OCR_ENABLED`, `PDF_OCR_LANGUAGES`, `PDF_OCR_DPI`로 조절할 수 있습니다.
+- 학교 LLM 서버 운영 가이드 기준 기본 예시는 `http://cellm.gachon.ac.kr:8000/v1` 입니다.
+- 현재 기본 chat 모델 alias는 `LLM_CHAT_MODEL=text` 입니다.
 - RAG는 별도 DB를 두지 않는 방향을 기준으로 합니다.
 - 관계형 DB 대신 Chroma persistent storage로 벡터와 메타데이터를 관리합니다.
 - 공통 식별자와 HTTP 스타일은 가능한 범위에서 `AI/` 레포의 naming 규칙을 우선한다.
 - 루트 `docs/rag-*.md`는 서비스 전체 관점의 설계를 관리합니다.
-- `rag/docs/`는 RAG 모듈 자체의 구조, 상태, 진행 로그를 관리합니다.
+- `rag/docs/`는 RAG 모듈 자체의 연동 문서와 상태 문서를 관리합니다.
 - 진행 상황을 빠르게 보려면 아래 순서로 문서를 보면 됩니다.
   - `rag/README.md`
+  - `rag/docs/연동-개요.md`
+  - `rag/docs/API-명세.md`
+  - `rag/docs/Chroma-저장구조-ERD.md`
   - `rag/docs/current-status.md`
   - `rag/docs/progress-log.md`

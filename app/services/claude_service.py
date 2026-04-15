@@ -1,114 +1,201 @@
 from __future__ import annotations
 
-import anthropic
+import json
+
+from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
 
 from app.config import settings
+from app.services.openai_compatible_client import create_openai_compatible_client
 
 
-# 1. Claude client 준비
-def _get_client() -> anthropic.Anthropic:
-  api_key = settings.anthropic_api_key
-  if not api_key:
-    raise ValueError("ANTHROPIC_API_KEY 환경변수가 설정되지 않았습니다.")
-  return anthropic.Anthropic(api_key=api_key)
+# 1. 외부 OpenAI 호환 LLM client 준비
+def _get_client():
+  # client 생성 책임을 분리해두면,
+  # provider를 바꾸더라도 템플릿 생성 흐름은 유지할 수 있다.
+  return create_openai_compatible_client(settings)
+
+def _extract_message_content(response: dict) -> str:
+  choices = response.get("choices")
+  if not isinstance(choices, list) or not choices:
+    raise ValueError("LLM API 응답에 choices가 없습니다.")
+
+  first_choice = choices[0]
+  if not isinstance(first_choice, dict):
+    raise ValueError("LLM API 응답의 choice 형식이 예상과 다릅니다.")
+
+  message = first_choice.get("message")
+  if not isinstance(message, dict):
+    raise ValueError("LLM API 응답에 message가 없습니다.")
+
+  content = message.get("content")
+  if isinstance(content, str) and content.strip():
+    return content.strip()
+
+  if isinstance(content, list):
+    # 일부 OpenAI 호환 서버는 content를 블록 배열로 돌려줄 수 있어 이를 다시 합친다.
+    text_blocks = [
+      block.get("text", "").strip()
+      for block in content
+      if isinstance(block, dict) and isinstance(block.get("text"), str)
+    ]
+    joined = "\n".join(block for block in text_blocks if block)
+    if joined:
+      return joined
+
+  raise ValueError("LLM API 응답에서 본문을 찾지 못했습니다.")
 
 
-# 2. 개발용 mock 응답
-def _mock_response(domain: str, intent: str, mode: str) -> str:
-  return f"""[MOCK] 답장 초안
+def _parse_json_object(raw_text: str) -> dict:
+  text = raw_text.strip()
+  if text.startswith("```"):
+    # 코드 펜스로 감싼 JSON도 지원해 worker가 provider 차이에 덜 민감하게 한다.
+    lines = text.splitlines()
+    if lines and lines[0].startswith("```"):
+      lines = lines[1:]
+    if lines and lines[-1].startswith("```"):
+      lines = lines[:-1]
+    text = "\n".join(lines).strip()
 
-안녕하세요.
+  start = text.find("{")
+  end = text.rfind("}")
+  if start == -1 or end == -1 or end < start:
+    raise ValueError("LLM API 응답에서 JSON 객체를 찾지 못했습니다.")
 
-문의하신 {intent} 관련하여 답변 드립니다.
-도메인: {domain} | 모드: {mode}
+  try:
+    parsed = json.loads(text[start : end + 1])
+  except json.JSONDecodeError as error:
+    raise ValueError("LLM API 응답 JSON을 해석하지 못했습니다.") from error
 
-확인 후 빠른 시일 내에 처리해 드리겠습니다.
+  if not isinstance(parsed, dict):
+    raise ValueError("LLM API 응답 JSON 형식이 예상과 다릅니다.")
+  return parsed
 
-감사합니다.
-[MOCK 응답 - 실제 Claude API 호출 아님]"""
+
+class _OnboardingTemplateItem(BaseModel):
+  model_config = ConfigDict(extra="forbid")
+
+  variant_label: str
+  title: str
+  subject_template: str
+  body_template: str
+
+  @field_validator("variant_label", "title", "subject_template", "body_template")
+  @classmethod
+  def _validate_non_empty(cls, value: str) -> str:
+    normalized = value.strip()
+    if not normalized:
+      raise ValueError("빈 문자열은 허용되지 않습니다.")
+    return normalized
 
 
-def _build_prompt(
+class _OnboardingTemplatesPayload(BaseModel):
+  model_config = ConfigDict(extra="forbid")
+
+  templates: list[_OnboardingTemplateItem]
+
+  @field_validator("templates")
+  @classmethod
+  def _validate_templates_non_empty(cls, value: list[_OnboardingTemplateItem]) -> list[_OnboardingTemplateItem]:
+    if not value:
+      raise ValueError("templates 배열이 비어 있습니다.")
+    return value
+
+
+def generate_onboarding_templates(
   *,
-  subject: str,
-  body: str,
-  domain: str,
-  intent: str,
-  summary: str,
-  mode: str,
-  previous_draft: str = "",
-  mail_tone: str | None = None,
+  category_name: str,
+  variants: list[dict[str, str]],
+  category_keywords: list[str] | None = None,
+  industry_type: str | None = None,
+  company_description: str | None = None,
+  email_tone: str | None = None,
   rag_context: str | None = None,
-) -> str:
-  # 이메일 원문, 분석 결과, 검색 문맥을 한곳에서 합쳐 프롬프트를 만든다.
-  mode_section = ""
-  if mode == "regenerate" and previous_draft:
-    mode_section = f"\n[이전 초안]\n{previous_draft}\n\n이전 초안을 개선하여 다시 작성해주세요."
-
-  tone_section = ""
-  if mail_tone:
-    tone_section = f"- 답장 어조는 {mail_tone} 기준으로 작성\n"
-
-  context_section = ""
-  if rag_context:
-    context_section = f"\n[참고 문맥]\n{rag_context}\n"
-
-  return f"""당신은 한국 비즈니스 이메일 답장 작성 전문가입니다.
-아래 정보를 바탕으로 적절한 답장 초안을 작성해주세요.
-{mode_section}
-
-[수신 이메일]
-제목: {subject}
-본문: {body}
-
-[요약]
-{summary}
-
-[분류 결과]
-도메인: {domain}
-인텐트: {intent}
-{context_section}
-[작성 조건]
-- 인사말과 맺음말 포함
-{tone_section}- 비즈니스 맥락에 맞는 전문적인 표현 사용
-- 불필요한 내용 없이 간결하게 작성
-- 답장 본문만 출력 (설명이나 부가 텍스트 없이)
-"""
-
-
-def generate_draft(
-  *,
-  subject: str,
-  body: str,
-  domain: str,
-  intent: str,
-  summary: str = "",
-  mode: str = "generate",
-  previous_draft: str = "",
-  mail_tone: str | None = None,
-  rag_context: str | None = None,
-) -> str:
-  # mock mode면 외부 API 없이 로컬 응답으로 대체한다.
+) -> list[dict[str, str]]:
   if settings.mock_mode:
-    return _mock_response(domain, intent, mode)
+    return [
+      {
+        "variant_label": variant["variant_label"],
+        "title": f"{category_name} {variant['variant_label']} 템플릿",
+        "subject_template": f"[{category_name}] {variant['variant_label']} 안내",
+        "body_template": (
+          f"안녕하세요.\n\n{category_name} 관련 문의 주셔서 감사합니다.\n"
+          f"{variant['template_purpose']} 관점에서 필요한 안내를 드리겠습니다.\n\n감사합니다."
+        ),
+      }
+      for variant in variants
+    ]
 
   client = _get_client()
-  prompt = _build_prompt(
-    subject=subject,
-    body=body,
-    domain=domain,
-    intent=intent,
-    summary=summary,
-    mode=mode,
-    previous_draft=previous_draft,
-    mail_tone=mail_tone,
-    rag_context=rag_context,
+  variant_lines = "\n".join(
+    f'{index + 1}. variant_label="{variant["variant_label"]}", '
+    f'template_purpose="{variant["template_purpose"]}"'
+    for index, variant in enumerate(variants)
   )
+  prompt = f"""당신은 한국 B2B SaaS 기업의 이메일 템플릿 설계자입니다.
+아래 정보를 바탕으로 카테고리별 답변 템플릿 여러 개를 설계해주세요.
 
-  message = client.messages.create(
-    model="claude-sonnet-4-6",
-    max_tokens=1024,
+[카테고리]
+{category_name}
+
+[카테고리 키워드]
+{", ".join(keyword.strip() for keyword in (category_keywords or []) if keyword and keyword.strip())}
+
+[생성할 템플릿 유형]
+{variant_lines}
+
+[회사/업종 정보]
+- 업종: {industry_type or ""}
+- 회사 설명: {company_description or ""}
+- 답장 어조: {email_tone or ""}
+
+[참고 문맥]
+{rag_context or ""}
+
+중요한 출력 규칙:
+- 반드시 JSON 객체만 출력하세요.
+- 설명, 마크다운, 코드펜스, 주석을 절대 추가하지 마세요.
+- "templates" 배열 길이는 반드시 {len(variants)} 이어야 합니다.
+- 각 항목의 "variant_label" 값은 위에 제시된 값과 정확히 일치해야 합니다.
+- 모든 필드는 문자열이어야 하며 비워두지 마세요.
+
+반드시 아래 JSON 객체 형식만 출력하세요.
+{{
+  "templates": [
+    {{
+      "variant_label": "기본 응답형",
+      "title": "템플릿 제목",
+      "subject_template": "메일 제목 템플릿",
+      "body_template": "메일 본문 템플릿"
+    }}
+  ]
+}}
+"""
+  response = client.create_chat_completion(
+    model=settings.llm_chat_model,
     messages=[{"role": "user", "content": prompt}],
+    stream=False,
   )
+  parsed = _parse_json_object(_extract_message_content(response))
 
-  return message.content[0].text.strip()
+  try:
+    payload = _OnboardingTemplatesPayload.model_validate(parsed)
+  except ValidationError as error:
+    raise ValueError("LLM API 응답에 온보딩 템플릿 필수 필드가 없거나 형식이 잘못되었습니다.") from error
+
+  if len(payload.templates) != len(variants):
+    raise ValueError("LLM API 응답 템플릿 개수가 요청 개수와 다릅니다.")
+
+  requested_variant_labels = [variant["variant_label"] for variant in variants]
+  returned_variant_labels = [template.variant_label for template in payload.templates]
+  if returned_variant_labels != requested_variant_labels:
+    raise ValueError("LLM API 응답의 variant_label 순서 또는 값이 요청과 다릅니다.")
+
+  return [
+    {
+      "variant_label": template.variant_label,
+      "title": template.title,
+      "subject_template": template.subject_template,
+      "body_template": template.body_template,
+    }
+    for template in payload.templates
+  ]

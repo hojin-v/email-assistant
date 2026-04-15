@@ -27,8 +27,8 @@ def test_split_document_uses_native_chunking_for_non_pdf():
 
 def test_split_document_uses_langchain_result_for_pdf(monkeypatch):
   document = ChunkingDocument(
-    source_type="resource",
-    source_id="resource-1",
+    source_type="manual",
+    source_id="manual-1",
     file_name="guide.pdf",
     media_type="application/pdf",
     content="의미 단위로 자를 긴 PDF 본문",
@@ -53,8 +53,8 @@ def test_split_document_uses_langchain_result_for_pdf(monkeypatch):
 
 def test_split_document_falls_back_when_langchain_pdf_result_is_empty(monkeypatch):
   document = ChunkingDocument(
-    source_type="resource",
-    source_id="resource-2",
+    source_type="manual",
+    source_id="manual-2",
     file_name="guide.pdf",
     media_type="application/pdf",
     content=("첫 문단입니다. " * 5) + "\n\n" + ("둘째 문단입니다. " * 5),
