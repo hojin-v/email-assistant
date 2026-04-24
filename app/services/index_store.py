@@ -49,22 +49,38 @@ class VectorIndexStore:
     *,
     backend: str = "chroma",
     persist_directory: str = ".rag-data/chroma",
+    chroma_host: str = "localhost",
+    chroma_port: int = 8000,
+    chroma_ssl: bool = False,
   ):
     # dimensions는 첫 upsert 시 자동으로 확정될 수 있다.
     self.dimensions = dimensions
     self.backend = backend
     self.persist_directory = persist_directory
+    self.chroma_host = chroma_host
+    self.chroma_port = chroma_port
+    self.chroma_ssl = chroma_ssl
     self._lock = Lock()
     self._collections: dict[str, Any] = {}
     self._client = self._create_client()
 
   def _create_client(self):
-    # persistent client를 만들고 저장 경로를 준비한다.
-    if self.backend != "chroma" or chromadb is None:
+    if chromadb is None:
       return None
 
-    Path(self.persist_directory).mkdir(parents=True, exist_ok=True)
-    return chromadb.PersistentClient(path=self.persist_directory)
+    if self.backend == "chroma":
+      # persistent client를 만들고 저장 경로를 준비한다.
+      Path(self.persist_directory).mkdir(parents=True, exist_ok=True)
+      return chromadb.PersistentClient(path=self.persist_directory)
+
+    if self.backend == "chroma_http":
+      return chromadb.HttpClient(
+        host=self.chroma_host,
+        port=self.chroma_port,
+        ssl=self.chroma_ssl,
+      )
+
+    return None
 
   def upsert(self, namespace: str, records: list[IndexRecord]) -> None:
     # 벡터와 메타데이터를 collection에 함께 저장한다.
@@ -151,8 +167,8 @@ class VectorIndexStore:
     return matches
 
   def backend_name(self) -> str:
-    if self.backend == "chroma" and self._client is not None:
-      return "chroma"
+    if self.backend in {"chroma", "chroma_http"} and self._client is not None:
+      return self.backend
     return "unavailable"
 
   def _get_or_create_collection(self, namespace: str):

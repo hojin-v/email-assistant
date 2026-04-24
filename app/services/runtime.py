@@ -9,6 +9,9 @@ embedding_service = create_embedding_service(settings)
 vector_store = VectorIndexStore(
   backend=settings.vector_backend,
   persist_directory=settings.chroma_persist_directory,
+  chroma_host=settings.chroma_host,
+  chroma_port=settings.chroma_port,
+  chroma_ssl=settings.chroma_ssl,
 )
 
 
