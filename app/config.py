@@ -3,8 +3,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
   # .env, 시스템 환경변수, 컨테이너 환경변수를 함께 읽기 위한 공통 설정이다.
-  # extra="ignore"를 둔 이유는 실행 환경에서 넘어오는 부가 환경변수 때문에
-  # pydantic 검증이 실패하지 않게 하기 위해서다.
+  # 추가 환경변수를 무시하도록 둔 이유는 실행 환경에서 넘어오는 부가 환경변수 때문에
+  # 설정 검증이 실패하지 않게 하기 위해서다.
   model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
   # 1. 서버 실행 환경
@@ -14,7 +14,7 @@ class Settings(BaseSettings):
 
   # 2. 생성 기능과 외부 LLM 설정
   mock_mode: bool = False
-  # OpenAI 호환 API 규격을 따르는 외부 LLM 서버 주소다.
+  # 외부 LLM 서버 주소다. OpenAI 호환 API 규격을 따른다.
   # 프록시 서버, 사내 추론 서버, 셀프호스팅 서버 등으로 교체될 수 있다.
   llm_api_base_url: str = "http://cellm.gachon.ac.kr:8000/v1"
   llm_api_key: str | None = None
@@ -22,14 +22,14 @@ class Settings(BaseSettings):
   # 값이 없으면 llm_api_base_url / llm_api_key를 그대로 재사용한다.
   embedding_api_base_url: str | None = None
   embedding_api_key: str | None = None
-  # chat model과 embedding model을 나눠둔 이유는,
+  # 채팅 모델과 임베딩 모델을 나눠둔 이유는,
   # 생성용 모델과 임베딩용 모델이 서로 다른 경우를 지원하기 위해서다.
   llm_chat_model: str | None = "text"
   embedding_model: str | None = "text-embedding-3-small"
   llm_api_timeout_seconds: float = 30.0
 
   # 3. 임베딩과 벡터 저장소 설정
-  # embedding_backend는 현재 두 가지 경로만 사용한다.
+  # 임베딩 백엔드는 현재 두 가지 경로만 사용한다.
   # - embedding_api: 외부 임베딩 API 호출
   # - hash: API 키나 모델 없이도 흐름 검증이 가능한 fallback
   embedding_backend: str = "embedding_api"
@@ -41,14 +41,14 @@ class Settings(BaseSettings):
   embedding_dimensions: int = 384
 
   # 4. 문서 분할 전략 설정
-  # chunking_backend는 어떤 구현/프레임워크를 쓸지,
-  # pdf_chunking_strategy는 PDF를 어떤 방식으로 자를지를 뜻한다.
+  # 문서 분할 백엔드는 어떤 구현/프레임워크를 쓸지,
+  # 문서 분할 전략은 PDF를 어떤 방식으로 자를지를 뜻한다.
   chunking_backend: str = "langchain"
   pdf_chunking_strategy: str = "semantic"
 
   # 5. 검색과 업로드 기본값
-  # chunk 관련 기본값은 endpoint에서 별도 값을 안 넘겨도
-  # FAQ/매뉴얼이 일관된 기준으로 잘리도록 맞춘 값이다.
+  # 분할 관련 기본값은 endpoint에서 별도 값을 안 넘겨도
+  # 질문답변/매뉴얼이 일관된 기준으로 잘리도록 맞춘 값이다.
   default_top_k: int = 5
   default_chunk_size: int = 900
   default_chunk_overlap: int = 120
@@ -56,13 +56,13 @@ class Settings(BaseSettings):
 
   # 5-1. PDF OCR fallback 설정
   # 이미지형 PDF를 만났을 때 Tesseract OCR을 시도할지 여부와
-  # OCR에 사용할 언어 / 렌더링 해상도를 정의한다.
+  # 문자 인식에 사용할 언어 / 렌더링 해상도를 정의한다.
   pdf_ocr_enabled: bool = True
   pdf_ocr_languages: str = "kor"
   pdf_ocr_dpi: int = 300
 
   # 6. RabbitMQ worker 설정
-  # HTTP 서버와 별개로 MQ worker를 띄울 때 사용하는 연결/라우팅 정보다.
+  # 메시지 큐 워커를 HTTP 서버와 별개로 띄울 때 사용하는 연결/라우팅 정보다.
   rabbitmq_host: str = "localhost"
   rabbitmq_port: int = 5672
   rabbitmq_username: str = "guest"
