@@ -35,6 +35,9 @@ class Settings(BaseSettings):
   embedding_backend: str = "embedding_api"
   vector_backend: str = "chroma"
   chroma_persist_directory: str = ".rag-data/chroma"
+  chroma_host: str = "localhost"
+  chroma_port: int = 8000
+  chroma_ssl: bool = False
   embedding_dimensions: int = 384
 
   # 4. 문서 분할 전략 설정

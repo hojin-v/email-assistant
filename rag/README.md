@@ -17,6 +17,7 @@ EmailAssist의 별도 RAG 서버입니다.
 - 기본 embedding backend는 외부 OpenAI 호환 임베딩 API
 - PDF는 LangChain 기반 semantic chunking을 우선 시도하고, 실패하면 기존 chunking으로 fallback
 - 기본 vector backend는 Chroma persistent collection
+- 외부 ChromaDB 서버 연결을 위한 `VECTOR_BACKEND=chroma_http` 지원
 - `knowledge/ingest`, `templates/index`, `templates/match` 기준 외부 API 정리
 - 이미지형 PDF는 Tesseract OCR fallback을 시도
 - 온보딩 템플릿 생성 책임을 `RAG` 내부 서비스로 관리
@@ -61,6 +62,8 @@ rag/
 │  ├─ current-status.md
 │  ├─ progress-log.md
 │  └─ sample-manual.txt
+├─ scripts/
+│  └─ check_chroma.py
 ├─ pyproject.toml
 ├─ .env.example
 ├─ Dockerfile
@@ -112,7 +115,12 @@ rag/
   - namespace별 vector index 관리
   - Chroma collection 기반 upsert / search
   - user namespace를 collection 이름으로 분리
-  - metadata filter와 persistent directory 관리
+  - metadata filter와 persistent directory / HTTP ChromaDB 연결 관리
+
+### Scripts
+
+- `scripts/check_chroma.py`
+  - local persistent Chroma 또는 HTTP ChromaDB collection 목록과 record 수 확인
 
 ### Tests
 
@@ -198,6 +206,7 @@ python -m app.worker
 - `EMBEDDING_BACKEND=embedding_api`일 때 임베딩 차원은 API 응답에서 자동으로 학습합니다.
 - 기본 vector backend는 `VECTOR_BACKEND=chroma`입니다.
 - Chroma 데이터는 `CHROMA_PERSIST_DIRECTORY` 아래에 저장됩니다.
+- 외부 ChromaDB 서버를 쓸 때는 `VECTOR_BACKEND=chroma_http`, `CHROMA_HOST`, `CHROMA_PORT`, `CHROMA_SSL`을 설정합니다.
 - 운영 환경에서는 `CHUNKING_BACKEND=langchain`, `PDF_CHUNKING_STRATEGY=semantic` 조합을 권장합니다.
 - 이미지형 PDF를 처리하려면 서버에 `tesseract-ocr`와 필요한 언어 데이터(`kor`)를 설치해야 합니다.
 - OCR fallback은 `PDF_OCR_ENABLED`, `PDF_OCR_LANGUAGES`, `PDF_OCR_DPI`로 조절할 수 있습니다.
