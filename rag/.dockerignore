@@ -1,0 +1,14 @@
+.env
+.env.*
+!.env.example
+.venv/
+.pytest_cache/
+.rag-data/
+__pycache__/
+*.py[cod]
+emailassist_rag.egg-info/
+dist/
+build/
+tests/
+docs/
+scripts/
