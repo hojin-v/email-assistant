@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 import logging
+logging.basicConfig(level=logging.INFO)
 
 from app.config import settings
 from app.schemas import (
@@ -39,8 +41,71 @@ from app.services.index_store import IndexRecord
 from app.services.runtime import embedding_service, knowledge_namespace, template_namespace, vector_store
 
 
+def _check_rabbitmq_on_startup() -> None:
+  try:
+    import pika
+  except ImportError:
+    logger.warning("RabbitMQ 연결 체크 생략: pika 패키지가 없습니다.")
+    return
+
+  inbound_queues = [
+    settings.queue_knowledge_ingest_inbound,
+    settings.queue_template_index_inbound,
+    settings.queue_template_match_inbound,
+    settings.queue_draft_inbound,
+  ]
+
+  try:
+    connection = pika.BlockingConnection(
+      pika.ConnectionParameters(
+        host=settings.rabbitmq_host,
+        port=settings.rabbitmq_port,
+        virtual_host=settings.rabbitmq_virtual_host,
+        credentials=pika.PlainCredentials(settings.rabbitmq_username, settings.rabbitmq_password),
+        heartbeat=settings.rabbitmq_heartbeat_seconds,
+        blocked_connection_timeout=settings.rabbitmq_blocked_connection_timeout_seconds,
+      )
+    )
+  except Exception as error:
+    logger.error(
+      "RabbitMQ 연결 실패: host=%s port=%s vhost=%s error=%s",
+      settings.rabbitmq_host,
+      settings.rabbitmq_port,
+      settings.rabbitmq_virtual_host,
+      error,
+    )
+    return
+
+  logger.info(
+    "RabbitMQ 연결 성공: host=%s port=%s vhost=%s user=%s",
+    settings.rabbitmq_host,
+    settings.rabbitmq_port,
+    settings.rabbitmq_virtual_host,
+    settings.rabbitmq_username,
+  )
+
+  channel = connection.channel()
+  for queue_name in inbound_queues:
+    try:
+      # passive=True: 큐가 이미 존재하는지만 확인하고 선언하지 않는다.
+      channel.queue_declare(queue=queue_name, passive=True)
+      logger.info("Queue 확인 완료: queue=%s", queue_name)
+    except Exception as error:
+      logger.error("Queue 확인 실패: queue=%s error=%s", queue_name, error)
+      # 채널이 닫혔으므로 재생성해서 다음 큐 확인을 이어간다.
+      channel = connection.channel()
+
+  connection.close()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+  _check_rabbitmq_on_startup()
+  yield
+
+
 # 1. 앱 전역 공통 객체 초기화
-app = FastAPI(title="EmailAssist RAG", version="0.1.0")
+app = FastAPI(title="EmailAssist RAG", version="0.1.0", lifespan=lifespan)
 logger = logging.getLogger(__name__)
 PDF_MEDIA_TYPE = "application/pdf"
 
