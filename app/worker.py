@@ -69,6 +69,13 @@ class RagMqWorker:
     self.connection = self._pika.BlockingConnection(parameters)
     self.channel = self.connection.channel()
     self.channel.basic_qos(prefetch_count=1)
+    logger.info(
+      "RabbitMQ 연결 성공: host=%s port=%s vhost=%s user=%s",
+      settings.rabbitmq_host,
+      settings.rabbitmq_port,
+      settings.rabbitmq_virtual_host,
+      settings.rabbitmq_username,
+    )
 
   def run_forever(self) -> None:
     logger.info(
@@ -77,10 +84,15 @@ class RagMqWorker:
       settings.rabbitmq_port,
       settings.rabbitmq_virtual_host,
     )
-    self._register_consumer(settings.queue_knowledge_ingest_inbound, self._handle_knowledge_ingest)
-    self._register_consumer(settings.queue_template_index_inbound, self._handle_template_index)
-    self._register_consumer(settings.queue_template_match_inbound, self._handle_template_match)
-    self._register_consumer(settings.queue_draft_inbound, self._handle_draft_generate)
+    consumers = [
+      (settings.queue_knowledge_ingest_inbound, self._handle_knowledge_ingest),
+      (settings.queue_template_index_inbound, self._handle_template_index),
+      (settings.queue_template_match_inbound, self._handle_template_match),
+      (settings.queue_draft_inbound, self._handle_draft_generate),
+    ]
+    for queue_name, handler in consumers:
+      self._register_consumer(queue_name, handler)
+    logger.info("총 %d개 큐 consume 대기 중", len(consumers))
     self.channel.start_consuming()
 
   def close(self) -> None:
@@ -92,11 +104,16 @@ class RagMqWorker:
         self.connection.close()
 
   def _register_consumer(self, queue_name: str, handler: Callable[[dict[str, Any], int], None]) -> None:
-    self.channel.basic_consume(
-      queue=queue_name,
-      on_message_callback=self._wrap_handler(handler),
-      auto_ack=False,
-    )
+    try:
+      self.channel.basic_consume(
+        queue=queue_name,
+        on_message_callback=self._wrap_handler(handler),
+        auto_ack=False,
+      )
+      logger.info("Consumer 등록 완료: queue=%s handler=%s", queue_name, handler.__name__)
+    except Exception as error:
+      logger.error("Consumer 등록 실패: queue=%s error=%s", queue_name, error)
+      raise
 
   def _wrap_handler(self, handler: Callable[[dict[str, Any], int], None]):
     def _consumer(channel, method, properties, body):
