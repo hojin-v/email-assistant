@@ -5,6 +5,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 import logging
+logging.basicConfig(level=logging.INFO)
 
 from app.config import settings
 from app.schemas import (
