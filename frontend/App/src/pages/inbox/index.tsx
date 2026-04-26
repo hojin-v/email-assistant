@@ -482,6 +482,20 @@ export function InboxPage() {
 
     const unsubscribeTemplateMatch = subscribeAppEvent("template-match-updated", (payload) => {
       const eventEmailId = payload.email_id == null ? "" : String(payload.email_id).trim();
+      if (eventEmailId && emails.some((item) => item.id === eventEmailId)) {
+        setEmails((current) =>
+          current.map((item) =>
+            item.id === eventEmailId
+              ? {
+                  ...item,
+                  recommendations: [],
+                  recommendationState: "loading",
+                  recommendationError: undefined,
+                }
+              : item,
+          ),
+        );
+      }
       handleEmailRefresh(eventEmailId);
     });
 
