@@ -11,19 +11,18 @@ import {
 } from "../../app/components/ui/select";
 import {
   generatedTemplates,
-  initialAutomationRules,
   templateCategoryStats,
   templateSummary,
   userIndustryOptions,
 } from "../shared/mock/adminData";
 import {
-  createAdminAutomationRule,
-  deleteAdminAutomationRule,
-  getAdminAutomationRules,
+  createAdminCategoryKeyword,
+  deleteAdminCategoryKeyword,
+  getAdminCategoryKeywords,
   getAdminTemplateCategoryStats,
   getAdminTemplates,
   getAdminTemplateSummary,
-  updateAdminAutomationRule,
+  updateAdminCategoryKeyword,
 } from "../../shared/api/admin";
 import { getErrorMessage } from "../../shared/api/http";
 import { MetricCard } from "../shared/ui/MetricCard";
@@ -36,27 +35,17 @@ import { StatusBadge } from "../shared/ui/StatusBadge";
 const emptyRuleDraft = {
   userId: "",
   categoryId: "",
-  templateId: "",
-  name: "",
-  category: "견적 요청",
-  trigger: "",
-  action: "",
-  status: "활성",
-  autoSendEnabled: false,
-  autoCalendarEnabled: false,
+  categoryName: "",
+  color: "#14B8A6",
+  keywordsText: "",
 };
 
 const presetRuleDraft = {
   userId: "1",
   categoryId: "1",
-  templateId: "",
-  name: "계약 일정 우선 등록",
-  category: "미팅/일정 조율",
-  trigger: "메일 본문에 미팅 일정, 시간, 장소가 모두 포함되면",
-  action: "캘린더 초안을 생성하고 담당자 검토 상태로 전환",
-  status: "활성",
-  autoSendEnabled: false,
-  autoCalendarEnabled: true,
+  categoryName: "미팅/일정 조율",
+  color: "#14B8A6",
+  keywordsText: "미팅\n일정\n회의\n시간\n장소",
 };
 
 const categoryColorMap = new Map(
@@ -72,6 +61,31 @@ const recommendedCategoryStats = recommendedCategoryOptions.map((category) => ({
   templateCount: 0,
   usageCount: 0,
 }));
+
+const demoCategoryKeywordItems = templateCategoryStats.map((category, index) => ({
+  id: category.id,
+  userId: String((index % 4) + 1),
+  userName: `데모 사용자 ${index + 1}`,
+  userEmail: `demo${index + 1}@emailassist.test`,
+  categoryName: category.category,
+  color: category.color,
+  keywords: [category.category, "문의", "요청"].filter(Boolean),
+}));
+
+function parseKeywords(value) {
+  return Array.from(
+    new Set(
+      value
+        .split(/[\n,]/)
+        .map((keyword) => keyword.trim())
+        .filter(Boolean),
+    ),
+  );
+}
+
+function formatKeywords(keywords) {
+  return (keywords ?? []).join("\n");
+}
 
 function mergeCategoryStatsByName(stats, includeRecommendedBase = false) {
   const statMap = new Map();
@@ -135,7 +149,7 @@ export function TemplateAutomationPage() {
     useDemoDataMode ? mergeCategoryStatsByName(templateCategoryStats, true) : [],
   );
   const [ruleItems, setRuleItems] = useState(
-    useDemoDataMode && !rulesEmptyScenario ? initialAutomationRules : [],
+    useDemoDataMode && !rulesEmptyScenario ? demoCategoryKeywordItems : [],
   );
   const [ruleDialogOpen, setRuleDialogOpen] = useState(
     ruleDialogScenario || ruleSaveErrorScenario,
@@ -145,11 +159,11 @@ export function TemplateAutomationPage() {
     ruleDialogScenario || ruleSaveErrorScenario ? presetRuleDraft : emptyRuleDraft,
   );
   const [deleteTarget, setDeleteTarget] = useState(
-    ruleDeleteDialogScenario ? initialAutomationRules[0] ?? null : null,
+    ruleDeleteDialogScenario ? demoCategoryKeywordItems[0] ?? null : null,
   );
   const [ruleErrorNotice, setRuleErrorNotice] = useState(
     ruleSaveErrorScenario
-      ? "자동화 규칙 저장 요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요."
+      ? "운영 규칙 저장 요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요."
       : "",
   );
   const [loading, setLoading] = useState(!useDemoDataMode);
@@ -162,7 +176,7 @@ export function TemplateAutomationPage() {
       setSummaryItems(templateSummary);
       setTemplateItems(templatesEmptyScenario ? [] : generatedTemplates);
       setCategoryStats(mergeCategoryStatsByName(templateCategoryStats, true));
-      setRuleItems(rulesEmptyScenario ? [] : initialAutomationRules);
+      setRuleItems(rulesEmptyScenario ? [] : demoCategoryKeywordItems);
       return;
     }
 
@@ -174,9 +188,9 @@ export function TemplateAutomationPage() {
       getAdminTemplateSummary(),
       getAdminTemplates(100),
       getAdminTemplateCategoryStats(),
-      getAdminAutomationRules(100),
+      getAdminCategoryKeywords(),
     ])
-      .then(([summary, templates, stats, rules]) => {
+      .then(([summary, templates, stats, categoryKeywords]) => {
         if (!mounted) {
           return;
         }
@@ -193,14 +207,14 @@ export function TemplateAutomationPage() {
             hint: `총 ${summary.top_category_usage_count}회 사용`,
           },
           {
-            label: "활성 자동화 규칙",
-            value: `${summary.active_rule_count}개`,
-            hint: "현재 활성 상태 규칙",
+            label: "운영 카테고리",
+            value: `${categoryKeywords.length}개`,
+            hint: "검색 키워드 관리 대상",
           },
           {
-            label: "자동 발송 허용 규칙",
-            value: `${summary.auto_send_rule_count}개`,
-            hint: "검토 없는 자동 발송",
+            label: "등록 검색 키워드",
+            value: `${categoryKeywords.reduce((sum, category) => sum + category.keywords.length, 0)}개`,
+            hint: "카테고리별 keyword 합계",
           },
         ]);
         setTemplateItems(
@@ -235,19 +249,14 @@ export function TemplateAutomationPage() {
           ),
         );
         setRuleItems(
-          rules.map((rule) => ({
-            id: rule.ruleId,
-            userId: rule.userId,
-            name: rule.name,
-            category: rule.category,
-            categoryId: "",
-            templateId: "",
-            trigger: rule.trigger,
-            action: rule.action,
-            status: rule.status,
-            autoSendEnabled: false,
-            autoCalendarEnabled: false,
-            updatedAt: rule.updatedAt,
+          categoryKeywords.map((category) => ({
+            id: category.categoryId,
+            userId: category.userId,
+            userName: category.userName,
+            userEmail: category.userEmail,
+            categoryName: category.categoryName,
+            color: category.color,
+            keywords: category.keywords,
           })),
         );
       })
@@ -256,7 +265,7 @@ export function TemplateAutomationPage() {
           return;
         }
 
-        setLoadError(getErrorMessage(error, "템플릿 / 자동화 데이터를 불러오지 못했습니다."));
+        setLoadError(getErrorMessage(error, "템플릿 / 운영 규칙 데이터를 불러오지 못했습니다."));
       })
       .finally(() => {
         if (!mounted) {
@@ -308,11 +317,8 @@ export function TemplateAutomationPage() {
 
   const openCreateRule = () => {
     setEditingRuleId(null);
-    const firstCategory = categoryStats[0];
     setRuleDraft({
       ...emptyRuleDraft,
-      categoryId: firstCategory?.id ?? "",
-      category: firstCategory?.category ?? emptyRuleDraft.category,
     });
     setRuleErrorNotice("");
     setRuleDialogOpen(true);
@@ -322,37 +328,25 @@ export function TemplateAutomationPage() {
     setEditingRuleId(rule.id);
     setRuleDraft({
       userId: rule.userId ?? "",
-      categoryId:
-        rule.categoryId ||
-        categoryStats.find((item) => item.category === rule.category)?.id ||
-        "",
-      templateId: rule.templateId ?? "",
-      name: rule.name,
-      category: rule.category,
-      trigger: rule.trigger,
-      action: rule.action,
-      status: rule.status,
-      autoSendEnabled: Boolean(rule.autoSendEnabled),
-      autoCalendarEnabled: Boolean(rule.autoCalendarEnabled),
+      categoryId: rule.id,
+      categoryName: rule.categoryName,
+      color: rule.color ?? "#14B8A6",
+      keywordsText: formatKeywords(rule.keywords),
     });
     setRuleErrorNotice("");
     setRuleDialogOpen(true);
   };
 
   const handleSaveRule = () => {
-    if (
-      !ruleDraft.userId.trim() ||
-      !ruleDraft.categoryId.trim() ||
-      !ruleDraft.name.trim() ||
-      !ruleDraft.trigger.trim() ||
-      !ruleDraft.action.trim()
-    ) {
-      setRuleErrorNotice("사용자 ID, 카테고리, 규칙명, 조건, 동작을 모두 입력해 주세요.");
+    if (!ruleDraft.userId.trim() || !ruleDraft.categoryName.trim()) {
+      setRuleErrorNotice("사용자 ID와 카테고리명을 입력해 주세요.");
       return;
     }
 
+    const keywords = parseKeywords(ruleDraft.keywordsText);
+
     if (ruleSaveErrorScenario) {
-      setRuleErrorNotice("자동화 규칙 저장 요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+      setRuleErrorNotice("운영 규칙 저장 요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.");
       return;
     }
 
@@ -361,48 +355,36 @@ export function TemplateAutomationPage() {
       setRuleErrorNotice("");
 
       const request = editingRuleId
-        ? updateAdminAutomationRule(editingRuleId, {
-            templateId: ruleDraft.templateId,
-            active: ruleDraft.status === "활성",
-            autoSendEnabled: ruleDraft.autoSendEnabled,
-            name: ruleDraft.name.trim(),
-            trigger: ruleDraft.trigger.trim(),
-            action: ruleDraft.action.trim(),
+        ? updateAdminCategoryKeyword(editingRuleId, {
+            categoryName: ruleDraft.categoryName.trim(),
+            color: ruleDraft.color.trim() || null,
+            keywords,
           })
-        : createAdminAutomationRule({
+        : createAdminCategoryKeyword({
             userId: ruleDraft.userId.trim(),
-            categoryId: ruleDraft.categoryId.trim(),
-            templateId: ruleDraft.templateId.trim(),
-            autoSendEnabled: ruleDraft.autoSendEnabled,
-            autoCalendarEnabled: ruleDraft.autoCalendarEnabled,
-            name: ruleDraft.name.trim(),
-            trigger: ruleDraft.trigger.trim(),
-            action: ruleDraft.action.trim(),
+            categoryName: ruleDraft.categoryName.trim(),
+            color: ruleDraft.color.trim() || null,
+            keywords,
           });
 
       void request
         .then(async () => {
-          const rules = await getAdminAutomationRules(100);
+          const categories = await getAdminCategoryKeywords();
           setRuleItems(
-            rules.map((rule) => ({
-              id: rule.ruleId,
-              userId: rule.userId,
-              name: rule.name,
-              category: rule.category,
-              categoryId: "",
-              templateId: "",
-              trigger: rule.trigger,
-              action: rule.action,
-              status: rule.status,
-              autoSendEnabled: false,
-              autoCalendarEnabled: false,
-              updatedAt: rule.updatedAt,
+            categories.map((category) => ({
+              id: category.categoryId,
+              userId: category.userId,
+              userName: category.userName,
+              userEmail: category.userEmail,
+              categoryName: category.categoryName,
+              color: category.color,
+              keywords: category.keywords,
             })),
           );
           setRuleDialogOpen(false);
         })
         .catch((error) => {
-          setRuleErrorNotice(getErrorMessage(error, "자동화 규칙 저장 요청을 처리하지 못했습니다."));
+          setRuleErrorNotice(getErrorMessage(error, "운영 규칙 저장 요청을 처리하지 못했습니다."));
         })
         .finally(() => {
           setSavingRule(false);
@@ -418,16 +400,9 @@ export function TemplateAutomationPage() {
             ? {
                 ...rule,
                 userId: ruleDraft.userId.trim(),
-                categoryId: ruleDraft.categoryId.trim(),
-                templateId: ruleDraft.templateId.trim(),
-                name: ruleDraft.name.trim(),
-                category: ruleDraft.category,
-                trigger: ruleDraft.trigger.trim(),
-                action: ruleDraft.action.trim(),
-                status: ruleDraft.status,
-                autoSendEnabled: ruleDraft.autoSendEnabled,
-                autoCalendarEnabled: ruleDraft.autoCalendarEnabled,
-                updatedAt: "방금 전",
+                categoryName: ruleDraft.categoryName.trim(),
+                color: ruleDraft.color.trim() || null,
+                keywords,
               }
             : rule,
         ),
@@ -437,16 +412,11 @@ export function TemplateAutomationPage() {
         {
           id: `rule-${Date.now()}`,
           userId: ruleDraft.userId.trim(),
-          categoryId: ruleDraft.categoryId.trim(),
-          templateId: ruleDraft.templateId.trim(),
-          name: ruleDraft.name.trim(),
-          category: ruleDraft.category,
-          trigger: ruleDraft.trigger.trim(),
-          action: ruleDraft.action.trim(),
-          status: ruleDraft.status,
-          autoSendEnabled: ruleDraft.autoSendEnabled,
-          autoCalendarEnabled: ruleDraft.autoCalendarEnabled,
-          updatedAt: "방금 전",
+          userName: "데모 사용자",
+          userEmail: null,
+          categoryName: ruleDraft.categoryName.trim(),
+          color: ruleDraft.color.trim() || null,
+          keywords,
         },
         ...current,
       ]);
@@ -465,13 +435,13 @@ export function TemplateAutomationPage() {
       setDeletingRule(true);
       setRuleErrorNotice("");
 
-      void deleteAdminAutomationRule(deleteTarget.id)
+      void deleteAdminCategoryKeyword(deleteTarget.id)
         .then(() => {
           setRuleItems((current) => current.filter((rule) => rule.id !== deleteTarget.id));
           setDeleteTarget(null);
         })
         .catch((error) => {
-          setRuleErrorNotice(getErrorMessage(error, "자동화 규칙 삭제 요청을 처리하지 못했습니다."));
+          setRuleErrorNotice(getErrorMessage(error, "운영 규칙 삭제 요청을 처리하지 못했습니다."));
         })
         .finally(() => {
           setDeletingRule(false);
@@ -493,8 +463,8 @@ export function TemplateAutomationPage() {
   if (loadErrorScenario) {
     return (
       <AdminStatePage
-        title="템플릿 / 자동화 관리 화면을 불러오지 못했습니다"
-        description="생성 템플릿 통계와 자동화 규칙 데이터를 가져오는 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요."
+        title="템플릿 / 운영 규칙 관리 화면을 불러오지 못했습니다"
+        description="생성 템플릿 통계와 운영 규칙 데이터를 가져오는 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요."
       />
     );
   }
@@ -502,7 +472,7 @@ export function TemplateAutomationPage() {
   if (loadError) {
     return (
       <AdminStatePage
-        title="템플릿 / 자동화 관리 화면을 불러오지 못했습니다"
+        title="템플릿 / 운영 규칙 관리 화면을 불러오지 못했습니다"
         description={loadError}
       />
     );
@@ -511,8 +481,8 @@ export function TemplateAutomationPage() {
   if (loading) {
     return (
       <AdminStatePage
-        title="템플릿 / 자동화 관리 화면을 불러오는 중입니다"
-        description="생성 템플릿, 카테고리 통계, 자동화 규칙을 가져오고 있습니다."
+        title="템플릿 / 운영 규칙 관리 화면을 불러오는 중입니다"
+        description="생성 템플릿, 카테고리 통계, 운영 규칙을 가져오고 있습니다."
       />
     );
   }
@@ -520,13 +490,13 @@ export function TemplateAutomationPage() {
   return (
     <section className="admin-page">
       <PageHeader
-        title="템플릿 / 자동화 관리"
-        description="생성된 템플릿 사용 현황과 자동화 규칙을 함께 관리합니다. 관리자는 사전 배포형 원본이 아니라 생성 결과와 운영 규칙을 확인합니다."
+        title="템플릿 / 운영 규칙 관리"
+        description="생성된 템플릿 사용 현황과 카테고리별 검색 키워드를 함께 관리합니다. 운영 규칙은 백엔드 카테고리 키워드 기준으로 저장됩니다."
         actions={
           activeTab === "rules" ? (
             <button type="button" className="admin-button" onClick={openCreateRule}>
               <Plus size={14} />
-              규칙 생성
+              카테고리 생성
             </button>
           ) : null
         }
@@ -556,7 +526,7 @@ export function TemplateAutomationPage() {
           className={activeTab === "rules" ? "admin-chip admin-chip--active" : "admin-chip"}
           onClick={() => updateTab("rules")}
         >
-          자동화 규칙 관리
+          운영 규칙 관리
         </button>
       </div>
 
@@ -725,17 +695,17 @@ export function TemplateAutomationPage() {
         <section className="admin-panel">
           <div className="admin-panel-head">
             <div>
-              <h2>자동화 규칙 목록</h2>
+              <h2>운영 규칙 목록</h2>
               <p className="admin-panel-subtitle">
-                분류 키워드, 적용 카테고리, 자동화 액션 규칙을 생성하고 수정합니다.
+                백엔드에 저장된 사용자별 카테고리 검색 키워드를 조회하고 생성, 수정, 삭제합니다.
               </p>
             </div>
-            <span className="admin-panel-note">{ruleItems.length}개 규칙</span>
+            <span className="admin-panel-note">{ruleItems.length}개 카테고리</span>
           </div>
 
           {ruleErrorNotice ? (
             <AdminStateNotice
-              title="자동화 규칙 저장에 실패했습니다"
+              title="운영 규칙 저장에 실패했습니다"
               description={ruleErrorNotice}
               tone="error"
               compact
@@ -747,32 +717,56 @@ export function TemplateAutomationPage() {
               <table className="admin-table">
                 <thead>
                   <tr>
-                    <th>규칙명</th>
                     <th>카테고리</th>
-                    <th>조건</th>
-                    <th>동작</th>
-                    <th>상태</th>
-                    <th>최근 수정</th>
+                    <th>사용자</th>
+                    <th>색상</th>
+                    <th>검색 키워드</th>
+                    <th>키워드 수</th>
                     <th>작업</th>
                   </tr>
                 </thead>
                 <tbody>
                   {ruleItems.map((rule) => (
                     <tr key={rule.id}>
-                      <td>{rule.name}</td>
-                      <td>{rule.category}</td>
-                      <td>{rule.trigger}</td>
-                      <td>{rule.action}</td>
                       <td>
-                        <StatusBadge>{rule.status}</StatusBadge>
+                        <strong>{rule.categoryName}</strong>
+                        <div className="admin-table-subcopy">Category #{rule.id}</div>
                       </td>
-                      <td>{rule.updatedAt}</td>
+                      <td>
+                        사용자 {rule.userId}
+                        {rule.userName ? (
+                          <div className="admin-table-subcopy">{rule.userName}</div>
+                        ) : null}
+                        {rule.userEmail ? (
+                          <div className="admin-table-subcopy">{rule.userEmail}</div>
+                        ) : null}
+                      </td>
+                      <td>
+                        <span
+                          aria-hidden="true"
+                          className="admin-color-dot"
+                          style={{ background: rule.color || "#64748B" }}
+                        />
+                      </td>
+                      <td>
+                        <div className="admin-button-row">
+                          {rule.keywords.length ? (
+                            rule.keywords.map((keyword) => (
+                              <StatusBadge key={keyword}>{keyword}</StatusBadge>
+                            ))
+                          ) : (
+                            <span className="admin-table-subcopy">등록된 키워드 없음</span>
+                          )}
+                        </div>
+                      </td>
+                      <td>{rule.keywords.length}개</td>
                       <td>
                         <div className="admin-button-row">
                           <button
                             type="button"
                             className="admin-icon-button"
                             onClick={() => openEditRule(rule)}
+                            aria-label={`${rule.categoryName} 수정`}
                           >
                             <Pencil size={14} />
                           </button>
@@ -780,6 +774,7 @@ export function TemplateAutomationPage() {
                             type="button"
                             className="admin-icon-button admin-icon-button--danger"
                             onClick={() => setDeleteTarget(rule)}
+                            aria-label={`${rule.categoryName} 삭제`}
                           >
                             <Trash2 size={14} />
                           </button>
@@ -792,8 +787,8 @@ export function TemplateAutomationPage() {
             </div>
           ) : (
             <AdminStateNotice
-              title="등록된 자동화 규칙이 없습니다"
-              description="새 규칙을 생성하면 카테고리 분류와 초안 생성 동작을 직접 제어할 수 있습니다."
+              title="등록된 운영 규칙이 없습니다"
+              description="카테고리를 생성하고 검색 키워드를 등록하면 메일 분류 기준으로 활용할 수 있습니다."
               tone="empty"
             />
           )}
@@ -802,8 +797,8 @@ export function TemplateAutomationPage() {
 
       <AdminModal
         open={ruleDialogOpen}
-        title={editingRuleId ? "자동화 규칙 수정" : "자동화 규칙 생성"}
-        description="규칙명, 카테고리, 조건, 동작을 입력하면 즉시 목록에 반영됩니다."
+        title={editingRuleId ? "운영 규칙 수정" : "운영 규칙 생성"}
+        description="카테고리명과 검색 키워드는 백엔드 카테고리 데이터에 저장됩니다."
         onClose={() => setRuleDialogOpen(false)}
         width={680}
         footer={
@@ -824,7 +819,7 @@ export function TemplateAutomationPage() {
         <div className="admin-stack">
           {ruleErrorNotice ? (
             <AdminStateNotice
-              title="자동화 규칙 저장에 실패했습니다"
+              title="운영 규칙 저장에 실패했습니다"
               description={ruleErrorNotice}
               tone="error"
               compact
@@ -843,123 +838,32 @@ export function TemplateAutomationPage() {
               />
             </label>
             <label className="admin-field">
-              <span>규칙명</span>
+              <span>카테고리명</span>
               <input
-                value={ruleDraft.name}
-                onChange={(event) => setRuleDraft((current) => ({ ...current, name: event.target.value }))}
+                value={ruleDraft.categoryName}
+                onChange={(event) => setRuleDraft((current) => ({ ...current, categoryName: event.target.value }))}
                 className="admin-input app-form-input"
-                placeholder="예: 환불 요청 우선 검토"
+                placeholder="예: 견적 요청"
               />
             </label>
             <label className="admin-field">
-              <span>카테고리</span>
-              <Select
-                value={ruleDraft.category}
-                onValueChange={(value) => {
-                  const matchedCategory = categoryStats.find((item) => item.category === value);
-                  setRuleDraft((current) => ({
-                    ...current,
-                    category: value,
-                    categoryId: matchedCategory?.id ?? current.categoryId,
-                  }));
-                }}
-              >
-                <SelectTrigger className="app-form-input h-11 w-full rounded-xl px-4 text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="app-select-content rounded-2xl p-1">
-                  {categories
-                    .filter((item) => item !== "all")
-                    .map((item) => (
-                      <SelectItem
-                        key={item}
-                        value={item}
-                        className="app-select-item rounded-xl px-3 py-2.5 text-sm"
-                      >
-                        {item}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </label>
-            <label className="admin-field">
-              <span>템플릿 ID 선택사항</span>
+              <span>색상</span>
               <input
-                value={ruleDraft.templateId}
-                onChange={(event) => setRuleDraft((current) => ({ ...current, templateId: event.target.value }))}
+                value={ruleDraft.color}
+                onChange={(event) => setRuleDraft((current) => ({ ...current, color: event.target.value }))}
                 className="admin-input app-form-input"
-                placeholder="특정 템플릿에 연결할 때만 입력"
+                placeholder="#14B8A6"
               />
             </label>
             <label className="admin-field">
-              <span>조건</span>
+              <span>검색 키워드</span>
               <textarea
-                value={ruleDraft.trigger}
-                onChange={(event) => setRuleDraft((current) => ({ ...current, trigger: event.target.value }))}
+                value={ruleDraft.keywordsText}
+                onChange={(event) => setRuleDraft((current) => ({ ...current, keywordsText: event.target.value }))}
                 className="admin-textarea app-form-input"
-                rows={4}
-                placeholder="키워드나 분류 조건을 입력하세요"
+                rows={6}
+                placeholder={"한 줄에 하나씩 입력하거나 쉼표로 구분하세요\n예: 견적\n가격\nquote"}
               />
-            </label>
-            <label className="admin-field">
-              <span>동작</span>
-              <textarea
-                value={ruleDraft.action}
-                onChange={(event) => setRuleDraft((current) => ({ ...current, action: event.target.value }))}
-                className="admin-textarea app-form-input"
-                rows={4}
-                placeholder="초안 생성, 담당자 검토, 캘린더 등록 등 동작을 입력하세요"
-              />
-            </label>
-            <label className="admin-field">
-              <span>상태</span>
-              <Select
-                value={ruleDraft.status}
-                onValueChange={(value) => setRuleDraft((current) => ({ ...current, status: value }))}
-              >
-                <SelectTrigger className="app-form-input h-11 w-full rounded-xl px-4 text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="app-select-content rounded-2xl p-1">
-                  <SelectItem value="활성" className="app-select-item rounded-xl px-3 py-2.5 text-sm">
-                    활성
-                  </SelectItem>
-                  <SelectItem value="비활성" className="app-select-item rounded-xl px-3 py-2.5 text-sm">
-                    비활성
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </label>
-            <label className="admin-field">
-              <span>자동화 옵션</span>
-              <div className="admin-button-row admin-button-row--spaced">
-                <label className="admin-checkbox-row">
-                  <input
-                    type="checkbox"
-                    checked={ruleDraft.autoSendEnabled}
-                    onChange={(event) =>
-                      setRuleDraft((current) => ({
-                        ...current,
-                        autoSendEnabled: event.target.checked,
-                      }))
-                    }
-                  />
-                  자동 발송 허용
-                </label>
-                <label className="admin-checkbox-row">
-                  <input
-                    type="checkbox"
-                    checked={ruleDraft.autoCalendarEnabled}
-                    onChange={(event) =>
-                      setRuleDraft((current) => ({
-                        ...current,
-                        autoCalendarEnabled: event.target.checked,
-                      }))
-                    }
-                  />
-                  캘린더 자동화 허용
-                </label>
-              </div>
             </label>
           </div>
         </div>
@@ -967,8 +871,8 @@ export function TemplateAutomationPage() {
 
       <AdminModal
         open={Boolean(deleteTarget)}
-        title="자동화 규칙을 삭제할까요?"
-        description="삭제된 규칙은 즉시 목록에서 제거되며, 이후 들어오는 메일에는 적용되지 않습니다."
+        title="운영 규칙을 삭제할까요?"
+        description="삭제하면 해당 카테고리와 저장된 검색 키워드가 백엔드에서 제거됩니다."
         onClose={() => setDeleteTarget(null)}
         footer={
           <>
@@ -987,9 +891,11 @@ export function TemplateAutomationPage() {
       >
         {deleteTarget ? (
           <div className="admin-list-card">
-            <h3>{deleteTarget.name}</h3>
-            <p>{deleteTarget.category}</p>
-            <p className="admin-inline-note">{deleteTarget.trigger}</p>
+            <h3>{deleteTarget.categoryName}</h3>
+            <p>사용자 {deleteTarget.userId}</p>
+            <p className="admin-inline-note">
+              {(deleteTarget.keywords ?? []).join(", ") || "등록된 키워드 없음"}
+            </p>
           </div>
         ) : null}
       </AdminModal>
