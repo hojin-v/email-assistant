@@ -403,6 +403,43 @@ export function InboxPage() {
   ]);
 
   useEffect(() => {
+    if (
+      useDemoDataMode ||
+      !selectedEmailId ||
+      !selectedEmail ||
+      !selectedAnalysisReady ||
+      selectedEmail.status !== "pending" ||
+      selectedRecommendationState !== "empty"
+    ) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setEmails((current) =>
+        current.map((item) =>
+          item.id === selectedEmailId && item.recommendationState === "empty" && !item.recommendations?.length
+            ? {
+                ...item,
+                recommendationState: "loading",
+                recommendationError: undefined,
+              }
+            : item,
+        ),
+      );
+    }, 5000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [
+    selectedAnalysisReady,
+    selectedEmail,
+    selectedEmailId,
+    selectedRecommendationState,
+    useDemoDataMode,
+  ]);
+
+  useEffect(() => {
     if (!shouldPollSelectedEmail || !selectedEmailId) {
       return;
     }
