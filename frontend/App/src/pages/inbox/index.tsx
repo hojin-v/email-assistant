@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft } from "lucide-react";
-import { useSearchParams } from "react-router";
+import { useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { EmailListPanel } from "../../features/inbox/ui/EmailListPanel";
 import { InboxStatusTabs } from "../../features/inbox/ui/InboxStatusTabs";
@@ -43,6 +43,7 @@ function getCurrentTimeLabel() {
 }
 
 export function InboxPage() {
+  const { emailId: routeEmailId } = useParams();
   const [searchParams] = useSearchParams();
   const scenarioId = resolveDemoScenarioId(searchParams.get("scenario"), "inbox-demo");
   const emptyScenario = scenarioId === "inbox-empty";
@@ -56,6 +57,10 @@ export function InboxPage() {
   const useDemoDataMode = Boolean(scenarioId?.startsWith("inbox-"));
 
   const getInitialStatus = (): InboxStatus => {
+    if (routeEmailId) {
+      return "all";
+    }
+
     if (completedNormalScenario) {
       return "completed";
     }
@@ -67,6 +72,10 @@ export function InboxPage() {
   };
 
   const getInitialSelectedEmailId = () => {
+    if (routeEmailId) {
+      return routeEmailId;
+    }
+
     if (!useDemoDataMode) {
       return "";
     }
@@ -97,6 +106,16 @@ export function InboxPage() {
   const [listLoadError, setListLoadError] = useState<string | null>(null);
   const [isHydratingDetails, setIsHydratingDetails] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
+
+  useEffect(() => {
+    if (!routeEmailId) {
+      return;
+    }
+
+    setActiveStatus("all");
+    setSelectedEmailId(routeEmailId);
+    setMobileDetailOpen(true);
+  }, [routeEmailId]);
 
   const refreshEmailDetail = async (emailId: string) => {
     try {
