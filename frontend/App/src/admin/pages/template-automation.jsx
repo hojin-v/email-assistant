@@ -33,16 +33,12 @@ import { AdminStatePage } from "../shared/ui/AdminStatePage";
 import { StatusBadge } from "../shared/ui/StatusBadge";
 
 const emptyRuleDraft = {
-  userId: "",
-  categoryId: "",
   categoryName: "",
   color: "#14B8A6",
   keywordsText: "",
 };
 
 const presetRuleDraft = {
-  userId: "1",
-  categoryId: "1",
   categoryName: "미팅/일정 조율",
   color: "#14B8A6",
   keywordsText: "미팅\n일정\n회의\n시간\n장소",
@@ -62,14 +58,13 @@ const recommendedCategoryStats = recommendedCategoryOptions.map((category) => ({
   usageCount: 0,
 }));
 
-const demoCategoryKeywordItems = templateCategoryStats.map((category, index) => ({
-  id: category.id,
-  userId: String((index % 4) + 1),
-  userName: `데모 사용자 ${index + 1}`,
-  userEmail: `demo${index + 1}@emailassist.test`,
+const demoCategoryKeywordItems = templateCategoryStats.map((category) => ({
+  id: category.category,
   categoryName: category.category,
   color: category.color,
   keywords: [category.category, "문의", "요청"].filter(Boolean),
+  categoryCount: 3,
+  userCount: 3,
 }));
 
 function parseKeywords(value) {
@@ -209,12 +204,12 @@ export function TemplateAutomationPage() {
           {
             label: "운영 카테고리",
             value: `${categoryKeywords.length}개`,
-            hint: "검색 키워드 관리 대상",
+            hint: "운영 규칙 관리 대상",
           },
           {
             label: "등록 검색 키워드",
             value: `${categoryKeywords.reduce((sum, category) => sum + category.keywords.length, 0)}개`,
-            hint: "카테고리별 keyword 합계",
+            hint: "카테고리별 검색 키워드 합계",
           },
         ]);
         setTemplateItems(
@@ -250,13 +245,12 @@ export function TemplateAutomationPage() {
         );
         setRuleItems(
           categoryKeywords.map((category) => ({
-            id: category.categoryId,
-            userId: category.userId,
-            userName: category.userName,
-            userEmail: category.userEmail,
+            id: category.categoryKey,
             categoryName: category.categoryName,
             color: category.color,
             keywords: category.keywords,
+            categoryCount: category.categoryCount,
+            userCount: category.userCount,
           })),
         );
       })
@@ -327,8 +321,6 @@ export function TemplateAutomationPage() {
   const openEditRule = (rule) => {
     setEditingRuleId(rule.id);
     setRuleDraft({
-      userId: rule.userId ?? "",
-      categoryId: rule.id,
       categoryName: rule.categoryName,
       color: rule.color ?? "#14B8A6",
       keywordsText: formatKeywords(rule.keywords),
@@ -338,8 +330,8 @@ export function TemplateAutomationPage() {
   };
 
   const handleSaveRule = () => {
-    if (!ruleDraft.userId.trim() || !ruleDraft.categoryName.trim()) {
-      setRuleErrorNotice("사용자 ID와 카테고리명을 입력해 주세요.");
+    if (!ruleDraft.categoryName.trim()) {
+      setRuleErrorNotice("카테고리명을 입력해 주세요.");
       return;
     }
 
@@ -355,13 +347,11 @@ export function TemplateAutomationPage() {
       setRuleErrorNotice("");
 
       const request = editingRuleId
-        ? updateAdminCategoryKeyword(editingRuleId, {
-            categoryName: ruleDraft.categoryName.trim(),
+        ? updateAdminCategoryKeyword(ruleDraft.categoryName.trim(), {
             color: ruleDraft.color.trim() || null,
             keywords,
           })
         : createAdminCategoryKeyword({
-            userId: ruleDraft.userId.trim(),
             categoryName: ruleDraft.categoryName.trim(),
             color: ruleDraft.color.trim() || null,
             keywords,
@@ -372,13 +362,12 @@ export function TemplateAutomationPage() {
           const categories = await getAdminCategoryKeywords();
           setRuleItems(
             categories.map((category) => ({
-              id: category.categoryId,
-              userId: category.userId,
-              userName: category.userName,
-              userEmail: category.userEmail,
+              id: category.categoryKey,
               categoryName: category.categoryName,
               color: category.color,
               keywords: category.keywords,
+              categoryCount: category.categoryCount,
+              userCount: category.userCount,
             })),
           );
           setRuleDialogOpen(false);
@@ -399,7 +388,6 @@ export function TemplateAutomationPage() {
           rule.id === editingRuleId
             ? {
                 ...rule,
-                userId: ruleDraft.userId.trim(),
                 categoryName: ruleDraft.categoryName.trim(),
                 color: ruleDraft.color.trim() || null,
                 keywords,
@@ -410,13 +398,12 @@ export function TemplateAutomationPage() {
     } else {
       setRuleItems((current) => [
         {
-          id: `rule-${Date.now()}`,
-          userId: ruleDraft.userId.trim(),
-          userName: "데모 사용자",
-          userEmail: null,
+          id: ruleDraft.categoryName.trim(),
           categoryName: ruleDraft.categoryName.trim(),
           color: ruleDraft.color.trim() || null,
           keywords,
+          categoryCount: 1,
+          userCount: 1,
         },
         ...current,
       ]);
@@ -436,12 +423,22 @@ export function TemplateAutomationPage() {
       setRuleErrorNotice("");
 
       void deleteAdminCategoryKeyword(deleteTarget.id)
-        .then(() => {
-          setRuleItems((current) => current.filter((rule) => rule.id !== deleteTarget.id));
+        .then(async () => {
+          const categories = await getAdminCategoryKeywords();
+          setRuleItems(
+            categories.map((category) => ({
+              id: category.categoryKey,
+              categoryName: category.categoryName,
+              color: category.color,
+              keywords: category.keywords,
+              categoryCount: category.categoryCount,
+              userCount: category.userCount,
+            })),
+          );
           setDeleteTarget(null);
         })
         .catch((error) => {
-          setRuleErrorNotice(getErrorMessage(error, "운영 규칙 삭제 요청을 처리하지 못했습니다."));
+          setRuleErrorNotice(getErrorMessage(error, "운영 규칙 초기화 요청을 처리하지 못했습니다."));
         })
         .finally(() => {
           setDeletingRule(false);
@@ -450,7 +447,16 @@ export function TemplateAutomationPage() {
       return;
     }
 
-    setRuleItems((current) => current.filter((rule) => rule.id !== deleteTarget.id));
+    setRuleItems((current) =>
+      current.map((rule) =>
+        rule.id === deleteTarget.id
+          ? {
+              ...rule,
+              keywords: [],
+            }
+          : rule,
+      ),
+    );
     setDeleteTarget(null);
   };
 
@@ -496,7 +502,7 @@ export function TemplateAutomationPage() {
           activeTab === "rules" ? (
             <button type="button" className="admin-button" onClick={openCreateRule}>
               <Plus size={14} />
-              카테고리 생성
+              운영 규칙 등록
             </button>
           ) : null
         }
@@ -697,7 +703,7 @@ export function TemplateAutomationPage() {
             <div>
               <h2>운영 규칙 목록</h2>
               <p className="admin-panel-subtitle">
-                백엔드에 저장된 사용자별 카테고리 검색 키워드를 조회하고 생성, 수정, 삭제합니다.
+                카테고리별 검색 키워드를 조회하고 수정합니다.
               </p>
             </div>
             <span className="admin-panel-note">{ruleItems.length}개 카테고리</span>
@@ -718,10 +724,10 @@ export function TemplateAutomationPage() {
                 <thead>
                   <tr>
                     <th>카테고리</th>
-                    <th>사용자</th>
                     <th>색상</th>
                     <th>검색 키워드</th>
                     <th>키워드 수</th>
+                    <th>적용 범위</th>
                     <th>작업</th>
                   </tr>
                 </thead>
@@ -730,16 +736,7 @@ export function TemplateAutomationPage() {
                     <tr key={rule.id}>
                       <td>
                         <strong>{rule.categoryName}</strong>
-                        <div className="admin-table-subcopy">Category #{rule.id}</div>
-                      </td>
-                      <td>
-                        사용자 {rule.userId}
-                        {rule.userName ? (
-                          <div className="admin-table-subcopy">{rule.userName}</div>
-                        ) : null}
-                        {rule.userEmail ? (
-                          <div className="admin-table-subcopy">{rule.userEmail}</div>
-                        ) : null}
+                        <div className="admin-table-subcopy">카테고리 검색 기준</div>
                       </td>
                       <td>
                         <span
@@ -761,6 +758,12 @@ export function TemplateAutomationPage() {
                       </td>
                       <td>{rule.keywords.length}개</td>
                       <td>
+                        <span>{rule.userCount ?? 0}명</span>
+                        <div className="admin-table-subcopy">
+                          카테고리 행 {rule.categoryCount ?? 0}개에 반영
+                        </div>
+                      </td>
+                      <td>
                         <div className="admin-button-row">
                           <button
                             type="button"
@@ -774,7 +777,7 @@ export function TemplateAutomationPage() {
                             type="button"
                             className="admin-icon-button admin-icon-button--danger"
                             onClick={() => setDeleteTarget(rule)}
-                            aria-label={`${rule.categoryName} 삭제`}
+                            aria-label={`${rule.categoryName} 키워드 초기화`}
                           >
                             <Trash2 size={14} />
                           </button>
@@ -788,7 +791,7 @@ export function TemplateAutomationPage() {
           ) : (
             <AdminStateNotice
               title="등록된 운영 규칙이 없습니다"
-              description="카테고리를 생성하고 검색 키워드를 등록하면 메일 분류 기준으로 활용할 수 있습니다."
+              description="카테고리별 검색 키워드가 아직 등록되지 않았습니다."
               tone="empty"
             />
           )}
@@ -797,8 +800,8 @@ export function TemplateAutomationPage() {
 
       <AdminModal
         open={ruleDialogOpen}
-        title={editingRuleId ? "운영 규칙 수정" : "운영 규칙 생성"}
-        description="카테고리명과 검색 키워드는 백엔드 카테고리 데이터에 저장됩니다."
+        title={editingRuleId ? "운영 규칙 수정" : "운영 규칙 등록"}
+        description="같은 카테고리명을 가진 사용자 카테고리 행에 공통 키워드가 반영됩니다."
         onClose={() => setRuleDialogOpen(false)}
         width={680}
         footer={
@@ -828,22 +831,13 @@ export function TemplateAutomationPage() {
 
           <div className="admin-form-grid admin-form-grid--single">
             <label className="admin-field">
-              <span>사용자 ID</span>
-              <input
-                value={ruleDraft.userId}
-                onChange={(event) => setRuleDraft((current) => ({ ...current, userId: event.target.value }))}
-                className="admin-input app-form-input"
-                placeholder="예: 44"
-                disabled={Boolean(editingRuleId)}
-              />
-            </label>
-            <label className="admin-field">
               <span>카테고리명</span>
               <input
                 value={ruleDraft.categoryName}
                 onChange={(event) => setRuleDraft((current) => ({ ...current, categoryName: event.target.value }))}
                 className="admin-input app-form-input"
                 placeholder="예: 견적 요청"
+                disabled={Boolean(editingRuleId)}
               />
             </label>
             <label className="admin-field">
@@ -871,8 +865,8 @@ export function TemplateAutomationPage() {
 
       <AdminModal
         open={Boolean(deleteTarget)}
-        title="운영 규칙을 삭제할까요?"
-        description="삭제하면 해당 카테고리와 저장된 검색 키워드가 백엔드에서 제거됩니다."
+        title="운영 규칙 키워드를 초기화할까요?"
+        description="카테고리 자체는 삭제하지 않고, 같은 카테고리명에 저장된 검색 키워드만 비웁니다."
         onClose={() => setDeleteTarget(null)}
         footer={
           <>
@@ -884,7 +878,7 @@ export function TemplateAutomationPage() {
               취소
             </button>
             <button type="button" className="admin-button" onClick={handleDeleteRule} disabled={deletingRule}>
-              {deletingRule ? "삭제 중..." : "삭제"}
+              {deletingRule ? "초기화 중..." : "초기화"}
             </button>
           </>
         }
@@ -892,7 +886,7 @@ export function TemplateAutomationPage() {
         {deleteTarget ? (
           <div className="admin-list-card">
             <h3>{deleteTarget.categoryName}</h3>
-            <p>사용자 {deleteTarget.userId}</p>
+            <p>{deleteTarget.userCount ?? 0}명 사용자 카테고리에 반영된 키워드</p>
             <p className="admin-inline-note">
               {(deleteTarget.keywords ?? []).join(", ") || "등록된 키워드 없음"}
             </p>

@@ -154,24 +154,22 @@ type AdminAutomationRuleUpdateApiResponse = {
 type AdminCategoryKeywordListApiResponse = {
   total_count: number;
   categories: Array<{
-    category_id: number;
-    user_id: number;
-    user_email: string | null;
-    user_name: string | null;
+    category_key: string;
     category_name: string;
     color: string | null;
     keywords: string[] | null;
+    category_count: number;
+    user_count: number;
   }>;
 };
 
 type AdminCategoryKeywordApiResponse = {
-  category_id: number;
-  user_id: number;
-  user_email: string | null;
-  user_name: string | null;
+  category_key: string;
   category_name: string;
   color: string | null;
   keywords: string[] | null;
+  category_count: number;
+  user_count: number;
 };
 
 type AdminJobListApiResponse = {
@@ -293,13 +291,12 @@ export type AdminAutomationRule = {
 };
 
 export type AdminCategoryKeyword = {
-  categoryId: string;
-  userId: string;
-  userEmail: string | null;
-  userName: string | null;
+  categoryKey: string;
   categoryName: string;
   color: string | null;
   keywords: string[];
+  categoryCount: number;
+  userCount: number;
 };
 
 export type AdminJobItem = {
@@ -588,34 +585,26 @@ export async function deleteAdminAutomationRule(ruleId: string) {
 
 function mapAdminCategoryKeyword(category: AdminCategoryKeywordApiResponse): AdminCategoryKeyword {
   return {
-    categoryId: String(category.category_id),
-    userId: String(category.user_id),
-    userEmail: category.user_email,
-    userName: category.user_name,
+    categoryKey: category.category_key,
     categoryName: category.category_name,
     color: category.color,
     keywords: Array.isArray(category.keywords) ? category.keywords : [],
+    categoryCount: category.category_count,
+    userCount: category.user_count,
   };
 }
 
-export async function getAdminCategoryKeywords(userId?: string) {
-  const response = await api.get<AdminCategoryKeywordListApiResponse>("/api/admin/categories", {
-    params: {
-      ...(userId?.trim() ? { user_id: Number(userId) } : {}),
-    },
-  });
-
+export async function getAdminCategoryKeywords() {
+  const response = await api.get<AdminCategoryKeywordListApiResponse>("/api/admin/categories");
   return response.data.categories.map(mapAdminCategoryKeyword);
 }
 
 export async function createAdminCategoryKeyword(payload: {
-  userId: string;
   categoryName: string;
   color?: string | null;
   keywords: string[];
 }) {
   const response = await api.post<AdminCategoryKeywordApiResponse>("/api/admin/categories", {
-    user_id: Number(payload.userId),
     category_name: payload.categoryName,
     color: payload.color ?? null,
     keywords: payload.keywords,
@@ -625,17 +614,15 @@ export async function createAdminCategoryKeyword(payload: {
 }
 
 export async function updateAdminCategoryKeyword(
-  categoryId: string,
+  categoryName: string,
   payload: {
-    categoryName: string;
     color?: string | null;
     keywords: string[];
   },
 ) {
   const response = await api.patch<AdminCategoryKeywordApiResponse>(
-    `/api/admin/categories/${categoryId}`,
+    `/api/admin/categories/${encodeURIComponent(categoryName)}`,
     {
-      category_name: payload.categoryName,
       color: payload.color ?? null,
       keywords: payload.keywords,
     },
@@ -644,8 +631,8 @@ export async function updateAdminCategoryKeyword(
   return mapAdminCategoryKeyword(response.data);
 }
 
-export async function deleteAdminCategoryKeyword(categoryId: string) {
-  const response = await api.delete(`/api/admin/categories/${categoryId}`);
+export async function deleteAdminCategoryKeyword(categoryName: string) {
+  const response = await api.delete(`/api/admin/categories/${encodeURIComponent(categoryName)}`);
   return response.data;
 }
 
