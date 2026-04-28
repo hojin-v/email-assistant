@@ -15,6 +15,7 @@ import {
   updateAdminUserStatus,
 } from "../../shared/api/admin";
 import { getErrorMessage } from "../../shared/api/http";
+import { formatKstDateTime } from "../../shared/lib/date-time";
 import { adminUsers, userIndustryOptions } from "../shared/mock/adminData";
 import { MetricCard } from "../shared/ui/MetricCard";
 import { PageHeader } from "../shared/ui/PageHeader";
@@ -483,7 +484,7 @@ export function UsersPage() {
                     <div className="admin-master-item-meta">
                       <span>{user.industryLabel}</span>
                       <span>{user.googleStatus}</span>
-                      <span>{user.lastActive}</span>
+                      <span>{formatKstDateTime(user.lastActive)}</span>
                     </div>
                   </button>
                 );
@@ -571,7 +572,7 @@ export function UsersPage() {
                     </div>
                     <div>
                       <dt>가입일</dt>
-                      <dd>{selectedUser.joinedAt}</dd>
+                      <dd>{formatKstDateTime(selectedUser.joinedAt)}</dd>
                     </div>
                   </dl>
                 </div>

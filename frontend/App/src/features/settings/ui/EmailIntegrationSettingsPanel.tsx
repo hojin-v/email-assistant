@@ -9,6 +9,7 @@ import {
   type IntegrationSnapshot,
 } from "../../../shared/api/integrations";
 import { getErrorMessage } from "../../../shared/api/http";
+import { formatKstDateTime } from "../../../shared/lib/date-time";
 import {
   navigateGoogleOAuthPopup,
   openGoogleOAuthPopup,
@@ -93,15 +94,7 @@ function formatSyncDate(value: string | null) {
     return "동기화 이력 없음";
   }
 
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return new Intl.DateTimeFormat("ko-KR", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
+  return formatKstDateTime(value);
 }
 
 export function EmailIntegrationSettingsPanel({
