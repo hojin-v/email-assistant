@@ -571,33 +571,16 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
     }));
   };
 
-  const handleDialogTemplateAutoCalendarToggle = (templateId: number) => {
-    setDialogState((current) => ({
-      ...current,
-      templates: current.templates.map((template) =>
-        template.templateId === templateId
-          ? { ...template, autoCalendar: !template.autoCalendar }
-          : template,
-      ),
-    }));
-  };
-
-  const createAutomationRuleWithCalendar = async (
+  const createTemplateAutomationRule = async (
     category: AutomationCategoryCatalogItem,
     template: AutomationDialogTemplateDraft,
   ) => {
-    const createdRule = await createAutomationRule({
+    return createAutomationRule({
       categoryName: category.categoryName,
       color: category.color,
       templateId: template.templateId,
       autoSendEnabled: template.autoSend,
     });
-
-    if (!template.autoCalendar) {
-      return createdRule;
-    }
-
-    return setAutomationRuleAutoCalendar(createdRule.ruleId, true);
   };
 
   const handleSaveRuleGroup = async () => {
@@ -636,7 +619,7 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
             templateId: template.templateId,
             templateTitle: template.title,
             autoSendEnabled: template.autoSend,
-            autoCalendarEnabled: template.autoCalendar,
+            autoCalendarEnabled: false,
           })) satisfies AutomationRuleSnapshot[];
 
           setRules((current) => [...current, ...createdRules]);
@@ -668,7 +651,7 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
                   templateId: template.templateId,
                   templateTitle: template.title,
                   autoSendEnabled: template.autoSend,
-                  autoCalendarEnabled: template.autoCalendar,
+                  autoCalendarEnabled: existingTemplate?.autoCalendar ?? false,
                 } satisfies AutomationRuleSnapshot;
               }),
             );
@@ -684,7 +667,7 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
       if (dialogState.mode === "create") {
         const createdRules = await Promise.all(
           selectedTemplates.map((template) =>
-            createAutomationRuleWithCalendar(selectedDialogCategory, template),
+            createTemplateAutomationRule(selectedDialogCategory, template),
           ),
         );
 
@@ -734,8 +717,7 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
 
           if (existingTemplate?.ruleId) {
             if (
-              existingTemplate.autoSend === template.autoSend &&
-              existingTemplate.autoCalendar === template.autoCalendar
+              existingTemplate.autoSend === template.autoSend
             ) {
               continue;
             }
@@ -745,12 +727,6 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
               updatedRule = await setAutomationRuleAutoSend(
                 existingTemplate.ruleId,
                 template.autoSend,
-              );
-            }
-            if (existingTemplate.autoCalendar !== template.autoCalendar) {
-              updatedRule = await setAutomationRuleAutoCalendar(
-                existingTemplate.ruleId,
-                template.autoCalendar,
               );
             }
 
@@ -768,7 +744,7 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
             continue;
           }
 
-          const createdRule = await createAutomationRuleWithCalendar(
+          const createdRule = await createTemplateAutomationRule(
             selectedDialogCategory,
             template,
           );
@@ -895,6 +871,11 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
     );
 
     if (!targetTemplate || !group.categoryId) {
+      return;
+    }
+
+    if (!googleCalendarConnected) {
+      toast.error("Google 캘린더를 먼저 연결한 뒤 캘린더 자동 등록을 켤 수 있습니다.");
       return;
     }
 
@@ -1204,34 +1185,6 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
                                       )}
                                     </button>
                                   </div>
-                                  <div className="flex items-center gap-2 text-[11px] text-[#64748B] dark:text-muted-foreground">
-                                    <span>캘린더</span>
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        template.templateId !== null
-                                          ? handleAutoCalendarToggle(group, template.templateId)
-                                          : undefined
-                                      }
-                                      disabled={isCalendarBusy || template.templateId === null}
-                                      className={`relative h-5.5 w-10 rounded-full transition-colors ${
-                                        template.autoCalendar
-                                          ? "bg-[#8B5CF6] dark:bg-[#6D28D9]"
-                                          : "bg-[#CBD5E1] dark:bg-[#334155]"
-                                      } disabled:cursor-not-allowed disabled:opacity-60`}
-                                      aria-label={`${group.categoryName} ${template.title} 캘린더 자동 등록`}
-                                    >
-                                      {isCalendarBusy ? (
-                                        <Loader2 className="absolute left-3 top-1 h-3.5 w-3.5 animate-spin text-white" />
-                                      ) : (
-                                        <span
-                                          className={`absolute top-0.5 h-4.5 w-4.5 rounded-full bg-white shadow-sm transition-transform ${
-                                            template.autoCalendar ? "left-5" : "left-0.5"
-                                          }`}
-                                        />
-                                      )}
-                                    </button>
-                                  </div>
                                 </div>
                               </div>
                             );
@@ -1251,7 +1204,7 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
             <div>
               <h3 className="text-[#1E2A3A] dark:text-foreground">캘린더 연동</h3>
               <p className="mt-1 text-[12px] text-[#94A3B8] dark:text-muted-foreground">
-                현재는 연동 상태 확인만 실제 API에 연결되어 있습니다.
+                규칙별 캘린더 토글은 실제 자동 등록 상태로 저장되며, Google 캘린더 연결이 필요합니다.
               </p>
             </div>
             {!googleCalendarConnected ? (
@@ -1321,10 +1274,115 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
             )}
 
             <StateBanner
-              title="전역 일정 자동 등록은 아직 실제 연결하지 않았습니다"
-              description="현재 백엔드는 규칙별 auto_calendar_enabled만 제공하고, 이 화면의 전역 토글/카테고리 묶음 UX와는 1:1로 맞지 않습니다. 필요한 API와 DB 보완 항목은 문서에 정리해 두었습니다."
-              tone="warning"
+              title="캘린더 자동 등록은 템플릿 규칙별로 동작합니다"
+              description="각 템플릿의 캘린더 토글은 백엔드의 auto_calendar_enabled 값으로 저장됩니다. Google 캘린더가 연결된 상태에서만 켤 수 있습니다."
+              tone="info"
             />
+
+            <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4 dark:border-border dark:bg-[#131D2F]">
+              <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h4 className="text-[14px] font-semibold text-[#1E2A3A] dark:text-foreground">
+                    캘린더 자동 등록 규칙
+                  </h4>
+                  <p className="mt-1 text-[12px] text-[#94A3B8] dark:text-muted-foreground">
+                    자동화 대상 템플릿 중 일정 감지 시 캘린더에 자동 등록할 항목을 선택합니다.
+                  </p>
+                </div>
+                <span className="rounded-full bg-white px-2.5 py-1 text-[11px] text-[#64748B] shadow-sm dark:bg-[#0F172A] dark:text-muted-foreground">
+                  {rules.filter((rule) => rule.autoCalendarEnabled).length}개 활성
+                </span>
+              </div>
+
+              {groups.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-[#CBD5E1] bg-white px-4 py-4 text-[12px] text-[#94A3B8] dark:border-border dark:bg-[#0F172A] dark:text-muted-foreground">
+                  먼저 자동발송 규칙에서 자동화 대상 템플릿을 추가하면 캘린더 자동 등록 규칙을 설정할 수 있습니다.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {groups.map((group) => (
+                    <div
+                      key={`calendar-${group.key}`}
+                      className="rounded-lg border border-white bg-white px-4 py-3 dark:border-[#1E293B] dark:bg-[#0F172A]"
+                    >
+                      <div className="mb-3 flex items-center gap-2">
+                        <span
+                          className="h-2.5 w-2.5 rounded-full"
+                          style={{ backgroundColor: group.color }}
+                        />
+                        <strong className="text-[13px] text-[#1E2A3A] dark:text-foreground">
+                          {group.categoryName}
+                        </strong>
+                        <span className="text-[11px] text-[#94A3B8] dark:text-muted-foreground">
+                          템플릿 {group.templates.length}개
+                        </span>
+                      </div>
+
+                      <div className="space-y-2">
+                        {group.templates.map((template) => {
+                          const calendarBusyKey =
+                            template.templateId !== null
+                              ? `${group.key}:${template.templateId}:calendar`
+                              : `${group.key}:calendar`;
+                          const isCalendarBusy = busyTemplateKey === calendarBusyKey;
+
+                          return (
+                            <div
+                              key={`${group.key}:${template.templateId ?? template.title}:calendar-rule`}
+                              className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-[#F8FAFC] px-3 py-2 dark:bg-[#131D2F]"
+                            >
+                              <div className="min-w-0">
+                                <p className="truncate text-[13px] text-[#1E2A3A] dark:text-foreground">
+                                  {template.title}
+                                </p>
+                                <p className="text-[11px] text-[#94A3B8] dark:text-muted-foreground">
+                                  템플릿 #{template.userTemplateNo ?? template.templateId ?? "-"}
+                                </p>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  template.templateId !== null
+                                    ? handleAutoCalendarToggle(group, template.templateId)
+                                    : undefined
+                                }
+                                disabled={
+                                  isCalendarBusy ||
+                                  template.templateId === null ||
+                                  !googleCalendarConnected
+                                }
+                                className={`relative h-5.5 w-10 rounded-full transition-colors ${
+                                  template.autoCalendar
+                                    ? "bg-[#8B5CF6] dark:bg-[#6D28D9]"
+                                    : "bg-[#CBD5E1] dark:bg-[#334155]"
+                                } disabled:cursor-not-allowed disabled:opacity-60`}
+                                aria-label={`${group.categoryName} ${template.title} 캘린더 자동 등록`}
+                                title={
+                                  googleCalendarConnected
+                                    ? "이 템플릿이 매칭된 메일에서 일정이 감지되면 캘린더 자동 등록 규칙을 사용합니다."
+                                    : "Google 캘린더 연결 후 사용할 수 있습니다."
+                                }
+                              >
+                                {isCalendarBusy ? (
+                                  <Loader2 className="absolute left-3 top-1 h-3.5 w-3.5 animate-spin text-white" />
+                                ) : (
+                                  <span
+                                    className={`absolute top-0.5 h-4.5 w-4.5 rounded-full bg-white shadow-sm transition-transform ${
+                                      template.autoCalendar ? "left-5" : "left-0.5"
+                                    }`}
+                                  />
+                                )}
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -1449,30 +1507,6 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
                             <span
                               className={`absolute top-0.5 h-4.5 w-4.5 rounded-full bg-white shadow-sm transition-transform ${
                                 template.autoSend ? "left-5" : "left-0.5"
-                              }`}
-                            />
-                          </button>
-                        </div>
-                        <div className="flex items-center gap-2 text-[11px] text-[#64748B] dark:text-muted-foreground">
-                          <span>캘린더</span>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              template.selected
-                                ? handleDialogTemplateAutoCalendarToggle(template.templateId)
-                                : undefined
-                            }
-                            disabled={!template.selected}
-                            className={`relative h-5.5 w-10 rounded-full transition-colors ${
-                              template.autoCalendar
-                                ? "bg-[#8B5CF6] dark:bg-[#6D28D9]"
-                                : "bg-[#CBD5E1] dark:bg-[#334155]"
-                            } disabled:cursor-not-allowed disabled:opacity-50`}
-                            aria-label={`${template.title} 캘린더 자동 등록`}
-                          >
-                            <span
-                              className={`absolute top-0.5 h-4.5 w-4.5 rounded-full bg-white shadow-sm transition-transform ${
-                                template.autoCalendar ? "left-5" : "left-0.5"
                               }`}
                             />
                           </button>
