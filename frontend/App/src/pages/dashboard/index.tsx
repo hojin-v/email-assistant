@@ -22,6 +22,7 @@ import { AppStatePage } from "../../shared/ui/primitives/AppStatePage";
 import { SectionCard } from "../../shared/ui/primitives/SectionCard";
 import { StatePanel } from "../../shared/ui/primitives/StatePanel";
 import { StatusBadge } from "../../shared/ui/primitives/StatusBadge";
+import { AiUsageBadge } from "../../shared/ui/primitives/AiUsageBadge";
 import { resolveDemoScenarioId } from "../../shared/scenarios/demo-mode";
 
 type DashboardState = {
@@ -266,6 +267,7 @@ export function DashboardPage() {
             : "없음",
         icon: FileText,
         tone: "amber",
+        aiLabel: "AI 초안",
       },
       {
         label: "템플릿 매칭률",
@@ -276,6 +278,7 @@ export function DashboardPage() {
         )}`,
         icon: Target,
         tone: "teal",
+        aiLabel: "AI/RAG 매칭",
       },
       {
         label: "이메일 계정 상태",
@@ -361,7 +364,10 @@ export function DashboardPage() {
               <card.icon className="h-5 w-5 text-[#1E2A3A] dark:text-foreground" />
             </div>
             <p className="text-2xl font-semibold text-[#1E2A3A] dark:text-foreground">{card.value}</p>
-            <p className="mt-1 text-sm text-[#64748B] dark:text-muted-foreground">{card.label}</p>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <p className="text-sm text-[#64748B] dark:text-muted-foreground">{card.label}</p>
+              {"aiLabel" in card ? <AiUsageBadge label={card.aiLabel} /> : null}
+            </div>
             <p
               className={`mt-2 text-xs ${
                 card.tone === "amber" && (dashboardState.summary?.pending_drafts.count ?? 0) > 0
@@ -423,6 +429,7 @@ export function DashboardPage() {
                         {event.status !== "CONFIRMED" ? (
                           <StatusBadge label="등록 대기" tone="warning" />
                         ) : null}
+                        {event.email_id ? <AiUsageBadge label="AI 감지 일정" /> : null}
                       </div>
                       <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-[#64748B]">
                         <span className="inline-flex items-center gap-1">
@@ -492,6 +499,7 @@ export function DashboardPage() {
                         {email.category_name ? (
                           <StatusBadge label={email.category_name} tone="teal" />
                         ) : null}
+                        {email.category_name ? <AiUsageBadge label="AI 분류" /> : null}
                         <StatusBadge label={statusMeta.label} tone={statusMeta.tone} />
                       </div>
                     </div>

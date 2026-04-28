@@ -53,6 +53,7 @@ import {
 } from "./ui/select";
 import { AppStatePage } from "../../shared/ui/primitives/AppStatePage";
 import { StateBanner } from "../../shared/ui/primitives/StateBanner";
+import { AiUsageBadge } from "../../shared/ui/primitives/AiUsageBadge";
 
 const toneOptions = [
   { id: "formal", label: "격식체" },
@@ -628,9 +629,12 @@ export function BusinessProfile({ scenarioId }: BusinessProfileProps) {
         ) : null}
 
         <div className="mb-8">
-          <h1 className="mb-1 text-[#1E2A3A]">비즈니스 프로필</h1>
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <h1 className="text-[#1E2A3A]">비즈니스 프로필</h1>
+            <AiUsageBadge label="AI/RAG 학습 자료" />
+          </div>
           <p className="text-[14px] text-[#64748B]">
-            AI 템플릿 생성에 사용되는 비즈니스 정보를 관리합니다
+            회사 정보, FAQ, 업로드 자료는 AI 템플릿 생성과 RAG 검색 품질에 직접 반영됩니다.
           </p>
         </div>
 

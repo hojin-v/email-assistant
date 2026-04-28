@@ -25,6 +25,8 @@ import {
   updateAdminCategoryKeyword,
 } from "../../shared/api/admin";
 import { getErrorMessage } from "../../shared/api/http";
+import { formatKstDateTime } from "../../shared/lib/date-time";
+import { AiUsageBadge } from "../../shared/ui/primitives/AiUsageBadge";
 import { MetricCard } from "../shared/ui/MetricCard";
 import { PageHeader } from "../shared/ui/PageHeader";
 import { AdminModal } from "../shared/ui/AdminModal";
@@ -535,7 +537,7 @@ export function TemplateAutomationPage() {
     <section className="admin-page">
       <PageHeader
         title="템플릿 / 운영 규칙 관리"
-        description="생성된 템플릿 사용 현황과 전체 카테고리의 검색용 키워드를 함께 관리합니다. 운영 규칙은 백엔드 카테고리 키워드 기준으로 저장됩니다."
+        description="AI가 생성한 템플릿 사용 현황과 RAG 검색용 카테고리 키워드를 함께 관리합니다. 운영 규칙은 백엔드 카테고리 키워드 기준으로 저장됩니다."
         actions={
           activeTab === "rules" ? (
             <button type="button" className="admin-button" onClick={openCreateRule}>
@@ -579,9 +581,12 @@ export function TemplateAutomationPage() {
           <section className="admin-panel admin-template-list-panel">
             <div className="admin-panel-head">
               <div>
-                <h2>생성 템플릿 목록</h2>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2>AI 생성 템플릿 목록</h2>
+                  <AiUsageBadge label="AI 생성 결과" />
+                </div>
                 <p className="admin-panel-subtitle">
-                  사용자별로 생성된 템플릿 결과와 사용 현황을 조회합니다.
+                  사용자별 AI 템플릿 생성 결과와 실제 사용 현황을 조회합니다.
                 </p>
               </div>
               <span className="admin-panel-note">{filteredTemplates.length}개 표시</span>
@@ -680,7 +685,7 @@ export function TemplateAutomationPage() {
                         <td>{userIndustryOptions.find((item) => item.value === template.industry)?.label}</td>
                         <td>{template.useCount}회</td>
                         <td>{template.userCount}명</td>
-                        <td>{template.generatedAt}</td>
+                        <td>{formatKstDateTime(template.generatedAt)}</td>
                         <td>
                           <StatusBadge>{template.quality}</StatusBadge>
                         </td>
@@ -701,9 +706,12 @@ export function TemplateAutomationPage() {
           <section className="admin-panel">
             <div className="admin-panel-head">
               <div>
-                <h2>카테고리별 사용 현황 통계</h2>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2>카테고리별 AI 매칭 통계</h2>
+                  <AiUsageBadge label="AI/RAG 기준" />
+                </div>
                 <p className="admin-panel-subtitle">
-                  카테고리별 생성 템플릿 수와 사용 누적 횟수를 비교합니다.
+                  카테고리별 생성 템플릿 수와 RAG 매칭 이후 사용 누적 횟수를 비교합니다.
                 </p>
               </div>
             </div>
@@ -739,9 +747,12 @@ export function TemplateAutomationPage() {
         <section className="admin-panel">
           <div className="admin-panel-head">
             <div>
-              <h2>운영 규칙 목록</h2>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2>운영 규칙 목록</h2>
+                <AiUsageBadge label="RAG 검색 키워드" />
+              </div>
               <p className="admin-panel-subtitle">
-                전체 카테고리의 검색용 키워드를 조회하고 수정합니다.
+                AI 템플릿 매칭에 보조 정보로 쓰이는 전체 카테고리의 검색용 키워드를 조회하고 수정합니다.
               </p>
             </div>
             <span className="admin-panel-note">

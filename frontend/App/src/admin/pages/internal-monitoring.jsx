@@ -9,6 +9,8 @@ import {
 } from "../../shared/api/admin";
 import { getErrorMessage } from "../../shared/api/http";
 import { subscribeAppEvent } from "../../shared/lib/app-event-stream";
+import { formatKstDateTime } from "../../shared/lib/date-time";
+import { AiUsageBadge } from "../../shared/ui/primitives/AiUsageBadge";
 import { PageHeader } from "../shared/ui/PageHeader";
 import { AdminStateNotice } from "../shared/ui/AdminStateNotice";
 
@@ -270,7 +272,7 @@ export function InternalMonitoringPage() {
     <section className="admin-page admin-internal-monitoring-page">
       <PageHeader
         title="시스템 내부 모니터링"
-        description="시스템 내부 요청별 응답과 실패 원인을 로그 형태로 확인합니다."
+        description="AI/RAG 작업 상태, 메일 처리 요청, SSE 진단 이벤트의 응답과 실패 원인을 로그 형태로 확인합니다."
       />
 
       <div className="admin-internal-monitoring-layout">
@@ -350,9 +352,12 @@ export function InternalMonitoringPage() {
         <section className="admin-panel admin-log-panel">
           <div className="admin-panel-head">
             <div>
-              <h2>로그 출력창</h2>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2>로그 출력창</h2>
+                <AiUsageBadge label="AI/RAG 이벤트 확인" />
+              </div>
               <p className="admin-panel-subtitle">
-                최신 요청이 가장 위에 표시됩니다. 실제 장애 확인 시 이 내용을 백엔드 로그와 함께 대조하면 됩니다.
+                최신 요청과 실시간 진단 이벤트가 가장 위에 표시됩니다. AI/RAG 장애 확인 시 이 내용을 백엔드 로그와 함께 대조하면 됩니다.
               </p>
             </div>
             <span className="admin-panel-note">{logs.length}개 요청 기록</span>
@@ -382,8 +387,8 @@ export function InternalMonitoringPage() {
                   <div className="admin-log-meta">
                     <span>{log.method}</span>
                     <span>{log.endpoint}</span>
-                    <span>요청 {log.requestedAt}</span>
-                    <span>응답 {log.receivedAt}</span>
+                    <span>요청 {formatKstDateTime(log.requestedAt)}</span>
+                    <span>응답 {formatKstDateTime(log.receivedAt)}</span>
                   </div>
 
                   <pre>{log.output}</pre>

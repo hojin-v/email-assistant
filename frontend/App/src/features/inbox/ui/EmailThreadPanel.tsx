@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { downloadInboxAttachment } from "../../../shared/api/inbox";
 import { getErrorMessage } from "../../../shared/api/http";
 import { StatusBadge } from "../../../shared/ui/primitives/StatusBadge";
+import { AiUsageBadge } from "../../../shared/ui/primitives/AiUsageBadge";
 import { emailStatusMeta } from "../../../entities/email/model/email-data";
 import { ScheduleDetectionCard } from "./ScheduleDetectionCard";
 import type { EmailItem, EmailStatus, StatusBadgeTone } from "../../../shared/types";
@@ -69,6 +70,7 @@ export function EmailThreadPanel({ email }: EmailThreadPanelProps) {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-2">
         <StatusBadge label={metaByStatus[email.status].label} tone={metaByStatus[email.status].tone} />
+        {(domainBadgeLabel || categoryBadgeLabel) ? <AiUsageBadge label="AI 분류 결과" /> : null}
         {domainBadgeLabel ? <StatusBadge label={domainBadgeLabel} tone="neutral" /> : null}
         {categoryBadgeLabel ? <StatusBadge label={categoryBadgeLabel} tone="teal" /> : null}
       </div>
@@ -101,9 +103,12 @@ export function EmailThreadPanel({ email }: EmailThreadPanelProps) {
 
       <div className="rounded-2xl border border-[#E2E8F0] bg-[#FBFDFF] p-5">
         <div className="rounded-2xl border border-[#E2E8F0] bg-white/80 p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#0F766E]">
-            메일 요약
-          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#0F766E]">
+              메일 요약
+            </p>
+            <AiUsageBadge label="AI 요약" />
+          </div>
           {email.summary.trim() ? (
             <p className="mt-2 whitespace-pre-line text-sm leading-6 text-[#334155]">
               {email.summary}

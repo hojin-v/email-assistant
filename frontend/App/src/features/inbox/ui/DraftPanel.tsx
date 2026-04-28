@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, FileText, Loader2, PencilLine, Send, SkipF
 import { toast } from "sonner";
 import { emailStatusMeta } from "../../../entities/email/model/email-data";
 import type { EmailItem, EmailStatus } from "../../../shared/types";
+import { AiUsageBadge } from "../../../shared/ui/primitives/AiUsageBadge";
 import { StatePanel } from "../../../shared/ui/primitives/StatePanel";
 
 const metaByStatus = emailStatusMeta as Record<
@@ -197,9 +198,14 @@ export function DraftPanel({
         </span>
 
         <div className="min-w-0">
-          <p className="text-base font-semibold text-[#1E2A3A] dark:text-foreground">{getPanelTitle(email.status)}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-base font-semibold text-[#1E2A3A] dark:text-foreground">{getPanelTitle(email.status)}</p>
+            <AiUsageBadge label="AI 초안" />
+          </div>
           {getPanelDescription(email.status) ? (
-            <p className="mt-1 text-xs text-[#94A3B8] dark:text-muted-foreground">{getPanelDescription(email.status)}</p>
+            <p className="mt-1 text-xs text-[#94A3B8] dark:text-muted-foreground">
+              {getPanelDescription(email.status)}. 초안은 AI 분석과 템플릿 매칭 결과를 바탕으로 제안됩니다.
+            </p>
           ) : null}
         </div>
       </div>
@@ -226,9 +232,12 @@ export function DraftPanel({
 
       {recommendations.length ? (
         <div className="mt-3 rounded-xl border border-border bg-card px-3 py-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#94A3B8] dark:text-muted-foreground">
-            추천 템플릿
-          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#94A3B8] dark:text-muted-foreground">
+              추천 템플릿
+            </p>
+            <AiUsageBadge label="AI/RAG 매칭" />
+          </div>
           <div className="mt-3 space-y-2">
             {recommendations.map((recommendation, index) => {
               const similarityLabel = `${Math.round(recommendation.similarity * 100)}%`;

@@ -67,6 +67,7 @@ import {
 } from "../../shared/api/templates";
 import { AppStatePage } from "../../shared/ui/primitives/AppStatePage";
 import { StateBanner } from "../../shared/ui/primitives/StateBanner";
+import { AiUsageBadge } from "../../shared/ui/primitives/AiUsageBadge";
 import {
   buildAutomationCategoryGroups,
   buildAutomationDialogTemplateDrafts,
@@ -995,9 +996,12 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
         ) : null}
 
         <div className="mb-8">
-          <h1 className="mb-1 text-[#1E2A3A] dark:text-foreground">자동화 설정</h1>
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <h1 className="text-[#1E2A3A] dark:text-foreground">자동화 설정</h1>
+            <AiUsageBadge label="AI 템플릿 기반" />
+          </div>
           <p className="text-[14px] text-[#64748B] dark:text-muted-foreground">
-            원하는 카테고리와 템플릿을 선택해 자동발송 규칙을 구성하고, 각 템플릿마다 자동 발송 여부를 설정합니다.
+            AI가 생성하고 RAG로 매칭한 템플릿을 기준으로 자동발송 규칙을 구성하고, 각 템플릿마다 자동 발송 여부를 설정합니다.
           </p>
         </div>
 
@@ -1006,7 +1010,7 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
             <div>
               <h3 className="text-[#1E2A3A] dark:text-foreground">자동발송 규칙</h3>
               <p className="mt-1 text-[12px] text-[#94A3B8] dark:text-muted-foreground">
-                카테고리를 선택한 뒤 원하는 템플릿만 골라 자동발송 규칙으로 저장할 수 있습니다.
+                카테고리별 AI 추천 템플릿 중 실제 자동발송에 사용할 항목만 저장할 수 있습니다.
               </p>
             </div>
             <button
