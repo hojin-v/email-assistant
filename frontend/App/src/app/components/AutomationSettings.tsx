@@ -1,10 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import {
-  Calendar,
   Check,
   ChevronDown,
-  ExternalLink,
   Loader2,
   Pencil,
   Plus,
@@ -323,13 +321,11 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
   );
   const [deletingCategoryKey, setDeletingCategoryKey] = useState<string | null>(null);
   const [expandedGroupKeys, setExpandedGroupKeys] = useState<string[]>([]);
+  const [expandedCalendarGroupKeys, setExpandedCalendarGroupKeys] = useState<string[]>(
+    [],
+  );
   const [googleCalendarConnected, setGoogleCalendarConnected] = useState(
     !calendarDisconnectedScenario,
-  );
-  const [connectedCalendarEmail, setConnectedCalendarEmail] = useState(
-    scenarioMode && !calendarDisconnectedScenario
-      ? "calendar@mycompany.co.kr"
-      : "",
   );
 
   const rulesWithTemplateNumbers = useMemo(() => {
@@ -369,10 +365,21 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
     setExpandedGroupKeys((current) =>
       current.filter((groupKey) => groups.some((group) => group.key === groupKey)),
     );
+    setExpandedCalendarGroupKeys((current) =>
+      current.filter((groupKey) => groups.some((group) => group.key === groupKey)),
+    );
   }, [groups]);
 
   const toggleGroupExpanded = (groupKey: string) => {
     setExpandedGroupKeys((current) =>
+      current.includes(groupKey)
+        ? current.filter((key) => key !== groupKey)
+        : [...current, groupKey],
+    );
+  };
+
+  const toggleCalendarGroupExpanded = (groupKey: string) => {
+    setExpandedCalendarGroupKeys((current) =>
       current.includes(groupKey)
         ? current.filter((key) => key !== groupKey)
         : [...current, groupKey],
@@ -413,7 +420,6 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
         setCategories(nextCategoryCatalog);
         setTemplateCatalog(mapTemplateCatalog(nextTemplates, nextCategoryCatalog));
         setGoogleCalendarConnected(Boolean(integration?.isCalendarConnected));
-        setConnectedCalendarEmail(integration?.connectedEmail ?? "");
       } catch (error) {
         if (!active) {
           return;
@@ -442,7 +448,6 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
 
     if (calendarDisconnectedScenario) {
       setGoogleCalendarConnected(false);
-      setConnectedCalendarEmail("");
     }
 
     if (ruleDialogNormalScenario) {
@@ -1199,12 +1204,12 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
           )}
         </div>
 
-        <div className="mt-6 rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-sm dark:border-border dark:bg-card">
-          <div className="mb-5 flex items-center justify-between">
+        <div className="mt-6 overflow-hidden rounded-xl border border-[#E2E8F0] bg-white shadow-sm dark:border-border dark:bg-card">
+          <div className="flex items-center justify-between border-b border-[#E2E8F0] p-6 dark:border-border">
             <div>
               <h3 className="text-[#1E2A3A] dark:text-foreground">캘린더 연동</h3>
               <p className="mt-1 text-[12px] text-[#94A3B8] dark:text-muted-foreground">
-                규칙별 캘린더 토글은 실제 자동 등록 상태로 저장되며, Google 캘린더 연결이 필요합니다.
+                이메일에서 일정이 감지되면 템플릿 규칙별로 Google Calendar 자동 등록 여부를 설정합니다.
               </p>
             </div>
             {!googleCalendarConnected ? (
@@ -1225,165 +1230,167 @@ export function AutomationSettings({ scenarioId }: AutomationSettingsProps) {
             )}
           </div>
 
-          <div className="space-y-3">
-            {googleCalendarConnected ? (
-              <div className="app-soft-surface flex items-center gap-4 rounded-xl p-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#4285F4] text-white text-[14px]">
-                  <Calendar className="h-5 w-5" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[14px] text-[#1E2A3A] dark:text-foreground">
-                      Google Calendar
-                    </span>
-                    <span className="app-success-pill rounded-full px-2 py-0.5 text-[10px]">
-                      연결됨
-                    </span>
-                  </div>
-                  <p className="truncate text-[12px] text-[#94A3B8] dark:text-muted-foreground">
-                    {connectedCalendarEmail || "연결된 계정 정보를 확인하는 중입니다."}
-                  </p>
-                </div>
-                <button
-                  onClick={() =>
-                    window.open(
-                      "https://calendar.google.com",
-                      "_blank",
-                      "noopener,noreferrer",
-                    )
-                  }
-                  className="rounded-md p-2 text-[#94A3B8] transition-colors hover:bg-[#F1F5F9] hover:text-[#64748B] dark:text-muted-foreground dark:hover:bg-[#1E293B] dark:hover:text-foreground"
+          {isLoading ? (
+            <div className="space-y-4 p-6">
+              {[0, 1].map((index) => (
+                <div
+                  key={`calendar-loading-${index}`}
+                  className="animate-pulse rounded-xl border border-[#E2E8F0] p-5 dark:border-border"
                 >
-                  <ExternalLink className="h-4 w-4" />
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-4 rounded-xl border border-dashed border-[#E2E8F0] bg-[#F8FAFC] p-4 dark:border-border dark:bg-[#131D2F]">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#E2E8F0] text-[#94A3B8] dark:bg-[#1E293B] dark:text-muted-foreground">
-                  <Calendar className="h-5 w-5" />
+                  <div className="mb-3 h-4 w-48 rounded bg-[#F1F5F9] dark:bg-[#1E293B]" />
+                  <div className="h-20 rounded bg-[#F8FAFC] dark:bg-[#131D2F]" />
                 </div>
-                <div className="flex-1">
-                  <p className="text-[13px] text-[#94A3B8] dark:text-muted-foreground">
-                    Google 캘린더를 연결하세요
-                  </p>
-                  <p className="text-[11px] text-[#CBD5E1] dark:text-[#64748B]">
-                    일정 자동 등록 기능을 사용하려면 설정 화면에서 Google 연동이 필요합니다.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            <StateBanner
-              title="캘린더 자동 등록은 템플릿 규칙별로 동작합니다"
-              description="각 템플릿의 캘린더 토글은 백엔드의 auto_calendar_enabled 값으로 저장됩니다. Google 캘린더가 연결된 상태에서만 켤 수 있습니다."
-              tone="info"
-            />
-
-            <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4 dark:border-border dark:bg-[#131D2F]">
-              <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h4 className="text-[14px] font-semibold text-[#1E2A3A] dark:text-foreground">
-                    캘린더 자동 등록 규칙
-                  </h4>
-                  <p className="mt-1 text-[12px] text-[#94A3B8] dark:text-muted-foreground">
-                    자동화 대상 템플릿 중 일정 감지 시 캘린더에 자동 등록할 항목을 선택합니다.
-                  </p>
-                </div>
-                <span className="rounded-full bg-white px-2.5 py-1 text-[11px] text-[#64748B] shadow-sm dark:bg-[#0F172A] dark:text-muted-foreground">
-                  {rules.filter((rule) => rule.autoCalendarEnabled).length}개 활성
-                </span>
-              </div>
-
-              {groups.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-[#CBD5E1] bg-white px-4 py-4 text-[12px] text-[#94A3B8] dark:border-border dark:bg-[#0F172A] dark:text-muted-foreground">
-                  먼저 자동발송 규칙에서 자동화 대상 템플릿을 추가하면 캘린더 자동 등록 규칙을 설정할 수 있습니다.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {groups.map((group) => (
-                    <div
-                      key={`calendar-${group.key}`}
-                      className="rounded-lg border border-white bg-white px-4 py-3 dark:border-[#1E293B] dark:bg-[#0F172A]"
-                    >
-                      <div className="mb-3 flex items-center gap-2">
-                        <span
-                          className="h-2.5 w-2.5 rounded-full"
-                          style={{ backgroundColor: group.color }}
-                        />
-                        <strong className="text-[13px] text-[#1E2A3A] dark:text-foreground">
-                          {group.categoryName}
-                        </strong>
-                        <span className="text-[11px] text-[#94A3B8] dark:text-muted-foreground">
-                          템플릿 {group.templates.length}개
-                        </span>
-                      </div>
-
-                      <div className="space-y-2">
-                        {group.templates.map((template) => {
-                          const calendarBusyKey =
-                            template.templateId !== null
-                              ? `${group.key}:${template.templateId}:calendar`
-                              : `${group.key}:calendar`;
-                          const isCalendarBusy = busyTemplateKey === calendarBusyKey;
-
-                          return (
-                            <div
-                              key={`${group.key}:${template.templateId ?? template.title}:calendar-rule`}
-                              className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-[#F8FAFC] px-3 py-2 dark:bg-[#131D2F]"
-                            >
-                              <div className="min-w-0">
-                                <p className="truncate text-[13px] text-[#1E2A3A] dark:text-foreground">
-                                  {template.title}
-                                </p>
-                                <p className="text-[11px] text-[#94A3B8] dark:text-muted-foreground">
-                                  템플릿 #{template.userTemplateNo ?? template.templateId ?? "-"}
-                                </p>
-                              </div>
-
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  template.templateId !== null
-                                    ? handleAutoCalendarToggle(group, template.templateId)
-                                    : undefined
-                                }
-                                disabled={
-                                  isCalendarBusy ||
-                                  template.templateId === null ||
-                                  !googleCalendarConnected
-                                }
-                                className={`relative h-5.5 w-10 rounded-full transition-colors ${
-                                  template.autoCalendar
-                                    ? "bg-[#8B5CF6] dark:bg-[#6D28D9]"
-                                    : "bg-[#CBD5E1] dark:bg-[#334155]"
-                                } disabled:cursor-not-allowed disabled:opacity-60`}
-                                aria-label={`${group.categoryName} ${template.title} 캘린더 자동 등록`}
-                                title={
-                                  googleCalendarConnected
-                                    ? "이 템플릿이 매칭된 메일에서 일정이 감지되면 캘린더 자동 등록 규칙을 사용합니다."
-                                    : "Google 캘린더 연결 후 사용할 수 있습니다."
-                                }
-                              >
-                                {isCalendarBusy ? (
-                                  <Loader2 className="absolute left-3 top-1 h-3.5 w-3.5 animate-spin text-white" />
-                                ) : (
-                                  <span
-                                    className={`absolute top-0.5 h-4.5 w-4.5 rounded-full bg-white shadow-sm transition-transform ${
-                                      template.autoCalendar ? "left-5" : "left-0.5"
-                                    }`}
-                                  />
-                                )}
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              ))}
             </div>
-          </div>
+          ) : groups.length === 0 ? (
+            <div className="p-8">
+              <div className="rounded-2xl border border-dashed border-[#CBD5E1] bg-[#F8FAFC] p-6 text-center dark:border-border dark:bg-[#131D2F]">
+                <p className="text-[15px] text-[#1E2A3A] dark:text-foreground">
+                  아직 설정된 캘린더 자동 등록 규칙이 없습니다
+                </p>
+                <p className="mt-2 text-[13px] text-[#94A3B8] dark:text-muted-foreground">
+                  자동발송 규칙에 템플릿을 추가한 뒤 캘린더 자동 등록 여부를 설정해 주세요.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4 p-6">
+              {groups.map((group) => {
+                const isExpanded = expandedCalendarGroupKeys.includes(group.key);
+
+                return (
+                  <section
+                    key={`calendar-${group.key}`}
+                    className="overflow-hidden rounded-2xl border border-[#E2E8F0] dark:border-border"
+                  >
+                    <Collapsible
+                      open={isExpanded}
+                      onOpenChange={() => toggleCalendarGroupExpanded(group.key)}
+                    >
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => toggleCalendarGroupExpanded(group.key)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            toggleCalendarGroupExpanded(group.key);
+                          }
+                        }}
+                        className="flex cursor-pointer flex-col gap-3 border-b border-[#E2E8F0] bg-[#F8FAFC] p-5 text-left transition-colors hover:bg-[#F1F5F9] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2DD4BF] dark:border-border dark:bg-[#131D2F] dark:hover:bg-[#182338] md:flex-row md:items-center md:justify-between"
+                        aria-expanded={isExpanded}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span
+                              className="h-2.5 w-2.5 rounded-full"
+                              style={{ backgroundColor: group.color }}
+                            />
+                            <h4 className="text-[15px] text-[#1E2A3A] dark:text-foreground">
+                              {group.categoryName}
+                            </h4>
+                            <span className="rounded-full bg-white px-2.5 py-1 text-[11px] text-[#64748B] shadow-sm dark:bg-[#0F172A] dark:text-muted-foreground">
+                              템플릿 {group.templates.length}개 선택됨
+                            </span>
+                            <span className="rounded-full bg-white px-2.5 py-1 text-[11px] text-[#64748B] shadow-sm dark:bg-[#0F172A] dark:text-muted-foreground">
+                              {group.templates.filter((template) => template.autoCalendar).length}개 활성
+                            </span>
+                          </div>
+                          <div className="mt-2 flex items-center gap-2 text-[12px] text-[#94A3B8] dark:text-muted-foreground">
+                            <span>
+                              선택한 템플릿 중 일정 감지 시 캘린더에 자동 등록할 항목을 바꿀 수 있습니다.
+                            </span>
+                            <span className="hidden rounded-full bg-white px-2.5 py-1 text-[11px] text-[#64748B] shadow-sm dark:bg-[#0F172A] dark:text-muted-foreground md:inline-flex">
+                              {isExpanded ? "접기" : "펴기"}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 self-end md:self-auto">
+                          <ChevronDown
+                            className={`h-4 w-4 shrink-0 text-[#94A3B8] transition-transform dark:text-muted-foreground ${
+                              isExpanded ? "rotate-180" : ""
+                            }`}
+                          />
+                        </div>
+                      </div>
+
+                      <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
+                        <div className="max-h-[320px] overflow-y-auto overscroll-contain divide-y divide-[#F1F5F9] dark:divide-border">
+                          {group.templates.map((template) => {
+                            const templateKey =
+                              template.templateId === null
+                                ? `${group.key}:unknown:calendar`
+                                : `${group.key}:${template.templateId}:calendar`;
+                            const calendarBusyKey =
+                              template.templateId === null
+                                ? templateKey
+                                : `${group.key}:${template.templateId}:calendar`;
+                            const isCalendarBusy = busyTemplateKey === calendarBusyKey;
+
+                            return (
+                              <div
+                                key={templateKey}
+                                className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between"
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="rounded-md bg-[#EEF2FF] px-2 py-1 text-[11px] font-medium text-[#4F46E5] dark:bg-[#1E1B4B] dark:text-[#C7D2FE]">
+                                      {template.templateId === null
+                                        ? "ID 미지정"
+                                        : `ID ${template.userTemplateNo ?? template.templateId}`}
+                                    </span>
+                                    <span className="text-[14px] text-[#1E2A3A] dark:text-foreground">
+                                      {template.title}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="flex shrink-0 flex-wrap items-center gap-3">
+                                  <div className="flex items-center gap-2 text-[11px] text-[#64748B] dark:text-muted-foreground">
+                                    <span>캘린더 자동 등록</span>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        template.templateId !== null
+                                          ? handleAutoCalendarToggle(group, template.templateId)
+                                          : undefined
+                                      }
+                                      disabled={
+                                        isCalendarBusy ||
+                                        template.templateId === null ||
+                                        !googleCalendarConnected
+                                      }
+                                      className={`relative h-5.5 w-10 rounded-full transition-colors ${
+                                        template.autoCalendar
+                                          ? "bg-[#2DD4BF] dark:bg-[#0F766E]"
+                                          : "bg-[#CBD5E1] dark:bg-[#334155]"
+                                      } disabled:cursor-not-allowed disabled:opacity-60`}
+                                      aria-label={`${group.categoryName} ${template.title} 캘린더 자동 등록`}
+                                    >
+                                      {isCalendarBusy ? (
+                                        <Loader2 className="absolute left-3 top-1 h-3.5 w-3.5 animate-spin text-white" />
+                                      ) : (
+                                        <span
+                                          className={`absolute top-0.5 h-4.5 w-4.5 rounded-full bg-white shadow-sm transition-transform ${
+                                            template.autoCalendar ? "left-5" : "left-0.5"
+                                          }`}
+                                        />
+                                      )}
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </section>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
