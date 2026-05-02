@@ -8,7 +8,7 @@ import {
   getAdminWeeklyTrend,
 } from "../../shared/api/admin";
 import { getErrorMessage } from "../../shared/api/http";
-import { formatKstDateKey, formatKstDateTime } from "../../shared/lib/date-time";
+import { formatKstDateKey, formatKstDateTime, formatKstMonthDay } from "../../shared/lib/date-time";
 import { AiUsageBadge } from "../../shared/ui/primitives/AiUsageBadge";
 import { MetricCard } from "../shared/ui/MetricCard";
 import { PageHeader } from "../shared/ui/PageHeader";
@@ -17,16 +17,7 @@ import { AdminStatePage } from "../shared/ui/AdminStatePage";
 import { StatusBadge } from "../shared/ui/StatusBadge";
 
 function formatDateLabel(value) {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return new Intl.DateTimeFormat("ko-KR", {
-    month: "numeric",
-    day: "numeric",
-  }).format(date);
+  return formatKstMonthDay(value);
 }
 
 function getRecentDateRange() {
