@@ -9,10 +9,11 @@ import {
 } from "../../shared/api/admin";
 import { getErrorMessage } from "../../shared/api/http";
 import { subscribeAppEvent } from "../../shared/lib/app-event-stream";
-import { formatKstDateTime } from "../../shared/lib/date-time";
 import { AiUsageBadge } from "../../shared/ui/primitives/AiUsageBadge";
 import { PageHeader } from "../shared/ui/PageHeader";
 import { AdminStateNotice } from "../shared/ui/AdminStateNotice";
+
+const LOG_SEPARATOR = "---------------";
 
 const requestButtons = [
   {
@@ -50,22 +51,23 @@ const requestButtons = [
   },
 ];
 
-function createLogEntry({ title, endpoint, method, startedAt, status, data, error }) {
-  const body = {
-    title,
-    request: {
-      method,
-      endpoint,
-      requested_at: startedAt,
-    },
-    response: {
-      status,
-      received_at: new Date().toISOString(),
-      data,
-      error,
-    },
-  };
+function formatLogOutput(data, error) {
+  if (error) {
+    return error;
+  }
 
+  if (data == null) {
+    return "응답 데이터 없음";
+  }
+
+  if (typeof data === "string") {
+    return data;
+  }
+
+  return JSON.stringify(data, null, 2);
+}
+
+function createLogEntry({ title, endpoint, method, startedAt, status, data, error }) {
   return {
     id: `${startedAt}-${title}-${status}`,
     title,
@@ -73,8 +75,8 @@ function createLogEntry({ title, endpoint, method, startedAt, status, data, erro
     method,
     status,
     requestedAt: startedAt,
-    receivedAt: body.response.received_at,
-    output: JSON.stringify(body, null, 2),
+    receivedAt: new Date().toISOString(),
+    output: formatLogOutput(data, error),
   };
 }
 
@@ -141,7 +143,7 @@ function createNetworkTestLogEntry(payload) {
     status: metadata.status === "error" || metadata.status === "failed" ? "ERROR" : "SUCCESS",
     requestedAt: eventTime,
     receivedAt,
-    output: `${message}\n\n--- event metadata ---\n${JSON.stringify(metadata, null, 2)}`,
+    output: message,
   };
 }
 
@@ -154,15 +156,8 @@ export function InternalMonitoringPage() {
   const focusedButton =
     requestButtons.find((button) => button.id === focusedButtonId) ?? requestButtons[0];
   const logStream = logs
-    .map((log, index) =>
-      [
-        `#${logs.length - index} ${formatKstDateTime(log.receivedAt)} [${log.status}] ${log.title}`,
-        `${log.method} ${log.endpoint}`,
-        `요청 ${formatKstDateTime(log.requestedAt)} / 응답 ${formatKstDateTime(log.receivedAt)}`,
-        log.output,
-      ].join("\n"),
-    )
-    .join("\n\n");
+    .map((log) => `${LOG_SEPARATOR}\n${log.output}`)
+    .join("\n");
 
   const appendLog = (entry) => {
     setLogs((current) => [entry, ...current].slice(0, 20));
