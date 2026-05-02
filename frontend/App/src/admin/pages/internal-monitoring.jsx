@@ -16,6 +16,7 @@ import { PageHeader } from "../shared/ui/PageHeader";
 import { AdminStateNotice } from "../shared/ui/AdminStateNotice";
 
 const LOG_SEPARATOR = "---------------";
+const DIAGNOSTIC_REQUEST_IDS = new Set(["network-dict", "os-dict", "vpn-dict"]);
 
 const requestButtons = [
   {
@@ -96,7 +97,7 @@ function createLogEntry({ title, endpoint, method, startedAt, status, data, erro
   };
 }
 
-function parseNetworkEventPayload(payload) {
+function parseDiagnosticEventPayload(payload) {
   if (typeof payload === "string") {
     return {
       message: payload,
@@ -136,13 +137,14 @@ function parseNetworkEventPayload(payload) {
   };
 }
 
-function createNetworkTestLogEntry(payload) {
+function createDiagnosticLogEntry(eventName, payload) {
   const receivedAt = new Date().toISOString();
-  const { message: rawMessage, metadata: normalizedMetadata } = parseNetworkEventPayload(payload);
+  const { message: rawMessage, metadata: normalizedMetadata } = parseDiagnosticEventPayload(payload);
   const eventTime = normalizedMetadata.timestamp ?? receivedAt;
-  const message = rawMessage.trim() || "network_test 메시지 본문이 비어 있습니다.";
+  const eventType = normalizedMetadata.sse_type ?? eventName;
+  const message = rawMessage.trim() || `${eventType} 메시지 본문이 비어 있습니다.`;
   const metadata = {
-    sse_type: normalizedMetadata.sse_type ?? "network_test",
+    sse_type: eventType,
     module: normalizedMetadata.module,
     node_ip: normalizedMetadata.node_ip,
     stage: normalizedMetadata.stage,
@@ -152,9 +154,9 @@ function createNetworkTestLogEntry(payload) {
   };
 
   return {
-    id: `${eventTime}-network_test-${metadata.node_ip ?? "unknown"}-${metadata.stage ?? "event"}`,
-    title: `network_test ${metadata.node_ip ?? "unknown"} ${metadata.stage ?? "event"}`,
-    endpoint: "event: network_test",
+    id: `${eventTime}-${eventType}-${metadata.node_ip ?? "unknown"}-${metadata.stage ?? "event"}`,
+    title: `${eventType} ${metadata.node_ip ?? "unknown"} ${metadata.stage ?? "event"}`,
+    endpoint: `event: ${eventType}`,
     method: "SSE",
     status: metadata.status === "error" || metadata.status === "failed" ? "ERROR" : "SUCCESS",
     requestedAt: eventTime,
@@ -197,12 +199,22 @@ export function InternalMonitoringPage() {
   );
 
   useEffect(() => {
-    return subscribeAppEvent("network_test", (payload) => {
+    const subscribeDiagnosticEvent = (eventName) => subscribeAppEvent(eventName, (payload) => {
       setLogs((current) => [
-        createNetworkTestLogEntry(payload),
+        createDiagnosticLogEntry(eventName, payload),
         ...current,
       ].slice(0, 20));
     });
+
+    const unsubscribeNetwork = subscribeDiagnosticEvent("network_test");
+    const unsubscribeOS = subscribeDiagnosticEvent("os");
+    const unsubscribeVPN = subscribeDiagnosticEvent("vpn");
+
+    return () => {
+      unsubscribeNetwork();
+      unsubscribeOS();
+      unsubscribeVPN();
+    };
   }, []);
 
   const runRequest = async (button) => {
@@ -275,7 +287,9 @@ export function InternalMonitoringPage() {
           method,
           startedAt,
           status: "SUCCESS",
-          data,
+          data: DIAGNOSTIC_REQUEST_IDS.has(button.id)
+            ? `${button.label} 요청을 보냈습니다. 실시간 진단 로그를 기다리는 중입니다.`
+            : data,
           error: null,
         }),
       );
