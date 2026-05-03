@@ -57,8 +57,12 @@ import {
   getTemplateGenerationJobs,
 } from "../../shared/api/onboarding";
 import {
+  consumeStoredGoogleOAuthResult,
+  GOOGLE_OAUTH_STORAGE_KEY,
+  type GoogleOAuthPopupMessage,
   navigateGoogleOAuthPopup,
   openGoogleOAuthPopup,
+  parseStoredGoogleOAuthResult,
 } from "../../shared/lib/google-oauth-popup";
 import { buildAppEventStreamUrl } from "../../shared/lib/app-event-stream";
 import { isDemoModeEnabled } from "../../shared/scenarios/demo-mode";
@@ -190,6 +194,7 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const generationTimeoutsRef = useRef<number[]>([]);
   const integrationPollingRef = useRef<number | null>(null);
+  const popupWindowRef = useRef<Window | null>(null);
   const generationEventSourceRef = useRef<EventSource | null>(null);
   const generationStatusPollingRef = useRef<number | null>(null);
   const generationStatusPollingFailureCountRef = useRef(0);
@@ -292,6 +297,58 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
     }
   };
 
+  const completeEmailConnectionFromServer = async () => {
+    try {
+      const integration = await getMyIntegrationSafe();
+
+      if (!integration?.connectedEmail) {
+        return false;
+      }
+
+      setConnectedEmail(integration.connectedEmail);
+      setEmailConnected(true);
+      persistConnectedEmail(integration.connectedEmail);
+      setCheckingIntegration(false);
+      if (!emailConnected || connectedEmail !== integration.connectedEmail) {
+        toast.success("이메일 계정 연결을 완료했습니다.");
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const handleGoogleOAuthPopupResult = async (payload: GoogleOAuthPopupMessage) => {
+    if (popupWindowRef.current && !popupWindowRef.current.closed) {
+      popupWindowRef.current.close();
+    }
+    popupWindowRef.current = null;
+
+    if (payload.result !== "success") {
+      setCheckingIntegration(false);
+      toast.error(payload.message || "Google OAuth 인증을 확인하지 못했습니다.");
+      return;
+    }
+
+    const completed = await completeEmailConnectionFromServer();
+    if (!completed) {
+      toast("연동 상태 반영을 기다리고 있습니다. 잠시 후 자동으로 다시 확인합니다.");
+      return;
+    }
+
+    clearIntegrationPolling();
+  };
+
+  const consumeGoogleOAuthPopupResult = () => {
+    const payload = consumeStoredGoogleOAuthResult();
+    if (!payload) {
+      return false;
+    }
+
+    void handleGoogleOAuthPopupResult(payload);
+    return true;
+  };
+
   useEffect(
     () => () => {
       clearGenerationTimeouts();
@@ -300,6 +357,68 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
     },
     [],
   );
+
+  useEffect(() => {
+    if (demoMode || scenarioId) {
+      return;
+    }
+
+    const handleMessage = (event: MessageEvent<GoogleOAuthPopupMessage>) => {
+      if (event.origin !== window.location.origin) {
+        return;
+      }
+
+      if (event.data?.type !== "emailassist-google-oauth") {
+        return;
+      }
+
+      void handleGoogleOAuthPopupResult(event.data);
+    };
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== GOOGLE_OAUTH_STORAGE_KEY) {
+        return;
+      }
+
+      const payload = parseStoredGoogleOAuthResult(event.newValue);
+      if (!payload) {
+        return;
+      }
+
+      window.localStorage.removeItem(GOOGLE_OAUTH_STORAGE_KEY);
+      void handleGoogleOAuthPopupResult(payload);
+    };
+
+    const handleWindowFocus = () => {
+      if (consumeGoogleOAuthPopupResult()) {
+        return;
+      }
+
+      if (popupWindowRef.current?.closed) {
+        popupWindowRef.current = null;
+        void completeEmailConnectionFromServer();
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        handleWindowFocus();
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("focus", handleWindowFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    consumeGoogleOAuthPopupResult();
+
+    return () => {
+      window.removeEventListener("message", handleMessage);
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("focus", handleWindowFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [demoMode, scenarioId]);
 
   useEffect(() => {
     clearGenerationTimeouts();
@@ -750,6 +869,7 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
       }
 
       const authorizationUrl = await getGoogleAuthorizationUrl();
+      popupWindowRef.current = popup;
       navigateGoogleOAuthPopup(popup, authorizationUrl);
       toast("연결 창에서 권한 동의를 마치면 이 화면에서 자동으로 상태를 확인합니다.");
 
@@ -760,16 +880,11 @@ export function Onboarding({ scenarioId }: OnboardingProps) {
         attempts += 1;
 
         try {
-          const integration = await getMyIntegrationSafe();
+          const completed = await completeEmailConnectionFromServer();
 
-          if (integration?.connectedEmail) {
+          if (completed) {
             window.clearInterval(intervalId);
             integrationPollingRef.current = null;
-            setConnectedEmail(integration.connectedEmail);
-            setEmailConnected(true);
-            persistConnectedEmail(integration.connectedEmail);
-            setCheckingIntegration(false);
-            toast.success("이메일 계정 연결을 완료했습니다.");
             return;
           }
         } catch {
