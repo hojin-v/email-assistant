@@ -716,6 +716,20 @@ export async function executeAdminVPNDictJob() {
   return response.data;
 }
 
+export async function executeAdminNodeJob() {
+  const response = await adminApi.post<AdminKubernetesJobApiResponse>(
+    "/api/admin/k8s/jobs/node",
+  );
+  return response.data;
+}
+
+export async function executeAdminRabbitMQJob() {
+  const response = await adminApi.post<AdminKubernetesJobApiResponse>(
+    "/api/admin/k8s/jobs/rabbitmq",
+  );
+  return response.data;
+}
+
 export async function executeAdminDatasetJob() {
   const response = await adminApi.post<AdminKubernetesJobApiResponse>(
     "/api/admin/k8s/jobs/dataset",
@@ -727,5 +741,10 @@ export async function executeAdminSagemakerTrainingJob() {
   const response = await adminApi.post<AdminSagemakerJobApiResponse>(
     "/api/admin/sagemakertraining",
   );
+  return response.data;
+}
+
+export async function executeAdminModelDeploy() {
+  const response = await adminApi.post("/api/admin/modeldeploy");
   return response.data;
 }
