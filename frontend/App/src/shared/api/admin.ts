@@ -204,6 +204,15 @@ type AdminJobListApiResponse = {
   }>;
 };
 
+type AdminTrainingJobListApiResponse = {
+  jobs: Array<{
+    job_id: string;
+    job_type: string;
+    status: string;
+    error_message: string | null;
+  }>;
+};
+
 type AdminJobSummaryApiResponse = {
   ready_count: number;
   success_count: number;
@@ -340,6 +349,13 @@ export type AdminJobItem = {
   emailId: string;
   status: string;
   createdAt: string;
+};
+
+export type AdminTrainingJobItem = {
+  jobId: string;
+  jobType: string;
+  status: string;
+  errorMessage: string | null;
 };
 
 export type AdminMonitoringDashboard = {
@@ -704,6 +720,17 @@ export async function getAdminOperationJobs(size = 100) {
     status: job.status,
     createdAt: job.created_at,
   })) satisfies AdminJobItem[];
+}
+
+export async function getAdminTrainingJobs() {
+  const response = await adminApi.get<AdminTrainingJobListApiResponse>("/api/admin/jobs");
+
+  return response.data.jobs.map((job) => ({
+    jobId: job.job_id,
+    jobType: job.job_type,
+    status: job.status,
+    errorMessage: job.error_message,
+  })) satisfies AdminTrainingJobItem[];
 }
 
 export async function getAdminOperationJobSummary() {
