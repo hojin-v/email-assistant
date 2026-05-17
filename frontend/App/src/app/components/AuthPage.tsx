@@ -35,6 +35,7 @@ import {
 } from "../../shared/lib/google-oauth-popup";
 import { isDemoModeEnabled } from "../../shared/scenarios/demo-mode";
 import { AuthOnboardingLayout } from "../../shared/ui/AuthOnboardingLayout";
+import { MailyBrandMark } from "../../shared/ui/MailyBrandMark";
 import { StateBanner } from "../../shared/ui/primitives/StateBanner";
 
 type AuthMode = "login" | "signup" | "reset";
@@ -65,12 +66,12 @@ const leftPanelContent: Record<
       </>
     ),
     subtitle:
-      "EmailAssist AI Agent는\n이메일 분류, 답변 초안 생성, 일정을 자동으로 처리\n반복되는 업무 이메일 처리를 한 흐름으로 정리합니다",
+      "Maily AI Agent는\n이메일 분류, 답변 초안 생성, 일정을 자동으로 처리\n반복되는 업무 이메일 처리를 한 흐름으로 정리합니다",
   },
   signup: {
     title: "Google 계정으로\n안전하게 시작하세요",
     subtitle:
-      "먼저 Gmail 소유권을 확인하고\n인증된 계정으로 EmailAssist 회원가입을 완료합니다",
+      "먼저 Gmail 소유권을 확인하고\n인증된 계정으로 Maily 회원가입을 완료합니다",
   },
   reset: {
     title: "비밀번호를 다시 만들고\n바로 복귀하세요",
@@ -669,11 +670,9 @@ export function AuthPage({ scenarioId }: AuthPageProps) {
     >
       <div className="relative rounded-2xl border border-[#E2E8F0]/60 bg-white p-8 shadow-sm dark:border-[#243041] dark:bg-card sm:p-10">
         <div className="lg:hidden text-center mb-8">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#1E2A3A] dark:bg-[#18263A]">
-            <Mail className="w-6 h-6 text-[#2DD4BF]" />
-          </div>
+          <MailyBrandMark className="mx-auto mb-3 h-12 w-12" />
           <p className="text-[13px] text-[#94A3B8] dark:text-muted-foreground">
-            업무용 이메일 자동화
+            Maily
           </p>
         </div>
 
